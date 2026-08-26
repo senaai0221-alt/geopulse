@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Sparkles, Loader2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -11,10 +12,15 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,6 +43,27 @@ export default function LoginPage() {
     }
   }
 
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setVerifying(true);
+    setVerifyError(null);
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: code,
+      type: "email",
+    });
+
+    setVerifying(false);
+    if (error) {
+      setVerifyError(error.message);
+    } else {
+      router.push("/dashboard");
+      router.refresh();
+    }
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
       <Card className="w-full max-w-md">
@@ -52,8 +79,26 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           {sent ? (
-            <div className="rounded-md bg-emerald-50 p-4 text-center text-sm text-emerald-800">
-              {email} 宛にログインリンクを送信しました。メールをご確認ください。
+            <div className="flex flex-col gap-4">
+              <div className="rounded-md bg-emerald-50 p-4 text-center text-sm text-emerald-800">
+                {email} 宛にログインリンクを送信しました。メールをご確認ください。
+              </div>
+              <form onSubmit={handleVerifyCode} className="flex flex-col gap-2">
+                <Label htmlFor="code">またはメール内の6桁コードを入力</Label>
+                <Input
+                  id="code"
+                  inputMode="numeric"
+                  placeholder="123456"
+                  required
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                />
+                {verifyError && <p className="text-sm text-destructive">{verifyError}</p>}
+                <Button type="submit" disabled={verifying} className="w-full">
+                  {verifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  コードを確認
+                </Button>
+              </form>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
