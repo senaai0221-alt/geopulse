@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import type Stripe from "stripe";
 
 import { createClient } from "@/lib/supabase/server";
 import { getStripe } from "@/lib/stripe";
@@ -51,7 +52,10 @@ export async function POST(request: NextRequest) {
       subscription_data: {
         metadata: { supabase_user_id: user.id },
       },
-    });
+      // Managed Payments requires a tax code on every Product; this app
+      // handles tax/fraud itself, so opt out at the session level.
+      managed_payments: { enabled: false },
+    } as Stripe.Checkout.SessionCreateParams);
 
     return NextResponse.json({ url: session.url });
   } catch (error) {

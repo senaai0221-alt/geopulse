@@ -5,7 +5,9 @@ import { runGeoQuery, type LlmProvider } from "@/lib/geo-engine";
 import { sendDailySummary, type RankingChange } from "@/lib/slack";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300; // seconds - allow time for many LLM calls
+// Vercel Hobby plan caps function duration at 60s; Pro/Enterprise allow more.
+// Raise this if you're on a paid plan and have many brands/prompts to check.
+export const maxDuration = 60;
 
 /**
  * Verifies the request came from Vercel Cron or Upstash QStash rather
@@ -155,6 +157,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  try {
+    return await runDailyCheck();
+  } catch (err) {
+    console.error("daily-check crashed:", err);
+    return NextResponse.json(
+      {
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+async function runDailyCheck() {
   const supabase = createAdminClient();
   const checkedAt = new Date();
 
