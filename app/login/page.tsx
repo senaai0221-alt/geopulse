@@ -37,10 +37,12 @@ export default function LoginPage() {
 
     setLoading(false);
     if (error) {
+      // Supabase still issues a verifiable OTP even when it fails to
+      // deliver the email (e.g. sandbox SMTP sender restrictions), so
+      // let the user proceed to code entry rather than blocking them.
       setError(error.message);
-    } else {
-      setSent(true);
     }
+    setSent(true);
   }
 
   async function handleVerifyCode(e: React.FormEvent) {
@@ -80,11 +82,19 @@ export default function LoginPage() {
         <CardContent>
           {sent ? (
             <div className="flex flex-col gap-4">
-              <div className="rounded-md bg-emerald-50 p-4 text-center text-sm text-emerald-800">
-                {email} 宛にログインリンクを送信しました。メールをご確認ください。
-              </div>
+              {error ? (
+                <div className="rounded-md bg-amber-50 p-4 text-center text-sm text-amber-800">
+                  メールの送信に失敗しました。お手元にログインコードがあれば、下に入力してログインできます。
+                </div>
+              ) : (
+                <div className="rounded-md bg-emerald-50 p-4 text-center text-sm text-emerald-800">
+                  {email} 宛にログインリンクを送信しました。メールをご確認ください。
+                </div>
+              )}
               <form onSubmit={handleVerifyCode} className="flex flex-col gap-2">
-                <Label htmlFor="code">またはメール内の6桁コードを入力</Label>
+                <Label htmlFor="code">
+                  {error ? "ログインコードを入力" : "またはメール内の6桁コードを入力"}
+                </Label>
                 <Input
                   id="code"
                   inputMode="numeric"
