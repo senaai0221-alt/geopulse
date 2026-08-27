@@ -202,10 +202,19 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-border py-10">
         <div className="container flex flex-col items-center justify-between gap-4 text-sm text-muted-foreground sm:flex-row">
-          <span>© {new Date().getFullYear()} GEOPulse. All rights reserved.</span>
-          <div className="flex gap-4">
+          <span>© {new Date().getFullYear()} 株式会社ENDEVER. All rights reserved.</span>
+          <div className="flex flex-wrap justify-center gap-4">
             <Link href="/login" className="hover:text-foreground">
               ログイン
+            </Link>
+            <Link href="/legal/tokushoho" className="hover:text-foreground">
+              特定商取引法に基づく表示
+            </Link>
+            <Link href="/legal/terms" className="hover:text-foreground">
+              利用規約
+            </Link>
+            <Link href="/legal/privacy" className="hover:text-foreground">
+              プライバシーポリシー
             </Link>
           </div>
         </div>
