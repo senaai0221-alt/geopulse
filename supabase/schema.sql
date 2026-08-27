@@ -103,14 +103,23 @@ create table if not exists public.rankings (
   -- Source URLs the provider cited (currently only Perplexity returns
   -- these without enabling a separate web-search/grounding tool).
   citations text[] not null default '{}',
+  -- Tone of the brand's treatment in the response, judged by a
+  -- lightweight LLM call; null if the brand wasn't mentioned or the
+  -- judge call was unavailable.
+  sentiment text check (sentiment in ('positive', 'neutral', 'negative')),
   raw_response text,
   error text,
   checked_at timestamptz not null default now()
 );
 
--- Adds the citations column for databases created before this field
--- existed; safe to re-run.
+-- Adds the citations/sentiment columns for databases created before
+-- these fields existed; safe to re-run.
 alter table public.rankings add column if not exists citations text[] not null default '{}';
+alter table public.rankings add column if not exists sentiment text;
+do $$ begin
+  alter table public.rankings add constraint rankings_sentiment_check
+    check (sentiment in ('positive', 'neutral', 'negative'));
+exception when duplicate_object then null; end $$;
 
 create index if not exists rankings_brand_checked_idx on public.rankings (brand_id, checked_at desc);
 create index if not exists rankings_prompt_provider_checked_idx on public.rankings (prompt_id, provider, checked_at desc);

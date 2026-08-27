@@ -53,6 +53,27 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
+const SENTIMENT_LABEL: Record<string, string> = {
+  positive: "好意的",
+  neutral: "中立的",
+  negative: "否定的",
+};
+const SENTIMENT_DOT: Record<string, string> = {
+  positive: "bg-emerald-500",
+  neutral: "bg-slate-400",
+  negative: "bg-destructive",
+};
+
+function SentimentDot({ sentiment }: { sentiment: string | null }) {
+  if (!sentiment) return null;
+  return (
+    <span
+      title={`論調: ${SENTIMENT_LABEL[sentiment] ?? sentiment}`}
+      className={cn("inline-block h-2 w-2 shrink-0 rounded-full", SENTIMENT_DOT[sentiment])}
+    />
+  );
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -117,6 +138,7 @@ export default async function DashboardPage({
     provider: LlmProvider;
     mentioned: boolean;
     rank_position: number | null;
+    sentiment: string | null;
     competitors_mentioned: string[];
     citations: string[];
     checked_at: string;
@@ -300,6 +322,7 @@ export default async function DashboardPage({
                                     {r ? (
                                       <div className="flex items-center gap-1.5">
                                         <RankBadge mentioned={r.mentioned} rank={r.rank_position} />
+                                        <SentimentDot sentiment={r.sentiment} />
                                         {r.citations && r.citations.length > 0 && (
                                           <span
                                             title={r.citations.join("\n")}

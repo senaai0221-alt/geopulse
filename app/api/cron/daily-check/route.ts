@@ -85,6 +85,7 @@ async function processBrand(
         provider: result.provider,
         mentioned: result.mentioned,
         rank_position: result.rankPosition,
+        sentiment: result.sentiment,
         competitors_mentioned: result.competitorsMentioned,
         citations: result.citations,
         raw_response: result.rawResponse || null,

@@ -30,17 +30,25 @@ export interface GeoQueryInput {
   competitors: string[];
 }
 
+export type Sentiment = "positive" | "neutral" | "negative";
+
 export interface GeoQueryResult {
   provider: LlmProvider;
   mentioned: boolean;
   /** 1-based rank within a numbered/bulleted list, or null if the brand
-   *  was not mentioned, or was mentioned outside of any rankable list. */
+   *  was not mentioned, or was mentioned outside of any rankable list.
+   *  Judged by a lightweight LLM call when available (more robust against
+   *  markdown-heading-style lists than the regex parser), falling back to
+   *  the regex-based parse if the judge call fails or is unavailable. */
   rankPosition: number | null;
+  /** How the brand is talked about, per the lightweight judge call. null
+   *  if the brand wasn't mentioned, or the judge call was unavailable. */
+  sentiment: Sentiment | null;
   competitorsMentioned: string[];
   rawResponse: string;
-  /** Source URLs the provider cited, if it returned any (currently only
-   *  Perplexity's API surfaces these - the others require enabling a
-   *  separate web-search/grounding tool we don't turn on). */
+  /** Source URLs referenced in the response - structured citations from
+   *  providers that return them (currently Perplexity), merged with any
+   *  URLs found directly in the response text. */
   citations: string[];
   error?: string;
 }
@@ -224,6 +232,24 @@ const PROVIDER_CALLERS: Record<LlmProvider, (prompt: string) => Promise<Provider
 };
 
 // ---------------------------------------------------------------------
+// Citation extraction
+// ---------------------------------------------------------------------
+
+/** Pulls bare http(s) URLs out of free-form response text. */
+function extractUrlsFromText(text: string): string[] {
+  const matches = text.match(/https?:\/\/[^\s<>"')\]}]+/g) ?? [];
+  // Trim trailing sentence punctuation that regularly gets swept up
+  // ("...see https://example.com." -> "https://example.com").
+  return matches.map((url) => url.replace(/[.,;:!?]+$/, ""));
+}
+
+/** Combines a provider's structured citations (if any) with URLs found
+ *  directly in the response text, de-duplicated. */
+function mergeCitations(structured: string[] | undefined, text: string): string[] {
+  return Array.from(new Set([...(structured ?? []), ...extractUrlsFromText(text)]));
+}
+
+// ---------------------------------------------------------------------
 // Response parsing
 // ---------------------------------------------------------------------
 
@@ -286,7 +312,7 @@ function parseResponse(
   rawResponse: string,
   brandName: string,
   competitors: string[]
-): Omit<GeoQueryResult, "provider" | "rawResponse" | "citations"> {
+): Omit<GeoQueryResult, "provider" | "rawResponse" | "citations" | "sentiment"> {
   const brandPattern = nameRegex(brandName);
   const items = extractListItems(rawResponse);
 
@@ -308,13 +334,143 @@ function parseResponse(
 }
 
 // ---------------------------------------------------------------------
+// Lightweight LLM judge - sentiment + rank
+// ---------------------------------------------------------------------
+
+interface JudgeResult {
+  sentiment: Sentiment | null;
+  rankPosition: number | null;
+  mentioned: boolean;
+}
+
+const JUDGE_TIMEOUT_MS = 15_000;
+
+/**
+ * Makes one call to a cheap model (gpt-4o-mini by default) asking it to
+ * read the raw response and judge how the brand was treated. This is far
+ * more robust than the regex-based extractListItems() against unusual
+ * formatting (markdown headings, prose-style answers, etc.), so its
+ * result takes priority over the regex parse when it succeeds.
+ *
+ * Fully optional: if OPENAI_API_KEY is missing, the call fails, times
+ * out, or returns unparseable JSON, this returns all-null/false and the
+ * caller falls back to the regex-based parse - the pipeline never
+ * breaks because of this extra step.
+ */
+async function judgeBrandTreatment(rawResponse: string, brandName: string): Promise<JudgeResult> {
+  const empty: JudgeResult = { sentiment: null, rankPosition: null, mentioned: false };
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || !rawResponse.trim()) return empty;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), JUDGE_TIMEOUT_MS);
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_JUDGE_MODEL || "gpt-4o-mini",
+        temperature: 0,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "user",
+            content:
+              `以下のAIの回答テキストにおいて、対象ブランド「${brandName}」の言及状況を分析し、` +
+              `JSONのみで返答してください。他のテキストは一切含めないでください。\n\n` +
+              `{"sentiment": "positive" | "neutral" | "negative" | null, "recommendation_rank": number | null}\n\n` +
+              `- sentiment: ブランドが言及されている場合の論調。言及されていなければ null\n` +
+              `- recommendation_rank: 推奨リスト内で何番目に紹介されているか(1始まりの整数)。` +
+              `言及されていない場合、または順位が不明な場合は null\n\n` +
+              `回答テキスト:\n${rawResponse.slice(0, 6000)}`,
+          },
+        ],
+      }),
+    });
+
+    if (!res.ok) return empty;
+
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (typeof content !== "string") return empty;
+
+    const parsed = JSON.parse(content);
+    const sentiment: Sentiment | null = ["positive", "neutral", "negative"].includes(parsed.sentiment)
+      ? parsed.sentiment
+      : null;
+    const rankPosition =
+      Number.isInteger(parsed.recommendation_rank) && parsed.recommendation_rank > 0
+        ? parsed.recommendation_rank
+        : null;
+
+    return {
+      sentiment,
+      rankPosition,
+      mentioned: sentiment !== null || rankPosition !== null,
+    };
+  } catch {
+    // Network error, timeout, or malformed JSON - degrade gracefully.
+    return empty;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function emptyResult(provider: LlmProvider, error: unknown): GeoQueryResult {
+  return {
+    provider,
+    rawResponse: "",
+    mentioned: false,
+    rankPosition: null,
+    sentiment: null,
+    competitorsMentioned: [],
+    citations: [],
+    error: error instanceof Error ? error.message : String(error),
+  };
+}
+
+/**
+ * Turns one provider's raw response into a full GeoQueryResult: runs the
+ * regex-based parse, the citation merge, and the lightweight judge call
+ * (in parallel with nothing else since it needs the text first), then
+ * combines them - preferring the judge's rank/mention verdict when it
+ * succeeded, since it's far more robust against unusual formatting than
+ * the regex parser.
+ */
+async function buildResult(
+  provider: LlmProvider,
+  response: ProviderResponse,
+  input: GeoQueryInput
+): Promise<GeoQueryResult> {
+  const parsed = parseResponse(response.text, input.brandName, input.competitors);
+  const citations = mergeCitations(response.citations, response.text);
+  const judge = await judgeBrandTreatment(response.text, input.brandName);
+
+  return {
+    provider,
+    rawResponse: response.text,
+    citations,
+    sentiment: judge.sentiment,
+    rankPosition: judge.rankPosition ?? parsed.rankPosition,
+    mentioned: parsed.mentioned || judge.mentioned,
+    competitorsMentioned: parsed.competitorsMentioned,
+  };
+}
+
+// ---------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------
 
 /**
- * Queries all four LLMs in parallel for a single prompt and returns a
- * parsed result per provider. Individual provider failures (missing API
- * key, timeout, rate limit, etc.) are captured per-result rather than
+ * Queries all LLMs in parallel for a single prompt and returns a parsed
+ * result per provider. Individual provider failures (missing API key,
+ * timeout, rate limit, etc.) are captured per-result rather than
  * failing the whole batch.
  */
 export async function runGeoQuery(input: GeoQueryInput): Promise<GeoQueryResult[]> {
@@ -322,29 +478,15 @@ export async function runGeoQuery(input: GeoQueryInput): Promise<GeoQueryResult[
     LLM_PROVIDERS.map((provider) => PROVIDER_CALLERS[provider](input.prompt))
   );
 
-  return settled.map((result, i) => {
-    const provider = LLM_PROVIDERS[i];
-
-    if (result.status === "fulfilled") {
-      const parsed = parseResponse(result.value.text, input.brandName, input.competitors);
-      return {
-        provider,
-        rawResponse: result.value.text,
-        citations: result.value.citations ?? [],
-        ...parsed,
-      };
-    }
-
-    return {
-      provider,
-      rawResponse: "",
-      mentioned: false,
-      rankPosition: null,
-      competitorsMentioned: [],
-      citations: [],
-      error: result.reason instanceof Error ? result.reason.message : String(result.reason),
-    };
-  });
+  return Promise.all(
+    settled.map((result, i) => {
+      const provider = LLM_PROVIDERS[i];
+      if (result.status === "fulfilled") {
+        return buildResult(provider, result.value, input);
+      }
+      return emptyResult(provider, result.reason);
+    })
+  );
 }
 
 /**
@@ -357,22 +499,8 @@ export async function runSingleProviderQuery(
 ): Promise<GeoQueryResult> {
   try {
     const response = await PROVIDER_CALLERS[provider](input.prompt);
-    const parsed = parseResponse(response.text, input.brandName, input.competitors);
-    return {
-      provider,
-      rawResponse: response.text,
-      citations: response.citations ?? [],
-      ...parsed,
-    };
+    return await buildResult(provider, response, input);
   } catch (error) {
-    return {
-      provider,
-      rawResponse: "",
-      mentioned: false,
-      rankPosition: null,
-      competitorsMentioned: [],
-      citations: [],
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return emptyResult(provider, error);
   }
 }
