@@ -1,12 +1,16 @@
 import Link from "next/link";
-import { AlertTriangle, Bell, TrendingUp, Target } from "lucide-react";
+import { format } from "date-fns";
+import { AlertTriangle, Bell, TrendingUp, Target, Link2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
+import type { LlmProvider } from "@/lib/geo-engine";
 import { cn, formatDate } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { buttonVariants } from "@/components/ui/button";
+import { RankTrendChart, type TrendPoint } from "@/components/rank-trend-chart";
+import { ShareOfVoice, type ShareOfVoiceEntry } from "@/components/share-of-voice";
 
 import { BrandForm } from "./brand-form";
 import { PromptForm } from "./prompt-form";
@@ -39,6 +43,10 @@ function RankBadge({
     return <Badge variant="success">#{rank}</Badge>;
   }
   return <Badge variant="warning">#{rank}</Badge>;
+}
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
 export default async function DashboardPage({
@@ -102,13 +110,17 @@ export default async function DashboardPage({
   interface RankingRecord {
     id: string;
     prompt_id: string;
-    provider: string;
+    provider: LlmProvider;
     mentioned: boolean;
     rank_position: number | null;
+    competitors_mentioned: string[];
+    citations: string[];
     checked_at: string;
   }
+  const allRankings = (recentRankings ?? []) as RankingRecord[];
+
   const latestByKey = new Map<string, RankingRecord>();
-  for (const r of (recentRankings ?? []) as RankingRecord[]) {
+  for (const r of allRankings) {
     const key = `${r.prompt_id}-${r.provider}`;
     if (!latestByKey.has(key)) latestByKey.set(key, r);
   }
@@ -127,6 +139,47 @@ export default async function DashboardPage({
   const alertsThisWeek = (alerts ?? []).filter(
     (a) => new Date(a.created_at) >= oneWeekAgo
   ).length;
+
+  // Share of voice: how often the brand vs. each known competitor turned up
+  // across the latest measurement round.
+  const competitorNames: string[] = selectedBrand.competitors ?? [];
+  const shareOfVoiceEntries: ShareOfVoiceEntry[] = [
+    { name: selectedBrand.name, count: mentionedCount, isBrand: true },
+    ...competitorNames.map((name) => ({
+      name,
+      count: latestList.filter((r) => r.competitors_mentioned?.includes(name)).length,
+      isBrand: false,
+    })),
+  ];
+
+  // Rank trend: average rank position per day per provider, across every
+  // measurement round on record for this brand (not just the latest).
+  const trendBuckets = new Map<string, Record<LlmProvider, { sum: number; count: number }>>();
+  for (const r of allRankings) {
+    if (r.rank_position === null) continue;
+    const dateKey = format(new Date(r.checked_at), "yyyy-MM-dd");
+    if (!trendBuckets.has(dateKey)) {
+      trendBuckets.set(dateKey, {
+        chatgpt: { sum: 0, count: 0 },
+        claude: { sum: 0, count: 0 },
+        perplexity: { sum: 0, count: 0 },
+        gemini: { sum: 0, count: 0 },
+      });
+    }
+    const bucket = trendBuckets.get(dateKey)!;
+    bucket[r.provider].sum += r.rank_position;
+    bucket[r.provider].count += 1;
+  }
+  const trendData: TrendPoint[] = Array.from(trendBuckets.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([dateKey, byProvider]) => ({
+      date: format(new Date(dateKey), "M/d"),
+      chatgpt: byProvider.chatgpt.count > 0 ? round1(byProvider.chatgpt.sum / byProvider.chatgpt.count) : null,
+      claude: byProvider.claude.count > 0 ? round1(byProvider.claude.sum / byProvider.claude.count) : null,
+      perplexity:
+        byProvider.perplexity.count > 0 ? round1(byProvider.perplexity.sum / byProvider.perplexity.count) : null,
+      gemini: byProvider.gemini.count > 0 ? round1(byProvider.gemini.sum / byProvider.gemini.count) : null,
+    }));
 
   return (
     <div className="flex flex-col gap-8">
@@ -217,7 +270,18 @@ export default async function DashboardPage({
                           return (
                             <TableCell key={provider}>
                               {r ? (
-                                <RankBadge mentioned={r.mentioned} rank={r.rank_position} />
+                                <div className="flex items-center gap-1.5">
+                                  <RankBadge mentioned={r.mentioned} rank={r.rank_position} />
+                                  {r.citations && r.citations.length > 0 && (
+                                    <span
+                                      title={r.citations.join("\n")}
+                                      className="inline-flex cursor-help items-center gap-0.5 text-xs text-muted-foreground"
+                                    >
+                                      <Link2 className="h-3 w-3" />
+                                      {r.citations.length}
+                                    </span>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-xs text-muted-foreground">未計測</span>
                               )}
@@ -235,6 +299,28 @@ export default async function DashboardPage({
               <div className="mt-4 border-t border-border pt-4">
                 <PromptForm brandId={selectedBrand.id} />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Rank trend */}
+          <Card>
+            <CardHeader>
+              <CardTitle>順位トレンド</CardTitle>
+              <CardDescription>LLMごとの平均順位の推移(日次)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RankTrendChart data={trendData} />
+            </CardContent>
+          </Card>
+
+          {/* Share of voice */}
+          <Card>
+            <CardHeader>
+              <CardTitle>競合との言及シェア</CardTitle>
+              <CardDescription>{selectedBrand.name}と競合の、直近の言及割合</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ShareOfVoice entries={shareOfVoiceEntries} total={latestList.length} />
             </CardContent>
           </Card>
 

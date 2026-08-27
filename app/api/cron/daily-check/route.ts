@@ -86,6 +86,7 @@ async function processBrand(
         mentioned: result.mentioned,
         rank_position: result.rankPosition,
         competitors_mentioned: result.competitorsMentioned,
+        citations: result.citations,
         raw_response: result.rawResponse || null,
         error: result.error ?? null,
         checked_at: checkedAt.toISOString(),

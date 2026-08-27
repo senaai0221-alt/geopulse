@@ -36,7 +36,17 @@ export interface GeoQueryResult {
   rankPosition: number | null;
   competitorsMentioned: string[];
   rawResponse: string;
+  /** Source URLs the provider cited, if it returned any (currently only
+   *  Perplexity's API surfaces these - the others require enabling a
+   *  separate web-search/grounding tool we don't turn on). */
+  citations: string[];
   error?: string;
+}
+
+/** What each provider caller returns before response parsing. */
+interface ProviderResponse {
+  text: string;
+  citations?: string[];
 }
 
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -62,7 +72,7 @@ async function throwOnError(res: Response, provider: string) {
 // Provider calls
 // ---------------------------------------------------------------------
 
-async function callChatGPT(prompt: string): Promise<string> {
+async function callChatGPT(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
 
@@ -85,10 +95,10 @@ async function callChatGPT(prompt: string): Promise<string> {
   });
   await throwOnError(res, "OpenAI");
   const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? "";
+  return { text: data.choices?.[0]?.message?.content ?? "" };
 }
 
-async function callClaude(prompt: string): Promise<string> {
+async function callClaude(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set");
 
@@ -107,13 +117,14 @@ async function callClaude(prompt: string): Promise<string> {
   });
   await throwOnError(res, "Anthropic");
   const data = await res.json();
-  return (data.content ?? [])
+  const text = (data.content ?? [])
     .filter((block: { type: string }) => block.type === "text")
     .map((block: { text: string }) => block.text)
     .join("\n");
+  return { text };
 }
 
-async function callPerplexity(prompt: string): Promise<string> {
+async function callPerplexity(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) throw new Error("PERPLEXITY_API_KEY is not set");
 
@@ -131,10 +142,13 @@ async function callPerplexity(prompt: string): Promise<string> {
   });
   await throwOnError(res, "Perplexity");
   const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? "";
+  return {
+    text: data.choices?.[0]?.message?.content ?? "",
+    citations: Array.isArray(data.citations) ? data.citations : [],
+  };
 }
 
-async function callGemini(prompt: string): Promise<string> {
+async function callGemini(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
 
@@ -153,10 +167,10 @@ async function callGemini(prompt: string): Promise<string> {
   await throwOnError(res, "Gemini");
   const data = await res.json();
   const parts = data.candidates?.[0]?.content?.parts ?? [];
-  return parts.map((p: { text?: string }) => p.text ?? "").join("\n");
+  return { text: parts.map((p: { text?: string }) => p.text ?? "").join("\n") };
 }
 
-const PROVIDER_CALLERS: Record<LlmProvider, (prompt: string) => Promise<string>> = {
+const PROVIDER_CALLERS: Record<LlmProvider, (prompt: string) => Promise<ProviderResponse>> = {
   chatgpt: callChatGPT,
   claude: callClaude,
   perplexity: callPerplexity,
@@ -207,7 +221,7 @@ function parseResponse(
   rawResponse: string,
   brandName: string,
   competitors: string[]
-): Omit<GeoQueryResult, "provider" | "rawResponse"> {
+): Omit<GeoQueryResult, "provider" | "rawResponse" | "citations"> {
   const brandPattern = nameRegex(brandName);
   const items = extractListItems(rawResponse);
 
@@ -247,8 +261,13 @@ export async function runGeoQuery(input: GeoQueryInput): Promise<GeoQueryResult[
     const provider = LLM_PROVIDERS[i];
 
     if (result.status === "fulfilled") {
-      const parsed = parseResponse(result.value, input.brandName, input.competitors);
-      return { provider, rawResponse: result.value, ...parsed };
+      const parsed = parseResponse(result.value.text, input.brandName, input.competitors);
+      return {
+        provider,
+        rawResponse: result.value.text,
+        citations: result.value.citations ?? [],
+        ...parsed,
+      };
     }
 
     return {
@@ -257,6 +276,7 @@ export async function runGeoQuery(input: GeoQueryInput): Promise<GeoQueryResult[
       mentioned: false,
       rankPosition: null,
       competitorsMentioned: [],
+      citations: [],
       error: result.reason instanceof Error ? result.reason.message : String(result.reason),
     };
   });
@@ -271,9 +291,14 @@ export async function runSingleProviderQuery(
   input: GeoQueryInput
 ): Promise<GeoQueryResult> {
   try {
-    const raw = await PROVIDER_CALLERS[provider](input.prompt);
-    const parsed = parseResponse(raw, input.brandName, input.competitors);
-    return { provider, rawResponse: raw, ...parsed };
+    const response = await PROVIDER_CALLERS[provider](input.prompt);
+    const parsed = parseResponse(response.text, input.brandName, input.competitors);
+    return {
+      provider,
+      rawResponse: response.text,
+      citations: response.citations ?? [],
+      ...parsed,
+    };
   } catch (error) {
     return {
       provider,
@@ -281,6 +306,7 @@ export async function runSingleProviderQuery(
       mentioned: false,
       rankPosition: null,
       competitorsMentioned: [],
+      citations: [],
       error: error instanceof Error ? error.message : String(error),
     };
   }

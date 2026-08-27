@@ -88,10 +88,17 @@ create table if not exists public.rankings (
   -- or null if the brand was not mentioned / no ranked list was returned
   rank_position int,
   competitors_mentioned text[] not null default '{}',
+  -- Source URLs the provider cited (currently only Perplexity returns
+  -- these without enabling a separate web-search/grounding tool).
+  citations text[] not null default '{}',
   raw_response text,
   error text,
   checked_at timestamptz not null default now()
 );
+
+-- Adds the citations column for databases created before this field
+-- existed; safe to re-run.
+alter table public.rankings add column if not exists citations text[] not null default '{}';
 
 create index if not exists rankings_brand_checked_idx on public.rankings (brand_id, checked_at desc);
 create index if not exists rankings_prompt_provider_checked_idx on public.rankings (prompt_id, provider, checked_at desc);
