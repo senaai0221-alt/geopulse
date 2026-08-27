@@ -13,23 +13,28 @@ import {
 
 import type { LlmProvider } from "@/lib/geo-engine";
 
-export interface TrendPoint {
+export type TrendPoint = {
   date: string;
-  chatgpt: number | null;
-  claude: number | null;
-  perplexity: number | null;
-  gemini: number | null;
-}
+} & Record<LlmProvider, number | null>;
 
 // Fixed categorical order - never cycled, never re-derived from data so a
 // provider's color stays stable across renders and filters.
-const PROVIDER_ORDER: LlmProvider[] = ["chatgpt", "claude", "perplexity", "gemini"];
+const PROVIDER_ORDER: LlmProvider[] = [
+  "chatgpt",
+  "claude",
+  "perplexity",
+  "gemini",
+  "grok",
+  "deepseek",
+];
 
 const PROVIDER_COLOR: Record<LlmProvider, string> = {
   chatgpt: "#2a78d6",
   claude: "#eb6834",
   perplexity: "#1baf7a",
   gemini: "#eda100",
+  grok: "#e87ba4",
+  deepseek: "#008300",
 };
 
 const PROVIDER_LABEL: Record<LlmProvider, string> = {
@@ -37,6 +42,8 @@ const PROVIDER_LABEL: Record<LlmProvider, string> = {
   claude: "Claude",
   perplexity: "Perplexity",
   gemini: "Gemini",
+  grok: "Grok",
+  deepseek: "DeepSeek",
 };
 
 function TrendTooltip({

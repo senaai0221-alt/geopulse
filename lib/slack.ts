@@ -29,6 +29,8 @@ const PROVIDER_LABELS: Record<LlmProvider, string> = {
   claude: "Claude",
   perplexity: "Perplexity",
   gemini: "Gemini",
+  grok: "Grok",
+  deepseek: "DeepSeek",
 };
 
 function rankLabel(rank: number | null, mentioned: boolean): string {

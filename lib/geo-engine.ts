@@ -1,21 +1,23 @@
 /**
- * GEO Engine - queries the four major LLMs (ChatGPT, Claude, Perplexity,
- * Gemini) in parallel with a natural-language prompt, then parses each
- * response to determine whether a given brand is recommended and at
+ * GEO Engine - queries the major LLMs (ChatGPT, Claude, Perplexity, Gemini,
+ * Grok, DeepSeek) in parallel with a natural-language prompt, then parses
+ * each response to determine whether a given brand is recommended and at
  * what position relative to any competitors.
  *
- * All four providers are called via plain `fetch` against their REST
- * APIs, so this file has no SDK dependencies and runs fine in any
- * Node.js serverless / edge runtime.
+ * All providers are called via plain `fetch` against their REST APIs, so
+ * this file has no SDK dependencies and runs fine in any Node.js
+ * serverless / edge runtime.
  */
 
-export type LlmProvider = "chatgpt" | "claude" | "perplexity" | "gemini";
+export type LlmProvider = "chatgpt" | "claude" | "perplexity" | "gemini" | "grok" | "deepseek";
 
 export const LLM_PROVIDERS: LlmProvider[] = [
   "chatgpt",
   "claude",
   "perplexity",
   "gemini",
+  "grok",
+  "deepseek",
 ];
 
 export interface GeoQueryInput {
@@ -170,11 +172,55 @@ async function callGemini(prompt: string): Promise<ProviderResponse> {
   return { text: parts.map((p: { text?: string }) => p.text ?? "").join("\n") };
 }
 
+async function callGrok(prompt: string): Promise<ProviderResponse> {
+  const apiKey = process.env.XAI_API_KEY;
+  if (!apiKey) throw new Error("XAI_API_KEY is not set");
+
+  const res = await fetchWithTimeout("https://api.x.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: process.env.GROK_MODEL || "grok-4",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+    }),
+  });
+  await throwOnError(res, "Grok");
+  const data = await res.json();
+  return { text: data.choices?.[0]?.message?.content ?? "" };
+}
+
+async function callDeepSeek(prompt: string): Promise<ProviderResponse> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) throw new Error("DEEPSEEK_API_KEY is not set");
+
+  const res = await fetchWithTimeout("https://api.deepseek.com/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+    }),
+  });
+  await throwOnError(res, "DeepSeek");
+  const data = await res.json();
+  return { text: data.choices?.[0]?.message?.content ?? "" };
+}
+
 const PROVIDER_CALLERS: Record<LlmProvider, (prompt: string) => Promise<ProviderResponse>> = {
   chatgpt: callChatGPT,
   claude: callClaude,
   perplexity: callPerplexity,
   gemini: callGemini,
+  grok: callGrok,
+  deepseek: callDeepSeek,
 };
 
 // ---------------------------------------------------------------------

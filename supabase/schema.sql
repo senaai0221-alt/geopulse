@@ -13,8 +13,13 @@ create extension if not exists "uuid-ossp";
 -- Enums
 -- ---------------------------------------------------------------------
 do $$ begin
-  create type llm_provider as enum ('chatgpt', 'claude', 'perplexity', 'gemini');
+  create type llm_provider as enum ('chatgpt', 'claude', 'perplexity', 'gemini', 'grok', 'deepseek');
 exception when duplicate_object then null; end $$;
+
+-- Adds grok/deepseek for databases created before these providers
+-- existed; safe to re-run.
+alter type llm_provider add value if not exists 'grok';
+alter type llm_provider add value if not exists 'deepseek';
 
 do $$ begin
   create type plan_tier as enum ('free', 'pro', 'business');
@@ -68,11 +73,18 @@ create table if not exists public.prompts (
   id uuid primary key default uuid_generate_v4(),
   brand_id uuid not null references public.brands (id) on delete cascade,
   text text not null,
+  -- Optional free-text group label (a lightweight "cohort"), e.g.
+  -- "Core", "競合比較", "機能訴求" - used to group results on the dashboard.
+  category text,
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
 
 create index if not exists prompts_brand_idx on public.prompts (brand_id);
+
+-- Adds the category column for databases created before this field
+-- existed; safe to re-run.
+alter table public.prompts add column if not exists category text;
 
 -- ---------------------------------------------------------------------
 -- rankings: one row per (prompt, provider, check run)

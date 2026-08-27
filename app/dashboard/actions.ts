@@ -44,12 +44,14 @@ export async function createPrompt(formData: FormData) {
 
   const brandId = String(formData.get("brand_id") ?? "");
   const text = String(formData.get("text") ?? "").trim();
+  const category = String(formData.get("category") ?? "").trim();
 
   if (!brandId || !text) throw new Error("プロンプト内容は必須です");
 
   const { error } = await supabase.from("prompts").insert({
     brand_id: brandId,
     text,
+    category: category || null,
   });
 
   if (error) throw new Error(error.message);

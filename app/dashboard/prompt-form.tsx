@@ -33,6 +33,11 @@ export function PromptForm({ brandId }: { brandId: string }) {
         required
         className="flex-1"
       />
+      <Input
+        name="category"
+        placeholder="グループ名(任意)"
+        className="sm:w-40"
+      />
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Button type="submit" disabled={isPending} size="sm">
         {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}

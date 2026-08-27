@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { AlertTriangle, Bell, TrendingUp, Target, Link2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
-import type { LlmProvider } from "@/lib/geo-engine";
+import { LLM_PROVIDERS, type LlmProvider } from "@/lib/geo-engine";
 import { cn, formatDate } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,13 +18,17 @@ import { DeletePromptButton } from "./delete-prompt-button";
 import { SlackSettingsForm } from "./slack-settings-form";
 import { UpgradeButton } from "./upgrade-button";
 
-const PROVIDERS = ["chatgpt", "claude", "perplexity", "gemini"] as const;
-const PROVIDER_LABELS: Record<(typeof PROVIDERS)[number], string> = {
+const PROVIDERS = LLM_PROVIDERS;
+const PROVIDER_LABELS: Record<LlmProvider, string> = {
   chatgpt: "ChatGPT",
   claude: "Claude",
   perplexity: "Perplexity",
   gemini: "Gemini",
+  grok: "Grok",
+  deepseek: "DeepSeek",
 };
+
+const UNCATEGORIZED = "__uncategorized__";
 
 function RankBadge({
   mentioned,
@@ -140,6 +144,22 @@ export default async function DashboardPage({
     (a) => new Date(a.created_at) >= oneWeekAgo
   ).length;
 
+  // Group prompts by their optional category ("cohort"). Prompts without a
+  // category fall into a single UNCATEGORIZED bucket; if that ends up being
+  // the only bucket, we skip showing group headers entirely.
+  interface PromptRecord {
+    id: string;
+    text: string;
+    category: string | null;
+  }
+  const promptGroups = new Map<string, PromptRecord[]>();
+  for (const prompt of (prompts ?? []) as PromptRecord[]) {
+    const key = prompt.category?.trim() || UNCATEGORIZED;
+    if (!promptGroups.has(key)) promptGroups.set(key, []);
+    promptGroups.get(key)!.push(prompt);
+  }
+  const showGroupHeadings = !(promptGroups.size === 1 && promptGroups.has(UNCATEGORIZED));
+
   // Share of voice: how often the brand vs. each known competitor turned up
   // across the latest measurement round.
   const competitorNames: string[] = selectedBrand.competitors ?? [];
@@ -154,17 +174,18 @@ export default async function DashboardPage({
 
   // Rank trend: average rank position per day per provider, across every
   // measurement round on record for this brand (not just the latest).
+  function emptyProviderBuckets(): Record<LlmProvider, { sum: number; count: number }> {
+    const bucket = {} as Record<LlmProvider, { sum: number; count: number }>;
+    for (const p of PROVIDERS) bucket[p] = { sum: 0, count: 0 };
+    return bucket;
+  }
+
   const trendBuckets = new Map<string, Record<LlmProvider, { sum: number; count: number }>>();
   for (const r of allRankings) {
     if (r.rank_position === null) continue;
     const dateKey = format(new Date(r.checked_at), "yyyy-MM-dd");
     if (!trendBuckets.has(dateKey)) {
-      trendBuckets.set(dateKey, {
-        chatgpt: { sum: 0, count: 0 },
-        claude: { sum: 0, count: 0 },
-        perplexity: { sum: 0, count: 0 },
-        gemini: { sum: 0, count: 0 },
-      });
+      trendBuckets.set(dateKey, emptyProviderBuckets());
     }
     const bucket = trendBuckets.get(dateKey)!;
     bucket[r.provider].sum += r.rank_position;
@@ -172,14 +193,13 @@ export default async function DashboardPage({
   }
   const trendData: TrendPoint[] = Array.from(trendBuckets.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([dateKey, byProvider]) => ({
-      date: format(new Date(dateKey), "M/d"),
-      chatgpt: byProvider.chatgpt.count > 0 ? round1(byProvider.chatgpt.sum / byProvider.chatgpt.count) : null,
-      claude: byProvider.claude.count > 0 ? round1(byProvider.claude.sum / byProvider.claude.count) : null,
-      perplexity:
-        byProvider.perplexity.count > 0 ? round1(byProvider.perplexity.sum / byProvider.perplexity.count) : null,
-      gemini: byProvider.gemini.count > 0 ? round1(byProvider.gemini.sum / byProvider.gemini.count) : null,
-    }));
+    .map(([dateKey, byProvider]) => {
+      const point = { date: format(new Date(dateKey), "M/d") } as TrendPoint;
+      for (const p of PROVIDERS) {
+        point[p] = byProvider[p].count > 0 ? round1(byProvider[p].sum / byProvider[p].count) : null;
+      }
+      return point;
+    });
 
   return (
     <div className="flex flex-col gap-8">
@@ -251,50 +271,61 @@ export default async function DashboardPage({
                   まだプロンプトが登録されていません。下のフォームから追加してください。
                 </p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>プロンプト</TableHead>
-                      {PROVIDERS.map((p) => (
-                        <TableHead key={p}>{PROVIDER_LABELS[p]}</TableHead>
-                      ))}
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {prompts.map((prompt) => (
-                      <TableRow key={prompt.id}>
-                        <TableCell className="max-w-xs">{prompt.text}</TableCell>
-                        {PROVIDERS.map((provider) => {
-                          const r = latestByKey.get(`${prompt.id}-${provider}`);
-                          return (
-                            <TableCell key={provider}>
-                              {r ? (
-                                <div className="flex items-center gap-1.5">
-                                  <RankBadge mentioned={r.mentioned} rank={r.rank_position} />
-                                  {r.citations && r.citations.length > 0 && (
-                                    <span
-                                      title={r.citations.join("\n")}
-                                      className="inline-flex cursor-help items-center gap-0.5 text-xs text-muted-foreground"
-                                    >
-                                      <Link2 className="h-3 w-3" />
-                                      {r.citations.length}
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">未計測</span>
-                              )}
-                            </TableCell>
-                          );
-                        })}
-                        <TableCell>
-                          <DeletePromptButton promptId={prompt.id} />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <div className="flex flex-col gap-6">
+                  {Array.from(promptGroups.entries()).map(([groupKey, groupPrompts]) => (
+                    <div key={groupKey} className="flex flex-col gap-2">
+                      {showGroupHeadings && (
+                        <h4 className="text-sm font-semibold text-foreground">
+                          {groupKey === UNCATEGORIZED ? "未分類" : groupKey}
+                        </h4>
+                      )}
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>プロンプト</TableHead>
+                            {PROVIDERS.map((p) => (
+                              <TableHead key={p}>{PROVIDER_LABELS[p]}</TableHead>
+                            ))}
+                            <TableHead />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {groupPrompts.map((prompt) => (
+                            <TableRow key={prompt.id}>
+                              <TableCell className="max-w-xs">{prompt.text}</TableCell>
+                              {PROVIDERS.map((provider) => {
+                                const r = latestByKey.get(`${prompt.id}-${provider}`);
+                                return (
+                                  <TableCell key={provider}>
+                                    {r ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <RankBadge mentioned={r.mentioned} rank={r.rank_position} />
+                                        {r.citations && r.citations.length > 0 && (
+                                          <span
+                                            title={r.citations.join("\n")}
+                                            className="inline-flex cursor-help items-center gap-0.5 text-xs text-muted-foreground"
+                                          >
+                                            <Link2 className="h-3 w-3" />
+                                            {r.citations.length}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">未計測</span>
+                                    )}
+                                  </TableCell>
+                                );
+                              })}
+                              <TableCell>
+                                <DeletePromptButton promptId={prompt.id} />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ))}
+                </div>
               )}
               <div className="mt-4 border-t border-border pt-4">
                 <PromptForm brandId={selectedBrand.id} />
