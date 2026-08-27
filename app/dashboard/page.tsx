@@ -15,8 +15,6 @@ import { ShareOfVoice, type ShareOfVoiceEntry } from "@/components/share-of-voic
 import { BrandForm } from "./brand-form";
 import { PromptForm } from "./prompt-form";
 import { DeletePromptButton } from "./delete-prompt-button";
-import { SlackSettingsForm } from "./slack-settings-form";
-import { UpgradeButton } from "./upgrade-button";
 
 const PROVIDERS = LLM_PROVIDERS;
 const PROVIDER_LABELS: Record<LlmProvider, string> = {
@@ -29,6 +27,7 @@ const PROVIDER_LABELS: Record<LlmProvider, string> = {
 };
 
 const UNCATEGORIZED = "__uncategorized__";
+const VISIBLE_ALERTS = 3;
 
 function RankBadge({
   mentioned,
@@ -85,10 +84,10 @@ export default async function DashboardPage({
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const [{ data: brands }, { data: profile }] = await Promise.all([
-    supabase.from("brands").select("*").order("created_at", { ascending: true }),
-    supabase.from("profiles").select("*").eq("id", user.id).single(),
-  ]);
+  const { data: brands } = await supabase
+    .from("brands")
+    .select("*")
+    .order("created_at", { ascending: true });
 
   if (!brands || brands.length === 0) {
     return (
@@ -223,8 +222,10 @@ export default async function DashboardPage({
       return point;
     });
 
+  const visibleAlerts = (alerts ?? []).slice(0, VISIBLE_ALERTS);
+
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       {/* Brand switcher */}
       <div className="flex flex-wrap items-center gap-2">
         {brands.map((b) => (
@@ -243,7 +244,7 @@ export default async function DashboardPage({
         ))}
       </div>
 
-      {/* KPI cards */}
+      {/* KPI cards - top row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
@@ -279,195 +280,141 @@ export default async function DashboardPage({
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="flex flex-col gap-6 lg:col-span-2">
-          {/* Rankings table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>最新の推奨順位</CardTitle>
-              <CardDescription>{selectedBrand.name} - プロンプト × LLM別の最新結果</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!prompts || prompts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  まだプロンプトが登録されていません。下のフォームから追加してください。
-                </p>
-              ) : (
-                <div className="flex flex-col gap-6">
-                  {Array.from(promptGroups.entries()).map(([groupKey, groupPrompts]) => (
-                    <div key={groupKey} className="flex flex-col gap-2">
-                      {showGroupHeadings && (
-                        <h4 className="text-sm font-semibold text-foreground">
-                          {groupKey === UNCATEGORIZED ? "未分類" : groupKey}
-                        </h4>
-                      )}
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>プロンプト</TableHead>
-                            {PROVIDERS.map((p) => (
-                              <TableHead key={p}>{PROVIDER_LABELS[p]}</TableHead>
-                            ))}
-                            <TableHead />
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {groupPrompts.map((prompt) => (
-                            <TableRow key={prompt.id}>
-                              <TableCell className="max-w-xs">{prompt.text}</TableCell>
-                              {PROVIDERS.map((provider) => {
-                                const r = latestByKey.get(`${prompt.id}-${provider}`);
-                                return (
-                                  <TableCell key={provider}>
-                                    {r ? (
-                                      <div className="flex items-center gap-1.5">
-                                        <RankBadge mentioned={r.mentioned} rank={r.rank_position} />
-                                        <SentimentDot sentiment={r.sentiment} />
-                                        {r.citations && r.citations.length > 0 && (
-                                          <span
-                                            title={r.citations.join("\n")}
-                                            className="inline-flex cursor-help items-center gap-0.5 text-xs text-muted-foreground"
-                                          >
-                                            <Link2 className="h-3 w-3" />
-                                            {r.citations.length}
-                                          </span>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <span className="text-xs text-muted-foreground">未計測</span>
+      {/* Main table - prompt form compact on top */}
+      <Card>
+        <CardHeader>
+          <CardTitle>最新の推奨順位</CardTitle>
+          <CardDescription>{selectedBrand.name} - プロンプト × LLM別の最新結果</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <PromptForm brandId={selectedBrand.id} />
+
+          {!prompts || prompts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              まだプロンプトが登録されていません。上のフォームから追加してください。
+            </p>
+          ) : (
+            <div className="flex flex-col gap-6 border-t border-border pt-4">
+              {Array.from(promptGroups.entries()).map(([groupKey, groupPrompts]) => (
+                <div key={groupKey} className="flex flex-col gap-2">
+                  {showGroupHeadings && (
+                    <h4 className="text-sm font-semibold text-foreground">
+                      {groupKey === UNCATEGORIZED ? "未分類" : groupKey}
+                    </h4>
+                  )}
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>プロンプト</TableHead>
+                        {PROVIDERS.map((p) => (
+                          <TableHead key={p}>{PROVIDER_LABELS[p]}</TableHead>
+                        ))}
+                        <TableHead />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {groupPrompts.map((prompt) => (
+                        <TableRow key={prompt.id}>
+                          <TableCell className="max-w-xs">{prompt.text}</TableCell>
+                          {PROVIDERS.map((provider) => {
+                            const r = latestByKey.get(`${prompt.id}-${provider}`);
+                            return (
+                              <TableCell key={provider}>
+                                {r ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <RankBadge mentioned={r.mentioned} rank={r.rank_position} />
+                                    <SentimentDot sentiment={r.sentiment} />
+                                    {r.citations && r.citations.length > 0 && (
+                                      <span
+                                        title={r.citations.join("\n")}
+                                        className="inline-flex cursor-help items-center gap-0.5 text-xs text-muted-foreground"
+                                      >
+                                        <Link2 className="h-3 w-3" />
+                                        {r.citations.length}
+                                      </span>
                                     )}
-                                  </TableCell>
-                                );
-                              })}
-                              <TableCell>
-                                <DeletePromptButton promptId={prompt.id} />
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">未計測</span>
+                                )}
                               </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  ))}
+                            );
+                          })}
+                          <TableCell>
+                            <DeletePromptButton promptId={prompt.id} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-              )}
-              <div className="mt-4 border-t border-border pt-4">
-                <PromptForm brandId={selectedBrand.id} />
-              </div>
-            </CardContent>
-          </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-          {/* Rank trend */}
-          <Card>
-            <CardHeader>
-              <CardTitle>順位トレンド</CardTitle>
-              <CardDescription>LLMごとの平均順位の推移(日次)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <RankTrendChart data={trendData} />
-            </CardContent>
-          </Card>
+      {/* Bottom row - trend + share of voice side by side */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>順位トレンド</CardTitle>
+            <CardDescription>LLMごとの平均順位の推移(日次)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RankTrendChart data={trendData} />
+          </CardContent>
+        </Card>
 
-          {/* Share of voice */}
-          <Card>
-            <CardHeader>
-              <CardTitle>競合との言及シェア</CardTitle>
-              <CardDescription>{selectedBrand.name}と競合の、直近の言及割合</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ShareOfVoice entries={shareOfVoiceEntries} total={latestList.length} />
-            </CardContent>
-          </Card>
-
-          {/* Alerts */}
-          <Card>
-            <CardHeader>
-              <CardTitle>最近のアラート</CardTitle>
-              <CardDescription>毎朝のバッチで検知された順位変動</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!alerts || alerts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">まだアラートはありません。</p>
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {alerts.map((alert) => (
-                    <li key={alert.id} className="flex items-start gap-3 text-sm">
-                      <AlertTriangle
-                        className={cn(
-                          "mt-0.5 h-4 w-4 shrink-0",
-                          alert.severity === "critical"
-                            ? "text-destructive"
-                            : alert.severity === "warning"
-                            ? "text-amber-500"
-                            : "text-muted-foreground"
-                        )}
-                      />
-                      <div>
-                        <p>{alert.message}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(alert.created_at)}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Add another brand */}
-          <Card>
-            <CardHeader>
-              <CardTitle>ブランドを追加</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BrandForm />
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="flex flex-col gap-6">
-          {/* Slack settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Slack通知設定</CardTitle>
-              <CardDescription>日次サマリーと異常検知アラートの送信先</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <SlackSettingsForm
-                initialWebhookUrl={profile?.slack_webhook_url ?? null}
-                initialEnabled={profile?.slack_enabled ?? false}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Plan / upgrade */}
-          <Card>
-            <CardHeader>
-              <CardTitle>プラン</CardTitle>
-              <CardDescription>現在のプラン: {profile?.plan ?? "free"}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {(profile?.plan ?? "free") === "free" && (
-                <>
-                  <UpgradeButton
-                    priceId={process.env.STRIPE_PRICE_ID_PRO ?? ""}
-                    label="Proにアップグレード"
-                  />
-                  <UpgradeButton
-                    priceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""}
-                    label="Businessにアップグレード"
-                  />
-                </>
-              )}
-              {(profile?.plan ?? "free") !== "free" && (
-                <p className="text-sm text-muted-foreground">
-                  ご契約ありがとうございます。プラン変更はサポートまでご連絡ください。
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>競合との言及シェア</CardTitle>
+            <CardDescription>{selectedBrand.name}と競合の、直近の言及割合</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ShareOfVoice entries={shareOfVoiceEntries} total={latestList.length} />
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Recent alerts - compact */}
+      <Card>
+        <CardHeader>
+          <CardTitle>最近のアラート</CardTitle>
+          <CardDescription>毎朝のバッチで検知された順位変動</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {visibleAlerts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">まだアラートはありません。</p>
+          ) : (
+            <ul className="flex flex-col gap-2.5">
+              {visibleAlerts.map((alert) => (
+                <li key={alert.id} className="flex items-start gap-2.5 text-sm">
+                  <AlertTriangle
+                    className={cn(
+                      "mt-0.5 h-4 w-4 shrink-0",
+                      alert.severity === "critical"
+                        ? "text-destructive"
+                        : alert.severity === "warning"
+                        ? "text-amber-500"
+                        : "text-muted-foreground"
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate">{alert.message}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(alert.created_at)}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {alerts && alerts.length > VISIBLE_ALERTS && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              他 {alerts.length - VISIBLE_ALERTS} 件のアラートがあります。
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

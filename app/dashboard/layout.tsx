@@ -4,6 +4,7 @@ import { Sparkles } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "./sign-out-button";
+import { SidebarNav } from "./sidebar-nav";
 
 export default async function DashboardLayout({
   children,
@@ -39,7 +40,15 @@ export default async function DashboardLayout({
           </div>
         </div>
       </header>
-      <div className="container py-8">{children}</div>
+
+      <div className="container flex gap-8 py-8">
+        <aside className="hidden w-52 shrink-0 md:block">
+          <div className="sticky top-8">
+            <SidebarNav />
+          </div>
+        </aside>
+        <main className="min-w-0 flex-1">{children}</main>
+      </div>
     </div>
   );
 }
