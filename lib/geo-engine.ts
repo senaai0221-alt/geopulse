@@ -386,8 +386,14 @@ async function judgeBrandTreatment(rawResponse: string, brandName: string): Prom
               `JSONのみで返答してください。他のテキストは一切含めないでください。\n\n` +
               `{"sentiment": "positive" | "neutral" | "negative" | null, "recommendation_rank": number | null}\n\n` +
               `- sentiment: ブランドが言及されている場合の論調。言及されていなければ null\n` +
-              `- recommendation_rank: 推奨リスト内で何番目に紹介されているか(1始まりの整数)。` +
-              `言及されていない場合、または順位が不明な場合は null\n\n` +
+              `- recommendation_rank: 「おすすめ順」「ベスト◯選」のように、AIが明確に優劣・優先順位をつけて` +
+              `複数の候補を並べたランキングの場合のみ、対象ブランドが何位か(1始まりの整数)。\n` +
+              `  判定に迷ったら必ず null にしてください。特に以下は rank ではなく null:\n` +
+              `  * 2つ(またはそれ以上)の候補を「Aは〜、Bは〜」と対等に比較・紹介しているだけの文章\n` +
+              `    (本文中でどちらが先に登場するかは順位ではありません)\n` +
+              `  * 1つの項目の中の特徴・長所・機能を箇条書きしているだけのもの\n` +
+              `  * ランキングではなく単に言及・説明しているだけのもの\n` +
+              `- 言及されていない場合も null\n\n` +
               `回答テキスト:\n${rawResponse.slice(0, 6000)}`,
           },
         ],
