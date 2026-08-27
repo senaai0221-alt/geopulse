@@ -237,24 +237,43 @@ function nameRegex(name: string): RegExp {
 }
 
 /**
- * Splits a response into ordered "list items" by looking for lines that
- * start with a numbered ("1.", "2)") or bulleted ("-", "*", "•") marker,
- * which is how LLMs typically format a ranked list of recommendations.
- * Falls back to paragraph splitting if no such list is detected.
+ * Splits a response into ordered "list items" representing a ranked
+ * recommendation list, trying three strategies in order of specificity:
+ *
+ * 1. Markdown headings used as ranked entries, e.g. "### 1. **Notion**"
+ *    (common from Gemini/ChatGPT when the answer reads more like a
+ *    mini-article than a plain list).
+ * 2. Plain numbered ("1.", "2)") or bulleted ("-", "*", "•") lines that
+ *    are NOT indented - indentation almost always means the line is a
+ *    sub-detail of the item above it (e.g. "*   **Pros:** ...") rather
+ *    than a new ranked entry, and must not be counted as one.
+ * 3. Paragraph splitting, as a last resort when no list structure is
+ *    detected at all.
  */
 function extractListItems(text: string): string[] {
   const lines = text.split("\n");
-  const numbered: string[] = [];
-  const listItemPattern = /^\s*(?:\d{1,2}[.)]|[-*•])\s+(.*)$/;
 
+  const headingPattern = /^\s{0,3}#{1,6}\s*\d{1,2}[.)]\s*(.*)$/;
+  const headingItems: string[] = [];
   for (const line of lines) {
-    const match = line.match(listItemPattern);
+    const match = line.match(headingPattern);
     if (match && match[1].trim().length > 0) {
-      numbered.push(match[1].trim());
+      headingItems.push(match[1].trim());
     }
   }
+  if (headingItems.length > 0) return headingItems;
 
-  if (numbered.length > 0) return numbered;
+  // Only lines with zero leading whitespace count as top-level list
+  // entries; an indented "*"/"-" is a nested sub-bullet, not a new rank.
+  const topLevelPattern = /^(?:\d{1,2}[.)]|[-*•])\s+(.*)$/;
+  const topLevelItems: string[] = [];
+  for (const line of lines) {
+    const match = line.match(topLevelPattern);
+    if (match && match[1].trim().length > 0) {
+      topLevelItems.push(match[1].trim());
+    }
+  }
+  if (topLevelItems.length > 0) return topLevelItems;
 
   // Fallback: treat non-empty paragraphs as pseudo-ordered items.
   return text
