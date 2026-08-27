@@ -30,7 +30,7 @@ export function BrandForm() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-2">
           <Label htmlFor="name">ブランド名</Label>
-          <Input id="name" name="name" placeholder="例: GEOPulse" required />
+          <Input id="name" name="name" placeholder="例: Zonostick" required />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="domain">ドメイン（任意）</Label>

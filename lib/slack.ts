@@ -64,7 +64,7 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
       type: "header",
       text: {
         type: "plain_text",
-        text: `📊 GEOPulse 日次レポート - ${input.brandName}`,
+        text: `📊 Zonostick 日次レポート - ${input.brandName}`,
         emoji: true,
       },
     },
@@ -118,7 +118,7 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
   blocks.push({ type: "divider" });
   blocks.push({
     type: "context",
-    elements: [{ type: "mrkdwn", text: "GEOPulse - AI検索順位トラッカー" }],
+    elements: [{ type: "mrkdwn", text: "Zonostick - AI検索順位トラッカー" }],
   });
 
   return blocks;
@@ -130,7 +130,7 @@ export function buildTestMessageBlocks() {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "✅ GEOPulse から Slack への接続テストに成功しました。毎朝この形式でレポートが届きます。",
+        text: "✅ Zonostick から Slack への接続テストに成功しました。毎朝この形式でレポートが届きます。",
       },
     },
   ];
@@ -162,6 +162,6 @@ export async function sendDailySummary(
   await sendSlackMessage(
     webhookUrl,
     blocks,
-    `GEOPulse 日次レポート: ${input.brandName} - 異常${input.anomalies.length}件`
+    `Zonostick 日次レポート: ${input.brandName} - 異常${input.anomalies.length}件`
   );
 }

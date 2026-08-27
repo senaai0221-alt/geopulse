@@ -82,7 +82,7 @@ export default function LandingPage() {
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2 font-bold text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
-            GEOPulse
+            Zonostick
           </div>
           <nav className="flex items-center gap-4">
             <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">

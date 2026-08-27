@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
 export const metadata = {
-  title: "プライバシーポリシー | GEOPulse",
+  title: "プライバシーポリシー | Zonostick",
 };
 
 export default function PrivacyPage() {
@@ -12,7 +12,7 @@ export default function PrivacyPage() {
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-bold text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
-            GEOPulse
+            Zonostick
           </Link>
         </div>
       </header>
@@ -23,7 +23,7 @@ export default function PrivacyPage() {
 
         <div className="mt-10 flex flex-col gap-8 text-sm leading-relaxed [&_h2]:mb-3 [&_h2]:mt-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:flex [&_ol]:list-decimal [&_ol]:flex-col [&_ol]:gap-2 [&_ol]:pl-5 [&_ul]:flex [&_ul]:list-disc [&_ul]:flex-col [&_ul]:gap-2 [&_ul]:pl-5 [&_p]:text-muted-foreground">
           <p className="text-muted-foreground">
-            株式会社ENDEVER(以下「当社」といいます)は、当社が提供する「GEOPulse」(以下「本サービス」といいます)における、ユーザーの個人情報の取り扱いについて、以下のとおりプライバシーポリシー(以下「本ポリシー」といいます)を定めます。
+            株式会社ENDEVER(以下「当社」といいます)は、当社が提供する「Zonostick」(以下「本サービス」といいます)における、ユーザーの個人情報の取り扱いについて、以下のとおりプライバシーポリシー(以下「本ポリシー」といいます)を定めます。
           </p>
 
           <section>

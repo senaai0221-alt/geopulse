@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
 export const metadata = {
-  title: "利用規約 | GEOPulse",
+  title: "利用規約 | Zonostick",
 };
 
 export default function TermsPage() {
@@ -12,7 +12,7 @@ export default function TermsPage() {
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-bold text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
-            GEOPulse
+            Zonostick
           </Link>
         </div>
       </header>
@@ -25,7 +25,7 @@ export default function TermsPage() {
           <section>
             <h2>第1条(適用)</h2>
             <p>
-              本規約は、株式会社ENDEVER(以下「当社」といいます)が提供するGEO(生成エンジン最適化)追跡サービス「GEOPulse」(以下「本サービス」といいます)の利用条件を定めるものです。ユーザーは、本サービスを利用することにより、本規約の内容に同意したものとみなされます。
+              本規約は、株式会社ENDEVER(以下「当社」といいます)が提供するGEO(生成エンジン最適化)追跡サービス「Zonostick」(以下「本サービス」といいます)の利用条件を定めるものです。ユーザーは、本サービスを利用することにより、本規約の内容に同意したものとみなされます。
             </p>
           </section>
 

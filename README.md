@@ -1,4 +1,4 @@
-# GEOPulse
+# Zonostick
 
 ChatGPT・Claude・Perplexity・Gemini における自社ブランドの推奨順位を毎朝自動計測し、
 変動や異常値を Slack へ通知する GEO (Generative Engine Optimization) 追跡 SaaS の MVP です。

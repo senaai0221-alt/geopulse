@@ -103,7 +103,7 @@ export async function sendTestSlackMessage(): Promise<{ ok: boolean; message: st
     await sendSlackMessage(
       profile.slack_webhook_url,
       buildTestMessageBlocks(),
-      "GEOPulse: Slack接続テスト"
+      "Zonostick: Slack接続テスト"
     );
     return { ok: true, message: "テストメッセージを送信しました。" };
   } catch (err) {

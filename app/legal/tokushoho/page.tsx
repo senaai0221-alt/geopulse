@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
 export const metadata = {
-  title: "特定商取引法に基づく表示 | GEOPulse",
+  title: "特定商取引法に基づく表示 | Zonostick",
 };
 
 const ROWS: { label: string; value: React.ReactNode }[] = [
@@ -68,7 +68,7 @@ export default function TokushohoPage() {
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-bold text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
-            GEOPulse
+            Zonostick
           </Link>
         </div>
       </header>

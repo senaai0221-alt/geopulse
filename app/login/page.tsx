@@ -72,7 +72,7 @@ export default function LoginPage() {
         <CardHeader className="items-center text-center">
           <Link href="/" className="mb-2 flex items-center gap-2 font-bold text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
-            GEOPulse
+            Zonostick
           </Link>
           <CardTitle>ログイン / 新規登録</CardTitle>
           <CardDescription>

@@ -30,7 +30,7 @@ export default async function DashboardLayout({
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-bold text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
-            GEOPulse
+            Zonostick
           </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">

@@ -1,5 +1,5 @@
 -- =====================================================================
--- GEOPulse Database Schema
+-- Zonostick Database Schema
 -- Run this in the Supabase SQL Editor (Project > SQL Editor > New query)
 -- or via: supabase db execute -f supabase/schema.sql
 -- =====================================================================
