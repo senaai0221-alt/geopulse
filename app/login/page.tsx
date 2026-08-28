@@ -69,11 +69,11 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="items-center text-center">
-          <Link href="/" className="mb-2 flex items-center gap-2 font-bold text-lg">
-            <Sparkles className="h-5 w-5 text-primary" />
+    <main className="flex min-h-dvh flex-col items-center bg-gradient-to-b from-primary/10 via-muted/20 to-muted/20 px-4 pb-12 pt-14 sm:justify-center sm:pt-4">
+      <Card className="w-full max-w-md shadow-lg shadow-primary/5">
+        <CardHeader className="items-center gap-1 text-center">
+          <Link href="/" className="mb-3 flex items-center gap-2 text-xl font-bold">
+            <Sparkles className="h-6 w-6 text-primary" />
             Zonostick
           </Link>
           <CardTitle>ログイン / 新規登録</CardTitle>

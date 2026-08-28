@@ -25,7 +25,7 @@ export default async function DashboardLayout({
     .single();
 
   return (
-    <div className="min-h-screen bg-muted/20">
+    <div className="min-h-screen bg-muted/50">
       <header className="border-b border-border bg-background">
         <div className="container flex h-16 items-center justify-between gap-3">
           <Link href="/" className="flex shrink-0 items-center gap-2 font-bold text-lg">
