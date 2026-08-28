@@ -41,3 +41,20 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  /* min-h-screen (100vh) as a universally-supported fallback, upgraded
+     to 100dvh (accounts for mobile browser toolbars showing/hiding)
+     only where the browser actually understands the unit. Using
+     @supports here - rather than stacking two Tailwind min-h-*
+     classes - guarantees the fallback order regardless of how the
+     utilities happen to be sorted in the compiled stylesheet. */
+  .min-h-app {
+    min-height: 100vh;
+  }
+  @supports (height: 100dvh) {
+    .min-h-app {
+      min-height: 100dvh;
+    }
+  }
+}
