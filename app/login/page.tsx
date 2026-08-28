@@ -78,7 +78,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col items-center bg-muted/40 px-4 pb-12 pt-14 sm:justify-center sm:pt-4">
+    <main className="flex min-h-screen flex-col items-center bg-muted/40 px-4 pb-12 pt-14 sm:justify-center sm:pt-4">
       <Card className="w-full max-w-md shadow-lg shadow-primary/5">
         <CardHeader className="items-center gap-1 text-center">
           <Link href="/" className="mb-3 flex items-center gap-2 text-xl font-bold">
