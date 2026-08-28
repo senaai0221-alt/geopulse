@@ -27,14 +27,17 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-muted/20">
       <header className="border-b border-border bg-background">
-        <div className="container flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+        <div className="container flex h-16 items-center justify-between gap-3">
+          <Link href="/" className="flex shrink-0 items-center gap-2 font-bold text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
             Zonostick
           </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="hidden max-w-[16rem] truncate text-sm text-muted-foreground sm:inline">
               {profile?.email} ・ プラン: {profile?.plan ?? "free"}
+            </span>
+            <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium uppercase text-muted-foreground sm:hidden">
+              {profile?.plan ?? "free"}
             </span>
             <SignOutButton />
           </div>
