@@ -41,6 +41,15 @@ export default function LoginPage() {
       setError(error.message);
     }
     setSent(true);
+
+    // Some mobile in-app browsers (e.g. LINE's WebView) don't recompute
+    // the page's zoom/scale after the on-screen keyboard closes and the
+    // form is swapped out for the code-entry screen, which makes the
+    // card render wider than the viewport. Blurring the focused input
+    // and forcing a scroll reset nudges those browsers into recalculating
+    // the layout correctly.
+    (document.activeElement as HTMLElement | null)?.blur();
+    window.scrollTo(0, 0);
   }
 
   async function handleVerifyCode(e: React.FormEvent) {
@@ -69,7 +78,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col items-center bg-gradient-to-b from-primary/10 via-muted/20 to-muted/20 px-4 pb-12 pt-14 sm:justify-center sm:pt-4">
+    <main className="flex min-h-dvh flex-col items-center bg-muted/40 px-4 pb-12 pt-14 sm:justify-center sm:pt-4">
       <Card className="w-full max-w-md shadow-lg shadow-primary/5">
         <CardHeader className="items-center gap-1 text-center">
           <Link href="/" className="mb-3 flex items-center gap-2 text-xl font-bold">
