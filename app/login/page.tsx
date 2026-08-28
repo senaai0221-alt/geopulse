@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Sparkles, Loader2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -12,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -61,8 +59,12 @@ export default function LoginPage() {
     if (error) {
       setVerifyError(error.message);
     } else {
-      router.push("/dashboard");
-      router.refresh();
+      // Force a full page load (rather than a client-side router
+      // transition) so the destination page starts from a clean slate -
+      // some mobile browsers keep the previous page's zoom/viewport
+      // state across a client-side navigation, which made the
+      // dashboard render wider than the screen after OTP sign-in.
+      window.location.href = "/dashboard";
     }
   }
 
@@ -93,12 +95,12 @@ export default function LoginPage() {
               )}
               <form onSubmit={handleVerifyCode} className="flex flex-col gap-2">
                 <Label htmlFor="code">
-                  {error ? "ログインコードを入力" : "またはメール内の6桁コードを入力"}
+                  {error ? "ログインコードを入力" : "またはメール内の8桁コードを入力"}
                 </Label>
                 <Input
                   id="code"
                   inputMode="numeric"
-                  placeholder="123456"
+                  placeholder="12345678"
                   required
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
