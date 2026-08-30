@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CheckCircle2, Sparkles } from "lucide-react";
+import { CheckCircle2, Layers, Sparkles } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,13 @@ const PLANS = [
     name: "Pro",
     price: "¥9,800",
     descKey: "landing.proDesc",
-    featureKeys: ["landing.proFeature1", "landing.proFeature2", "landing.proFeature3", "landing.proFeature4"],
+    featureKeys: [
+      "landing.proFeature1",
+      "landing.proFeature2",
+      "landing.proFeature3",
+      "landing.proFeature4",
+      "landing.proFeature5",
+    ],
     priceIdEnv: "STRIPE_PRICE_ID_PRO",
     ctaKey: "pricing.ctaPro",
     highlighted: true,
@@ -24,7 +30,11 @@ const PLANS = [
     name: "Business",
     price: "¥29,800",
     descKey: "landing.businessDesc",
+    // businessFeature0 ("everything in Pro") is rendered with a
+    // different icon/weight below to read as "inherits the tier
+    // below", not just another bullet - see the map() call.
     featureKeys: [
+      "landing.businessFeature0",
       "landing.businessFeature1",
       "landing.businessFeature2",
       "landing.businessFeature3",
@@ -86,18 +96,20 @@ export default async function PricingPage() {
           </p>
         </div>
 
-        <div className="grid w-full max-w-2xl grid-cols-1 gap-6 sm:grid-cols-2">
+        <div className="grid w-full max-w-2xl grid-cols-1 gap-6 pt-3 sm:grid-cols-2">
           {PLANS.map((plan) => (
             <Card
               key={plan.name}
-              className={plan.highlighted ? "border-primary shadow-lg ring-1 ring-primary" : ""}
+              className={`relative flex h-full flex-col ${
+                plan.highlighted ? "border-primary shadow-lg ring-1 ring-primary" : ""
+              }`}
             >
+              {plan.highlighted && (
+                <Badge className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 shadow-sm">
+                  <T k="landing.recommended" />
+                </Badge>
+              )}
               <CardHeader>
-                {plan.highlighted && (
-                  <Badge className="mb-2 w-fit">
-                    <T k="landing.recommended" />
-                  </Badge>
-                )}
                 <CardTitle>{plan.name}</CardTitle>
                 <div className="flex items-baseline gap-1">
                   <span className="text-3xl font-bold">{plan.price}</span>
@@ -109,14 +121,21 @@ export default async function PricingPage() {
                   <T k={plan.descKey} />
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <ul className="flex flex-col gap-2">
-                  {plan.featureKeys.map((key) => (
-                    <li key={key} className="flex items-center gap-2 text-sm">
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
-                      <T k={key} />
-                    </li>
-                  ))}
+              <CardContent className="flex flex-1 flex-col gap-4">
+                <ul className="flex flex-1 flex-col gap-2">
+                  {plan.featureKeys.map((key) =>
+                    key === "landing.businessFeature0" ? (
+                      <li key={key} className="flex items-center gap-2 text-sm font-medium">
+                        <Layers className="h-4 w-4 shrink-0 text-primary" />
+                        <T k={key} />
+                      </li>
+                    ) : (
+                      <li key={key} className="flex items-center gap-2 text-sm">
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                        <T k={key} />
+                      </li>
+                    )
+                  )}
                 </ul>
                 <UpgradeButtonLabel priceId={process.env[plan.priceIdEnv] ?? ""} labelKey={plan.ctaKey} />
               </CardContent>

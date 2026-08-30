@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { AlertTriangle, Bell, TrendingUp, Target, Link2, Loader2, Download, Megaphone } from "lucide-react";
+import { AlertTriangle, Bell, TrendingUp, Target, Link2, Loader2, Download, Megaphone, FileText } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { LLM_PROVIDERS, type LlmProvider } from "@/lib/geo-engine";
@@ -305,13 +305,24 @@ export default async function DashboardPage({
             </CardTitle>
             <CardDescription>{selectedBrand.name}</CardDescription>
           </div>
-          <a
-            href={`/api/export/csv?brand=${selectedBrand.id}`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 gap-1.5")}
-          >
-            <Download className="h-3.5 w-3.5" />
-            <T k="dashboard.downloadCsv" />
-          </a>
+          <div className="flex shrink-0 gap-2">
+            {plan === "business" && (
+              <a
+                href={`/dashboard/report?brand=${selectedBrand.id}`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <T k="report.openReport" />
+              </a>
+            )}
+            <a
+              href={`/api/export/csv?brand=${selectedBrand.id}`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+            >
+              <Download className="h-3.5 w-3.5" />
+              <T k="dashboard.downloadCsv" />
+            </a>
+          </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <PromptForm brandId={selectedBrand.id} />

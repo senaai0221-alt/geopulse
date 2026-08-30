@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Bell, LineChart, Sparkles, Slack, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Bell, LineChart, Sparkles, Slack, CheckCircle2, Layers } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +25,13 @@ const PLANS = [
     price: "¥9,800",
     period: "/mo",
     descKey: "landing.proDesc",
-    featureKeys: ["landing.proFeature1", "landing.proFeature2", "landing.proFeature3", "landing.proFeature4"],
+    featureKeys: [
+      "landing.proFeature1",
+      "landing.proFeature2",
+      "landing.proFeature3",
+      "landing.proFeature4",
+      "landing.proFeature5",
+    ],
     highlighted: true,
   },
   {
@@ -33,7 +39,11 @@ const PLANS = [
     price: "¥29,800",
     period: "/mo",
     descKey: "landing.businessDesc",
+    // businessFeature0 ("everything in Pro") gets a different
+    // icon/weight below, to read as "inherits the tier below" rather
+    // than just another bullet point.
     featureKeys: [
+      "landing.businessFeature0",
       "landing.businessFeature1",
       "landing.businessFeature2",
       "landing.businessFeature3",
@@ -130,18 +140,20 @@ export default function LandingPage() {
           <p className="mt-3 text-center text-muted-foreground">
             <T k="landing.pricingSubtitle" />
           </p>
-          <div className="mx-auto mt-12 grid max-w-3xl grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="mx-auto mt-12 grid max-w-3xl grid-cols-1 gap-6 pt-3 md:grid-cols-2">
             {PLANS.map((plan) => (
               <Card
                 key={plan.name}
-                className={plan.highlighted ? "border-primary shadow-lg ring-1 ring-primary" : ""}
+                className={`relative flex h-full flex-col ${
+                  plan.highlighted ? "border-primary shadow-lg ring-1 ring-primary" : ""
+                }`}
               >
+                {plan.highlighted && (
+                  <Badge className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 shadow-sm">
+                    <T k="landing.recommended" />
+                  </Badge>
+                )}
                 <CardHeader>
-                  {plan.highlighted && (
-                    <Badge className="mb-2 w-fit">
-                      <T k="landing.recommended" />
-                    </Badge>
-                  )}
                   <CardTitle>{plan.name}</CardTitle>
                   <div className="flex items-baseline gap-1">
                     <span className="text-3xl font-bold">{plan.price}</span>
@@ -151,14 +163,21 @@ export default function LandingPage() {
                     <T k={plan.descKey} />
                   </p>
                 </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                  <ul className="flex flex-col gap-2">
-                    {plan.featureKeys.map((key) => (
-                      <li key={key} className="flex items-center gap-2 text-sm">
-                        <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
-                        <T k={key} />
-                      </li>
-                    ))}
+                <CardContent className="flex flex-1 flex-col gap-4">
+                  <ul className="flex flex-1 flex-col gap-2">
+                    {plan.featureKeys.map((key) =>
+                      key === "landing.businessFeature0" ? (
+                        <li key={key} className="flex items-center gap-2 text-sm font-medium">
+                          <Layers className="h-4 w-4 shrink-0 text-primary" />
+                          <T k={key} />
+                        </li>
+                      ) : (
+                        <li key={key} className="flex items-center gap-2 text-sm">
+                          <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                          <T k={key} />
+                        </li>
+                      )
+                    )}
                   </ul>
                   <Link
                     href="/login"

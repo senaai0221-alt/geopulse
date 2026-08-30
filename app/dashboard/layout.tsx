@@ -34,8 +34,8 @@ export default async function DashboardLayout({
   const planLabel = PLAN_LABELS[profile?.plan ?? "free"] ?? profile?.plan ?? null;
 
   return (
-    <div className="min-h-screen bg-muted/50">
-      <header className="border-b border-border bg-background">
+    <div className="min-h-screen bg-muted/50 print:bg-background">
+      <header className="border-b border-border bg-background print:hidden">
         <div className="container flex h-16 items-center justify-between gap-3">
           <Link href="/" className="flex shrink-0 items-center gap-2 font-bold text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -54,13 +54,13 @@ export default async function DashboardLayout({
         </div>
       </header>
 
-      <div className="container flex gap-8 py-8">
-        <aside className="hidden w-52 shrink-0 md:block">
+      <div className="container flex gap-8 py-8 print:p-0">
+        <aside className="hidden w-52 shrink-0 md:block print:hidden">
           <div className="sticky top-8">
             <SidebarNav />
           </div>
         </aside>
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="min-w-0 flex-1 print:w-full">{children}</main>
       </div>
     </div>
   );
