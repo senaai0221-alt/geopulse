@@ -19,6 +19,12 @@ interface Brand {
   competitors: string[] | null;
 }
 
+// Server-side (updateBrand in actions.ts) truncates to the same caps
+// regardless - see BrandForm for why these exist too.
+const NAME_MAX = 100;
+const DOMAIN_MAX = 200;
+const COMPETITORS_MAX = 300;
+
 /** One row in the brand-management list: view mode by default, an
  *  inline edit form for renaming/updating domain & competitors, and a
  *  delete action - none of which existed before (only adding a brand
@@ -75,14 +81,14 @@ export function BrandListItem({ brand }: { brand: Brand }) {
             <Target className="h-3.5 w-3.5 text-muted-foreground" />
             {t("settings.brandName")}
           </Label>
-          <Input id={`name-${brand.id}`} name="name" defaultValue={brand.name} required />
+          <Input id={`name-${brand.id}`} name="name" defaultValue={brand.name} maxLength={NAME_MAX} required />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`domain-${brand.id}`} className="flex items-center gap-1.5">
             <Globe className="h-3.5 w-3.5 text-muted-foreground" />
             {t("settings.brandDomain")}
           </Label>
-          <Input id={`domain-${brand.id}`} name="domain" defaultValue={brand.domain ?? ""} />
+          <Input id={`domain-${brand.id}`} name="domain" defaultValue={brand.domain ?? ""} maxLength={DOMAIN_MAX} />
           <p className="text-xs text-slate-400">{t("settings.brandDomainHint")}</p>
         </div>
         <div className="flex flex-col gap-1.5">
@@ -94,6 +100,7 @@ export function BrandListItem({ brand }: { brand: Brand }) {
             id={`competitors-${brand.id}`}
             name="competitors"
             defaultValue={(brand.competitors ?? []).join(", ")}
+            maxLength={COMPETITORS_MAX}
           />
           <p className="text-xs text-slate-400">{t("settings.brandCompetitorsHint")}</p>
         </div>
@@ -114,7 +121,7 @@ export function BrandListItem({ brand }: { brand: Brand }) {
   return (
     <div className="flex flex-col gap-1.5 rounded-md border border-border p-3">
       <div className="flex items-start justify-between gap-2">
-        <span className="font-medium">{brand.name}</span>
+        <span className="min-w-0 truncate font-medium">{brand.name}</span>
         <div className="flex shrink-0 gap-1">
           <Button
             type="button"

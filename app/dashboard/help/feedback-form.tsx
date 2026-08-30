@@ -79,6 +79,7 @@ export function FeedbackForm() {
           id="feedback-message"
           name="message"
           placeholder={t("feedback.messagePlaceholder")}
+          maxLength={3000}
           required
         />
       </div>

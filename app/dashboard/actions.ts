@@ -7,6 +7,34 @@ import { createClient } from "@/lib/supabase/server";
 import { sendSlackMessage, buildTestMessageBlocks, buildFeedbackBlocks, type FeedbackInput } from "@/lib/slack";
 import { assertCanAddBrand, assertCanAddPrompt } from "@/lib/plan-limits";
 
+// Defense-in-depth against pathological input (a multi-thousand-character
+// name/prompt, hundreds of "competitors", etc.) that could otherwise
+// blow up table/chart layouts or bloat every query result touching this
+// row - every write path for these fields goes through this file, so
+// clamping here holds regardless of what the client sent (its own
+// maxLength attributes are just a head start, never trusted alone).
+const LIMITS = {
+  brandName: 100,
+  domain: 200,
+  competitorItem: 60,
+  competitorCount: 20,
+  promptText: 300,
+  category: 50,
+  feedbackMessage: 3000,
+} as const;
+
+function truncate(value: string, max: number): string {
+  return value.length > max ? value.slice(0, max) : value;
+}
+
+function parseCompetitors(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((c) => truncate(c.trim(), LIMITS.competitorItem))
+    .filter(Boolean)
+    .slice(0, LIMITS.competitorCount);
+}
+
 async function requireUser() {
   const supabase = createClient();
   const {
@@ -19,13 +47,9 @@ async function requireUser() {
 export async function createBrand(formData: FormData) {
   const { supabase, user } = await requireUser();
 
-  const name = String(formData.get("name") ?? "").trim();
-  const domain = String(formData.get("domain") ?? "").trim();
-  const competitorsRaw = String(formData.get("competitors") ?? "");
-  const competitors = competitorsRaw
-    .split(",")
-    .map((c) => c.trim())
-    .filter(Boolean);
+  const name = truncate(String(formData.get("name") ?? "").trim(), LIMITS.brandName);
+  const domain = truncate(String(formData.get("domain") ?? "").trim(), LIMITS.domain);
+  const competitors = parseCompetitors(String(formData.get("competitors") ?? ""));
 
   if (!name) throw new Error("brand_name_required");
 
@@ -53,13 +77,9 @@ export async function updateBrand(formData: FormData) {
   const { supabase } = await requireUser();
 
   const brandId = String(formData.get("brand_id") ?? "");
-  const name = String(formData.get("name") ?? "").trim();
-  const domain = String(formData.get("domain") ?? "").trim();
-  const competitorsRaw = String(formData.get("competitors") ?? "");
-  const competitors = competitorsRaw
-    .split(",")
-    .map((c) => c.trim())
-    .filter(Boolean);
+  const name = truncate(String(formData.get("name") ?? "").trim(), LIMITS.brandName);
+  const domain = truncate(String(formData.get("domain") ?? "").trim(), LIMITS.domain);
+  const competitors = parseCompetitors(String(formData.get("competitors") ?? ""));
 
   if (!brandId || !name) throw new Error("brand_name_required");
 
@@ -92,8 +112,8 @@ export async function createPrompt(formData: FormData) {
   const { supabase, user } = await requireUser();
 
   const brandId = String(formData.get("brand_id") ?? "");
-  const text = String(formData.get("text") ?? "").trim();
-  const category = String(formData.get("category") ?? "").trim();
+  const text = truncate(String(formData.get("text") ?? "").trim(), LIMITS.promptText);
+  const category = truncate(String(formData.get("category") ?? "").trim(), LIMITS.category);
 
   if (!brandId || !text) throw new Error("prompt_text_required");
 
@@ -145,7 +165,7 @@ export async function deletePrompt(formData: FormData) {
 export async function updatePromptCategory(formData: FormData) {
   const { supabase } = await requireUser();
   const promptId = String(formData.get("prompt_id") ?? "");
-  const category = String(formData.get("category") ?? "").trim();
+  const category = truncate(String(formData.get("category") ?? "").trim(), LIMITS.category);
   if (!promptId) return;
 
   const { error } = await supabase
@@ -218,7 +238,7 @@ export async function submitFeedback(formData: FormData): Promise<{ ok: boolean;
 
   const typeRaw = String(formData.get("type") ?? "");
   const type = (FEEDBACK_TYPES.has(typeRaw) ? typeRaw : "other") as FeedbackInput["type"];
-  const message = String(formData.get("message") ?? "").trim();
+  const message = truncate(String(formData.get("message") ?? "").trim(), LIMITS.feedbackMessage);
   const pageUrl = String(formData.get("page_url") ?? "");
   const userAgent = String(formData.get("user_agent") ?? "");
 

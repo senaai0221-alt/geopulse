@@ -88,7 +88,7 @@ export default async function DashboardPage({
                 businessPriceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""}
               />
             ) : (
-              <BrandForm />
+              <BrandForm businessPriceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""} />
             )}
           </CardContent>
         </Card>
@@ -224,11 +224,13 @@ export default async function DashboardPage({
           <Link
             key={b.id}
             href={`/dashboard?brand=${b.id}`}
+            title={b.name}
             className={cn(
               buttonVariants({
                 variant: b.id === selectedBrand.id ? "default" : "outline",
                 size: "sm",
-              })
+              }),
+              "max-w-[200px] truncate"
             )}
           >
             {b.name}
@@ -343,7 +345,7 @@ export default async function DashboardPage({
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <PromptForm brandId={selectedBrand.id} />
+          <PromptForm brandId={selectedBrand.id} businessPriceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""} />
 
           {!prompts || prompts.length === 0 ? (
             <p className="text-sm text-muted-foreground">

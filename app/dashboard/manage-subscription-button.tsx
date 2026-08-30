@@ -12,26 +12,34 @@ import { useI18n } from "@/lib/i18n/context";
 export function ManageSubscriptionButton() {
   const { t } = useI18n();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // The API returns a code (it has no idea which language this UI is
+  // in), stored as-is and translated at render time (see `error` below)
+  // - not pre-translated into `error` directly - so if the viewer
+  // switches the JA/EN toggle while this is showing, it re-translates
+  // immediately instead of staying stuck in the old language.
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   async function handleClick() {
     setLoading(true);
-    setError(null);
+    setErrorCode(null);
     try {
       const res = await fetch("/api/stripe/portal", { method: "POST" });
       const data = await res.json();
       if (!res.ok || !data.url) {
-        // The API returns a code (not a locale-specific message - it
-        // has no idea which language this UI is in), so map it here.
-        const key = data.error === "no_customer" ? "settings.portalNoCustomer" : "settings.portalError";
-        throw new Error(t(key));
+        setErrorCode(data.error === "no_customer" ? "no_customer" : "portal_error");
+        setLoading(false);
+        return;
       }
       window.location.href = data.url;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("settings.portalError"));
+    } catch {
+      setErrorCode("portal_error");
       setLoading(false);
     }
   }
+
+  const error = errorCode
+    ? t(errorCode === "no_customer" ? "settings.portalNoCustomer" : "settings.portalError")
+    : null;
 
   return (
     <div className="flex flex-col gap-2">

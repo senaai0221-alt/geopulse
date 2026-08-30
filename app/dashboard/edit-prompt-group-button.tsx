@@ -60,6 +60,7 @@ export function EditPromptGroupButton({
             }
           }}
           placeholder={t("dashboard.promptCategoryPlaceholder")}
+          maxLength={50}
           className="h-7 w-32 text-xs"
         />
         <Button

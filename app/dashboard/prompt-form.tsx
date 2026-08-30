@@ -10,8 +10,14 @@ import { InlineAlert } from "@/components/ui/inline-alert";
 import { useI18n } from "@/lib/i18n/context";
 import { translateActionError } from "@/lib/i18n/action-error";
 import { createPrompt } from "./actions";
+import { PlanLimitAlert } from "./plan-limit-alert";
 
-export function PromptForm({ brandId }: { brandId: string }) {
+// Server-side (createPrompt in actions.ts) truncates to the same caps
+// regardless - see BrandForm for why these exist too.
+const TEXT_MAX = 300;
+const CATEGORY_MAX = 50;
+
+export function PromptForm({ brandId, businessPriceId }: { brandId: string; businessPriceId: string }) {
   const { t } = useI18n();
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -19,7 +25,14 @@ export function PromptForm({ brandId }: { brandId: string }) {
   // Stored as a code and translated at render time (see `error` below) -
   // see BrandForm for why.
   const [errorCode, setErrorCode] = useState<string | null>(null);
-  const error = errorCode === "validation.required" ? t(errorCode) : errorCode ? translateActionError(t, errorCode, "dashboard.addPromptFailed") : null;
+  const errorType = errorCode?.split(":")[0];
+  const isPlanLimitError = errorType === "no_free_tier" || errorType === "prompt_limit";
+  const error =
+    !errorCode || isPlanLimitError
+      ? null
+      : errorCode === "validation.required"
+      ? t(errorCode)
+      : translateActionError(t, errorCode, "dashboard.addPromptFailed");
 
   function handleSubmit(formData: FormData) {
     setErrorCode(null);
@@ -57,15 +70,21 @@ export function PromptForm({ brandId }: { brandId: string }) {
       <Input
         name="text"
         placeholder={t("dashboard.promptPlaceholder")}
+        maxLength={TEXT_MAX}
         required
         className="flex-1"
       />
       <Input
         name="category"
         placeholder={t("dashboard.promptCategoryPlaceholder")}
+        maxLength={CATEGORY_MAX}
         className="sm:w-40"
       />
-      {error && <InlineAlert>{error}</InlineAlert>}
+      {isPlanLimitError && errorCode ? (
+        <PlanLimitAlert code={errorCode} businessPriceId={businessPriceId} />
+      ) : (
+        error && <InlineAlert>{error}</InlineAlert>
+      )}
       <Button type="submit" disabled={isPending} size="sm">
         {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
         {t("dashboard.addPromptButton")}

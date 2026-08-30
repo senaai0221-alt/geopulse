@@ -73,7 +73,7 @@ export default async function SettingsPage() {
                   <T k="settings.addBrandNeedsPlan" />
                 </p>
               ) : (
-                <BrandForm />
+                <BrandForm businessPriceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""} />
               )}
             </div>
           </CardContent>
