@@ -186,6 +186,19 @@
     "faqQ3": "Can I export data for internal reporting?",
     "faqA3": "Yes - CSV from the dashboard, or a print/PDF-optimized A4 report from the Report page on the Business plan."
   },
+  "feedback": {
+    "title": "Feedback & Bug Reports",
+    "subtitle": "Spotted a bug, or have an idea to make this better? Let us know here.",
+    "typeLabel": "Type",
+    "typeBug": "Bug report",
+    "typeFeature": "Feature request",
+    "typeOther": "Other",
+    "messageLabel": "Details",
+    "messagePlaceholder": "Tell us what you noticed, as specifically as you can",
+    "submit": "Send Feedback",
+    "sent": "Thanks for letting us know - we'll take a look.",
+    "sendFailed": "Failed to send. Please try again in a moment."
+  },
   "report": {
     "print": "Print / Save as PDF",
     "generatedAt": "Generated",

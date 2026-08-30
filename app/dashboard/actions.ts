@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { sendSlackMessage, buildTestMessageBlocks } from "@/lib/slack";
+import { sendSlackMessage, buildTestMessageBlocks, buildFeedbackBlocks, type FeedbackInput } from "@/lib/slack";
 import { assertCanAddBrand, assertCanAddPrompt } from "@/lib/plan-limits";
 
 async function requireUser() {
@@ -200,6 +200,58 @@ export async function sendTestSlackMessage(): Promise<{ ok: boolean; code: strin
   } catch {
     return { ok: false, code: "send_failed" };
   }
+}
+
+const FEEDBACK_TYPES = new Set(["bug", "feature", "other"]);
+
+/**
+ * Saves a Help-page bug report / feature request (feedback table - see
+ * supabase/schema.sql) and best-effort notifies the operator's own admin
+ * Slack channel, distinct from the per-user webhook configured in
+ * Settings (that one is for the user's own brand-tracking alerts, not
+ * feedback about the product). The DB row is the durable record; if
+ * FEEDBACK_SLACK_WEBHOOK_URL isn't set, or the Slack call fails, the
+ * submission still succeeds since the row is already saved.
+ */
+export async function submitFeedback(formData: FormData): Promise<{ ok: boolean; code?: string }> {
+  const { supabase, user } = await requireUser();
+
+  const typeRaw = String(formData.get("type") ?? "");
+  const type = (FEEDBACK_TYPES.has(typeRaw) ? typeRaw : "other") as FeedbackInput["type"];
+  const message = String(formData.get("message") ?? "").trim();
+  const pageUrl = String(formData.get("page_url") ?? "");
+  const userAgent = String(formData.get("user_agent") ?? "");
+
+  if (!message) return { ok: false, code: "validation.required" };
+
+  const email = user.email ?? "";
+
+  const { error } = await supabase.from("feedback").insert({
+    user_id: user.id,
+    email,
+    type,
+    message,
+    page_url: pageUrl || null,
+    user_agent: userAgent || null,
+  });
+  if (error) return { ok: false, code: "feedback_save_failed" };
+
+  const webhookUrl = process.env.FEEDBACK_SLACK_WEBHOOK_URL;
+  if (webhookUrl) {
+    try {
+      await sendSlackMessage(
+        webhookUrl,
+        buildFeedbackBlocks({ type, message, email, pageUrl, userAgent }),
+        `Zonostick フィードバック (${type}): ${email}`
+      );
+    } catch (err) {
+      // The submission is already durably saved above - a failed Slack
+      // notification must not turn into a failure the user sees.
+      console.error("submitFeedback: Slack notification failed:", err);
+    }
+  }
+
+  return { ok: true };
 }
 
 export async function signOut() {

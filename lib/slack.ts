@@ -124,6 +124,52 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
   return blocks;
 }
 
+export interface FeedbackInput {
+  type: "bug" | "feature" | "other";
+  message: string;
+  email: string;
+  pageUrl: string;
+  userAgent: string;
+}
+
+const FEEDBACK_TYPE_LABELS: Record<FeedbackInput["type"], string> = {
+  bug: "🐞 不具合の報告",
+  feature: "💡 機能の改善要望",
+  other: "💬 その他",
+};
+
+/** Builds the Slack Block Kit payload for a Help-page feedback
+ *  submission - sent to the operator's own admin webhook
+ *  (FEEDBACK_SLACK_WEBHOOK_URL), not the submitting user's configured
+ *  webhook, since this is feedback about the product itself. */
+export function buildFeedbackBlocks(input: FeedbackInput) {
+  return [
+    {
+      type: "header",
+      text: { type: "plain_text", text: "📮 Zonostick フィードバック", emoji: true },
+    },
+    {
+      type: "section",
+      fields: [
+        { type: "mrkdwn", text: `*種別:*\n${FEEDBACK_TYPE_LABELS[input.type]}` },
+        { type: "mrkdwn", text: `*送信者:*\n${input.email}` },
+      ],
+    },
+    {
+      type: "section",
+      text: { type: "mrkdwn", text: `*内容:*\n${input.message}` },
+    },
+    { type: "divider" },
+    {
+      type: "context",
+      elements: [
+        { type: "mrkdwn", text: `URL: ${input.pageUrl}` },
+        { type: "mrkdwn", text: `UA: ${input.userAgent}` },
+      ],
+    },
+  ];
+}
+
 export function buildTestMessageBlocks() {
   return [
     {

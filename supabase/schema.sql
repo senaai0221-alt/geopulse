@@ -150,6 +150,37 @@ create table if not exists public.alerts (
 create index if not exists alerts_user_created_idx on public.alerts (user_id, created_at desc);
 
 -- ---------------------------------------------------------------------
+-- feedback: bug reports / feature requests submitted from the Help page
+-- (app/dashboard/help/feedback-form.tsx). Durable record of every
+-- submission independent of whether the admin Slack notification (see
+-- lib/slack.ts buildFeedbackBlocks / FEEDBACK_SLACK_WEBHOOK_URL) is
+-- configured or succeeds - Slack is a best-effort notification, this
+-- table is the source of truth.
+-- ---------------------------------------------------------------------
+create table if not exists public.feedback (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references public.profiles (id) on delete set null,
+  email text not null,
+  type text not null check (type in ('bug', 'feature', 'other')),
+  message text not null,
+  page_url text,
+  user_agent text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists feedback_user_created_idx on public.feedback (user_id, created_at desc);
+
+alter table public.feedback enable row level security;
+
+-- feedback: any authenticated user can insert their own row; no
+-- select/update/delete policy is granted, so submissions are readable
+-- only via the Supabase dashboard / service role (the operator), never
+-- back to the submitting user or anyone else through the app.
+drop policy if exists "feedback_insert_own" on public.feedback;
+create policy "feedback_insert_own" on public.feedback
+  for insert with check (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------
 -- updated_at trigger for profiles
 -- ---------------------------------------------------------------------
 create or replace function public.set_updated_at()

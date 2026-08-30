@@ -186,6 +186,19 @@
     "faqQ3": "社内報告用にデータを出力できますか？",
     "faqA3": "ダッシュボードからCSV出力、またはBusinessプランのレポート画面からPDF出力が可能です。"
   },
+  "feedback": {
+    "title": "ご意見・不具合報告",
+    "subtitle": "気づいた不具合や改善のご要望があれば、こちらからお気軽にお知らせください。",
+    "typeLabel": "種別",
+    "typeBug": "不具合の報告",
+    "typeFeature": "機能の改善要望",
+    "typeOther": "その他",
+    "messageLabel": "詳細内容",
+    "messagePlaceholder": "気づいた点を具体的に教えてください",
+    "submit": "送信する",
+    "sent": "ご報告ありがとうございます。内容を確認いたします。",
+    "sendFailed": "送信に失敗しました。時間をおいて再度お試しください。"
+  },
   "report": {
     "print": "印刷 / PDFとして保存",
     "generatedAt": "作成日時",

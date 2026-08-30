@@ -1,9 +1,10 @@
 "use client";
 
-import { UserPlus, MessageSquarePlus, Sparkles, ChevronDown, Rocket, Sliders, HelpCircle } from "lucide-react";
+import { UserPlus, MessageSquarePlus, Sparkles, ChevronDown, Rocket, Sliders, HelpCircle, MessageSquareWarning } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useI18n } from "@/lib/i18n/context";
+import { FeedbackForm } from "./feedback-form";
 
 const QUICK_START = [
   { icon: UserPlus, titleKey: "help.quickStart1Title", descKey: "help.quickStart1Desc" },
@@ -98,6 +99,19 @@ export default function HelpPage() {
               <p className="mt-2 text-sm text-muted-foreground">{t(faq.aKey)}</p>
             </details>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquareWarning className="h-4 w-4 text-primary" />
+            {t("feedback.title")}
+          </CardTitle>
+          <CardDescription>{t("feedback.subtitle")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FeedbackForm />
         </CardContent>
       </Card>
     </div>
