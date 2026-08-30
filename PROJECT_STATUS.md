@@ -16,10 +16,10 @@ Legend: ✅ Done · 🚧 Partial · ❌ Not started
 | Stripe Checkout (subscription) | ✅ | `app/api/checkout/route.ts` |
 | Stripe webhook → `profiles.plan` sync | ✅ | `app/api/webhooks/stripe/route.ts`, `lib/stripe.ts` |
 | Stripe production mode | ✅ | Activated 2026-08-30; under Stripe review for the security-checklist submission (see memory) |
-| Customer Portal (self-serve cancel/payment method/invoices) | ❌ | Not implemented. `app/dashboard/settings/page.tsx` currently just says "contact support to change plan" |
+| Customer Portal (self-serve cancel/payment method/invoices) | ✅ | `app/api/stripe/portal/route.ts`, `app/dashboard/manage-subscription-button.tsx`, wired into `app/dashboard/settings/page.tsx` |
 | Free tier | N/A — removed | `lib/plan-limits.ts` (0 brands/prompts on the `free` tier; see decision log below) |
 
-**Gap to flag**: no Stripe Customer Portal link exists yet. Paying customers cannot self-serve cancel, update their card, or download a receipt/invoice — everything currently requires emailing support. Not blocking launch, but should be prioritized soon after.
+**Manual step required**: Stripe's Customer Portal needs a saved configuration in **live mode** before `billingPortal.sessions.create` will succeed there (Stripe Dashboard → Settings → Billing → Customer portal → save the configuration once; test mode has a default one auto-provisioned, live mode does not). Until that's done, the "Manage subscription" button will return an error in production.
 
 ## 2. Auth & Onboarding
 
