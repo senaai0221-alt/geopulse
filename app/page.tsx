@@ -8,7 +8,9 @@ import { cn } from "@/lib/utils";
 import { T } from "@/components/t";
 import { LangToggle } from "@/components/lang-toggle";
 
-const PROVIDERS = ["ChatGPT", "Claude", "Perplexity", "Gemini"];
+// All 6 providers Zonostick actually queries - keep in sync with
+// LLM_PROVIDERS in lib/geo-engine.ts.
+const PROVIDERS = ["ChatGPT", "Claude", "Perplexity", "Gemini", "Grok", "DeepSeek"];
 
 const FEATURES = [
   { icon: LineChart, titleKey: "landing.feature1Title", descKey: "landing.feature1Desc" },
