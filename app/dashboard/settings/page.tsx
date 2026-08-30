@@ -1,3 +1,5 @@
+import { Target, Bell, ShieldCheck } from "lucide-react";
+
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { T } from "@/components/t";
@@ -44,7 +46,8 @@ export default async function SettingsPage() {
         {/* Brand management */}
         <Card>
           <CardHeader>
-            <CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-primary" />
               <T k="settings.brandManagement" />
             </CardTitle>
             <CardDescription>
@@ -79,7 +82,8 @@ export default async function SettingsPage() {
         {/* Slack settings */}
         <Card>
           <CardHeader>
-            <CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-primary" />
               <T k="settings.slackSettings" />
             </CardTitle>
             <CardDescription>
@@ -97,7 +101,8 @@ export default async function SettingsPage() {
         {/* Plan / upgrade */}
         <Card>
           <CardHeader>
-            <CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" />
               <T k="dashboard.plan" />
             </CardTitle>
             <CardDescription>

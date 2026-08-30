@@ -11,6 +11,7 @@ import {
   FileDown,
   MessageSquareText,
   ChevronDown,
+  HelpCircle,
 } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -311,7 +312,10 @@ export default async function LandingPage() {
             {FAQS.map((faq) => (
               <details key={faq.qKey} className="group rounded-lg border border-border bg-background px-5 py-4">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium marker:content-none">
-                  <T k={faq.qKey} />
+                  <span className="flex items-center gap-2">
+                    <HelpCircle className="h-4 w-4 shrink-0 text-primary" />
+                    <T k={faq.qKey} />
+                  </span>
                   <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                 </summary>
                 <p className="mt-3 text-sm text-muted-foreground">

@@ -157,6 +157,9 @@
   "langToggle": {
     "label": "Language"
   },
+  "validation": {
+    "required": "This field is required"
+  },
   "help": {
     "title": "Guide & FAQ",
     "subtitle": "How to use Zonostick, what the metrics mean, and answers to common questions.",
@@ -186,7 +189,7 @@
     "print": "Print / Save as PDF",
     "generatedAt": "Generated",
     "businessOnly": "This feature is Business-plan only",
-    "businessOnlyDesc": "Agency-ready A4 report export is available on the Business plan.",
+    "businessOnlyDesc": "A print/PDF-optimized A4 report for internal and client reporting is available on the Business plan.",
     "openReport": "Open A4 report",
     "reportTitle": "GEO Tracking Report",
     "summary": "Summary",
@@ -214,8 +217,10 @@
     "cancel": "Cancel",
     "brandName": "Name",
     "brandNamePlaceholder": "e.g. Zonostick, a specific service, or product name",
-    "brandDomain": "Domain (optional)",
-    "brandCompetitors": "Competitors (comma-separated)",
+    "brandDomain": "Domain",
+    "brandDomainHint": "Optional",
+    "brandCompetitors": "Competitors",
+    "brandCompetitorsHint": "Separate with commas",
     "addBrandNeedsPlan": "Adding a brand requires a paid plan (Pro/Business). Subscribe from the card on the right.",
     "slackSettings": "Slack notifications",
     "slackSettingsDesc": "Where daily summaries and anomaly alerts are sent",

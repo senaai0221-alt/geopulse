@@ -50,6 +50,7 @@ export default async function ReportPage({
           <UpgradePrompt
             proPriceId={process.env.STRIPE_PRICE_ID_PRO ?? ""}
             businessPriceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""}
+            currentPlan={profile?.plan}
           />
         </div>
       </div>

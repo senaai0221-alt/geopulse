@@ -11,7 +11,10 @@ export function RecheckPromptButton({ promptId }: { promptId: string }) {
   const { t } = useI18n();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Kept as data (a rate-limit flag + the raw minutes), not the rendered
+  // message text, so the popover always re-translates correctly if the
+  // viewer flips the JA/EN toggle while it's showing.
+  const [error, setError] = useState<{ rateLimited: boolean; minutes?: number } | null>(null);
 
   async function handleClick() {
     setLoading(true);
@@ -24,21 +27,26 @@ export function RecheckPromptButton({ promptId }: { promptId: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        // 429 (rate limited) carries a retryAfterMin so the message can
-        // be built from a translated template; anything else falls back
-        // to a generic translated message.
         if (data.code === "rate_limited") {
-          throw new Error(t("dashboard.recheckRateLimited", { minutes: data.retryAfterMin ?? "" }));
+          setError({ rateLimited: true, minutes: data.retryAfterMin });
+        } else {
+          setError({ rateLimited: false });
         }
-        throw new Error(t("dashboard.recheckFailed"));
+        return;
       }
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("dashboard.recheckFailed"));
+    } catch {
+      setError({ rateLimited: false });
     } finally {
       setLoading(false);
     }
   }
+
+  const errorText = error
+    ? error.rateLimited
+      ? t("dashboard.recheckRateLimited", { minutes: error.minutes ?? "" })
+      : t("dashboard.recheckFailed")
+    : null;
 
   return (
     <div className="relative">
@@ -57,9 +65,9 @@ export function RecheckPromptButton({ promptId }: { promptId: string }) {
           <RefreshCw className="h-4 w-4 text-muted-foreground" />
         )}
       </Button>
-      {error && (
+      {errorText && (
         <p className="absolute right-0 top-full z-10 mt-1 w-56 rounded-md border border-border bg-popover p-2 text-xs text-destructive shadow-md">
-          {error}
+          {errorText}
         </p>
       )}
     </div>

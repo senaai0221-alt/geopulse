@@ -16,10 +16,19 @@ export function PromptForm({ brandId }: { brandId: string }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  // Stored as a code and translated at render time (see `error` below) -
+  // see BrandForm for why.
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  const error = errorCode === "validation.required" ? t(errorCode) : errorCode ? translateActionError(t, errorCode, "dashboard.addPromptFailed") : null;
 
   function handleSubmit(formData: FormData) {
-    setError(null);
+    setErrorCode(null);
+    // See BrandForm's handleSubmit for why this manual check (rather than
+    // the browser's native `required` validation) is what actually runs.
+    if (!String(formData.get("text") ?? "").trim()) {
+      setErrorCode("validation.required");
+      return;
+    }
     startTransition(async () => {
       try {
         const newPrompt = await createPrompt(formData);
@@ -37,13 +46,13 @@ export function PromptForm({ brandId }: { brandId: string }) {
           .catch(() => {})
           .finally(() => router.refresh());
       } catch (err) {
-        setError(translateActionError(t, err instanceof Error ? err.message : "", "dashboard.addPromptFailed"));
+        setErrorCode(err instanceof Error ? err.message : "");
       }
     });
   }
 
   return (
-    <form ref={formRef} action={handleSubmit} className="flex flex-col gap-2 sm:flex-row">
+    <form ref={formRef} action={handleSubmit} noValidate className="flex flex-col gap-2 sm:flex-row">
       <input type="hidden" name="brand_id" value={brandId} />
       <Input
         name="text"

@@ -41,13 +41,24 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  // Supabase's own (English, untranslatable) failure message - kept
+  // separate from emailValidationError below so the two can't collide.
   const [error, setError] = useState<string | null>(null);
+  // Our own pre-send "required" check, stored as an i18n key rather than
+  // an already-translated string, and translated at render time (see
+  // emailAlertText) - so switching the JA/EN toggle while it's showing
+  // re-translates it immediately instead of leaving stale-language text.
+  const [emailValidationError, setEmailValidationError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
 
   const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [codeValidationError, setCodeValidationError] = useState<string | null>(null);
+
+  const emailAlertText = emailValidationError ? t(emailValidationError) : error;
+  const codeAlertText = codeValidationError ? t(codeValidationError) : verifyError;
 
   async function handleGoogleSignIn() {
     setGoogleError(null);
@@ -71,8 +82,19 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+    setEmailValidationError(null);
+
+    // The form is `noValidate` (see below) so this check - not the
+    // browser's native validation bubble - is what runs on an empty
+    // email: a native bubble draws in the browser's own UI language, not
+    // the app's locale, which reads as untranslated text leaking through
+    // in EN mode.
+    if (!email.trim()) {
+      setEmailValidationError("validation.required");
+      return;
+    }
+    setLoading(true);
 
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
@@ -103,8 +125,14 @@ export default function LoginPage() {
 
   async function handleVerifyCode(e: React.FormEvent) {
     e.preventDefault();
-    setVerifying(true);
     setVerifyError(null);
+    setCodeValidationError(null);
+
+    if (!code.trim()) {
+      setCodeValidationError("validation.required");
+      return;
+    }
+    setVerifying(true);
 
     const supabase = createClient();
     const { error } = await supabase.auth.verifyOtp({
@@ -153,7 +181,7 @@ export default function LoginPage() {
                     {email} {t("login.linkSent")}
                   </div>
                 )}
-                <form onSubmit={handleVerifyCode} className="flex flex-col gap-2">
+                <form onSubmit={handleVerifyCode} noValidate className="flex flex-col gap-2">
                   <Label htmlFor="code">
                     {error ? t("login.enterCode") : t("login.enterCodeHint")}
                   </Label>
@@ -165,7 +193,7 @@ export default function LoginPage() {
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
                   />
-                  {verifyError && <InlineAlert>{verifyError}</InlineAlert>}
+                  {codeAlertText && <InlineAlert>{codeAlertText}</InlineAlert>}
                   <Button type="submit" disabled={verifying} className="w-full">
                     {verifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {t("login.confirmCode")}
@@ -196,7 +224,7 @@ export default function LoginPage() {
                   <div className="h-px flex-1 bg-border" />
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="email">{t("login.email")}</Label>
                     <Input
@@ -208,7 +236,7 @@ export default function LoginPage() {
                       onChange={(e) => setEmail(e.target.value)}
                     />
                   </div>
-                  {error && <InlineAlert>{error}</InlineAlert>}
+                  {emailAlertText && <InlineAlert>{emailAlertText}</InlineAlert>}
                   <Button type="submit" variant="secondary" disabled={loading} className="w-full">
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {t("login.sendLink")}

@@ -1,6 +1,6 @@
 "use client";
 
-import { UserPlus, MessageSquarePlus, Sparkles, ChevronDown } from "lucide-react";
+import { UserPlus, MessageSquarePlus, Sparkles, ChevronDown, Rocket, Sliders, HelpCircle } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useI18n } from "@/lib/i18n/context";
@@ -38,7 +38,10 @@ export default function HelpPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("help.quickStartTitle")}</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Rocket className="h-4 w-4 text-primary" />
+            {t("help.quickStartTitle")}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
@@ -60,7 +63,10 @@ export default function HelpPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("help.metricsTitle")}</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Sliders className="h-4 w-4 text-primary" />
+            {t("help.metricsTitle")}
+          </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col divide-y divide-border">
           {METRICS.map((metric) => (
@@ -74,13 +80,19 @@ export default function HelpPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("help.faqTitle")}</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <HelpCircle className="h-4 w-4 text-primary" />
+            {t("help.faqTitle")}
+          </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           {FAQS.map((faq) => (
             <details key={faq.qKey} className="group rounded-lg border border-border px-4 py-3">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-medium text-slate-900 marker:content-none">
-                {t(faq.qKey)}
+                <span className="flex items-center gap-2">
+                  <HelpCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  {t(faq.qKey)}
+                </span>
                 <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
               </summary>
               <p className="mt-2 text-sm text-muted-foreground">{t(faq.aKey)}</p>

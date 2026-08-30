@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { Globe, Tag, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Globe, Tag, Pencil, Trash2, Loader2, Target, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,17 +28,26 @@ export function BrandListItem({ brand }: { brand: Brand }) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  // Stored as a code and translated at render time (see `error` below) -
+  // see BrandForm for why.
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  const error = errorCode === "validation.required" ? t(errorCode) : errorCode ? translateActionError(t, errorCode, "settings.addBrandFailed") : null;
   const formRef = useRef<HTMLFormElement>(null);
 
   function handleSave(formData: FormData) {
-    setError(null);
+    setErrorCode(null);
+    // See BrandForm's handleSubmit for why this manual check (rather than
+    // the browser's native `required` validation) is what actually runs.
+    if (!String(formData.get("name") ?? "").trim()) {
+      setErrorCode("validation.required");
+      return;
+    }
     startTransition(async () => {
       try {
         await updateBrand(formData);
         setEditing(false);
       } catch (err) {
-        setError(translateActionError(t, err instanceof Error ? err.message : "", "settings.addBrandFailed"));
+        setErrorCode(err instanceof Error ? err.message : "");
       }
     });
   }
@@ -57,24 +66,36 @@ export function BrandListItem({ brand }: { brand: Brand }) {
       <form
         ref={formRef}
         action={handleSave}
+        noValidate
         className="flex flex-col gap-3 rounded-md border border-primary/40 bg-primary/5 p-3"
       >
         <input type="hidden" name="brand_id" value={brand.id} />
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`name-${brand.id}`}>{t("settings.brandName")}</Label>
+          <Label htmlFor={`name-${brand.id}`} className="flex items-center gap-1.5">
+            <Target className="h-3.5 w-3.5 text-muted-foreground" />
+            {t("settings.brandName")}
+          </Label>
           <Input id={`name-${brand.id}`} name="name" defaultValue={brand.name} required />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`domain-${brand.id}`}>{t("settings.brandDomain")}</Label>
+          <Label htmlFor={`domain-${brand.id}`} className="flex items-center gap-1.5">
+            <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+            {t("settings.brandDomain")}
+          </Label>
           <Input id={`domain-${brand.id}`} name="domain" defaultValue={brand.domain ?? ""} />
+          <p className="text-xs text-slate-400">{t("settings.brandDomainHint")}</p>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`competitors-${brand.id}`}>{t("settings.brandCompetitors")}</Label>
+          <Label htmlFor={`competitors-${brand.id}`} className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5 text-muted-foreground" />
+            {t("settings.brandCompetitors")}
+          </Label>
           <Input
             id={`competitors-${brand.id}`}
             name="competitors"
             defaultValue={(brand.competitors ?? []).join(", ")}
           />
+          <p className="text-xs text-slate-400">{t("settings.brandCompetitorsHint")}</p>
         </div>
         {error && <InlineAlert>{error}</InlineAlert>}
         <div className="flex gap-2">

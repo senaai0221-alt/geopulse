@@ -20,11 +20,14 @@ export function UpgradeButton({
 }) {
   const { t } = useI18n();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // A boolean, not the message text itself, so the alert always renders
+  // in the *current* locale even if the viewer flips the JA/EN toggle
+  // after the error appears.
+  const [hasError, setHasError] = useState(false);
 
   async function handleClick() {
     setLoading(true);
-    setError(null);
+    setHasError(false);
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
@@ -33,11 +36,11 @@ export function UpgradeButton({
       });
       const data = await res.json();
       if (!res.ok || !data.url) {
-        throw new Error(t("dashboard.checkoutCreateFailed"));
+        throw new Error("checkout_create_failed");
       }
       window.location.href = data.url;
     } catch {
-      setError(t("dashboard.genericError"));
+      setHasError(true);
       setLoading(false);
     }
   }
@@ -48,7 +51,7 @@ export function UpgradeButton({
         {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
         {label}
       </Button>
-      {error && <InlineAlert>{error}</InlineAlert>}
+      {hasError && <InlineAlert>{t("dashboard.genericError")}</InlineAlert>}
     </div>
   );
 }
@@ -59,11 +62,24 @@ export function UpgradeButton({
  *  Price IDs are server-only env vars, so the caller (a Server
  *  Component) must resolve and pass them in - a Client Component can't
  *  read process.env.STRIPE_PRICE_ID_* itself. */
-export function UpgradePrompt({ proPriceId, businessPriceId }: { proPriceId: string; businessPriceId: string }) {
+export function UpgradePrompt({
+  proPriceId,
+  businessPriceId,
+  currentPlan,
+}: {
+  proPriceId: string;
+  businessPriceId: string;
+  /** The caller's current plan, if any. A Pro (or Business) subscriber is
+   *  never offered the Pro button - upgrading from Pro to Pro is not a
+   *  real option, and showing it anyway reads as a bug (see the report
+   *  page's Business-only gate, which used to show both). */
+  currentPlan?: string | null;
+}) {
   const { t } = useI18n();
+  const showPro = currentPlan !== "pro" && currentPlan !== "business";
   return (
     <div className="flex flex-col gap-2 sm:flex-row">
-      <UpgradeButton priceId={proPriceId} label={t("dashboard.upgradeToPro")} />
+      {showPro && <UpgradeButton priceId={proPriceId} label={t("dashboard.upgradeToPro")} />}
       <UpgradeButton priceId={businessPriceId} label={t("dashboard.upgradeToBusiness")} />
     </div>
   );

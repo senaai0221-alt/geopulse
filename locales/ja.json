@@ -157,6 +157,9 @@
   "langToggle": {
     "label": "言語"
   },
+  "validation": {
+    "required": "この項目を入力してください"
+  },
   "help": {
     "title": "ガイド・Q&A",
     "subtitle": "Zonostickの使い方、指標の見方、よくある質問をまとめました。",
@@ -186,7 +189,7 @@
     "print": "印刷 / PDFとして保存",
     "generatedAt": "作成日時",
     "businessOnly": "この機能はBusinessプラン限定です",
-    "businessOnlyDesc": "代理店向けA4レポート出力は、Businessプランにアップグレードするとご利用いただけます。",
+    "businessOnlyDesc": "社内・クライアント報告用のA4レポート出力(PDF/印刷最適化)は、Businessプランにアップグレードするとご利用いただけます。",
     "openReport": "A4レポートを開く",
     "reportTitle": "GEOトラッキングレポート",
     "summary": "サマリー",
@@ -214,8 +217,10 @@
     "cancel": "キャンセル",
     "brandName": "対象名",
     "brandNamePlaceholder": "例: Zonostick、〇〇サービス、特定プロダクト名など",
-    "brandDomain": "ドメイン(任意)",
-    "brandCompetitors": "競合(カンマ区切り)",
+    "brandDomain": "ドメイン",
+    "brandDomainHint": "任意項目です",
+    "brandCompetitors": "競合",
+    "brandCompetitorsHint": "カンマ区切りで入力してください",
     "addBrandNeedsPlan": "ブランドの追加には有料プラン(Pro/Business)のご契約が必要です。右のカードからご契約いただけます。",
     "slackSettings": "Slack通知設定",
     "slackSettingsDesc": "日次サマリーと異常検知アラートの送信先",

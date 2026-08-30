@@ -1,6 +1,19 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { AlertTriangle, Bell, TrendingUp, Target, Link2, Loader2, Download, Megaphone, FileText } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  TrendingUp,
+  Target,
+  Link2,
+  Loader2,
+  Download,
+  Megaphone,
+  FileText,
+  ListChecks,
+  LineChart,
+  PieChart,
+} from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { LLM_PROVIDERS, type LlmProvider } from "@/lib/geo-engine";
@@ -59,7 +72,8 @@ export default async function DashboardPage({
       <div className="flex flex-col gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-primary" />
               <T k={plan === "free" ? "dashboard.needSubscription" : "dashboard.firstBrand"} />
             </CardTitle>
             <CardDescription>
@@ -302,7 +316,8 @@ export default async function DashboardPage({
       <Card>
         <CardHeader className="flex-row items-start justify-between space-y-0">
           <div>
-            <CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <ListChecks className="h-4 w-4 text-primary" />
               <T k="dashboard.latestRankings" />
             </CardTitle>
             <CardDescription>{selectedBrand.name}</CardDescription>
@@ -415,7 +430,8 @@ export default async function DashboardPage({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <LineChart className="h-4 w-4 text-primary" />
               <T k="dashboard.trend" />
             </CardTitle>
             <CardDescription>
@@ -429,7 +445,8 @@ export default async function DashboardPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <PieChart className="h-4 w-4 text-primary" />
               <T k="dashboard.shareOfVoice" />
             </CardTitle>
             <CardDescription>
@@ -445,7 +462,8 @@ export default async function DashboardPage({
       {/* Recent alerts - compact */}
       <Card>
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-4 w-4 text-primary" />
             <T k="dashboard.recentAlerts" />
           </CardTitle>
           <CardDescription>
