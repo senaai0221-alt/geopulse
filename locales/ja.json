@@ -128,6 +128,7 @@
     "slackSettings": "Slack通知設定",
     "slackSettingsDesc": "日次サマリーと異常検知アラートの送信先",
     "currentPlan": "現在のプラン",
-    "subscribedThanks": "ご契約ありがとうございます。プラン変更はサポートまでご連絡ください。"
+    "subscribedThanks": "ご契約ありがとうございます。",
+    "manageSubscription": "契約管理・領収書発行"
   }
 }

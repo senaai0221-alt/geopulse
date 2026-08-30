@@ -8,6 +8,7 @@ import { T } from "@/components/t";
 import { BrandForm } from "../brand-form";
 import { SlackSettingsForm } from "../slack-settings-form";
 import { UpgradePrompt } from "../upgrade-button";
+import { ManageSubscriptionButton } from "../manage-subscription-button";
 
 const PLAN_LABELS: Record<string, string | null> = {
   free: null, // rendered via <T k="dashboard.notSubscribed" /> instead
@@ -133,9 +134,12 @@ export default async function SettingsPage() {
               />
             )}
             {(profile?.plan ?? "free") !== "free" && (
-              <p className="text-sm text-muted-foreground">
-                <T k="settings.subscribedThanks" />
-              </p>
+              <>
+                <p className="text-sm text-muted-foreground">
+                  <T k="settings.subscribedThanks" />
+                </p>
+                <ManageSubscriptionButton />
+              </>
             )}
           </CardContent>
         </Card>

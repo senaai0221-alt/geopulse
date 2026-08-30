@@ -128,6 +128,7 @@
     "slackSettings": "Slack notifications",
     "slackSettingsDesc": "Where daily summaries and anomaly alerts are sent",
     "currentPlan": "Current plan",
-    "subscribedThanks": "Thanks for subscribing! Contact support to change your plan."
+    "subscribedThanks": "Thanks for subscribing!",
+    "manageSubscription": "Manage subscription & invoices"
   }
 }
