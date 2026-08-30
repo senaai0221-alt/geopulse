@@ -30,6 +30,7 @@ import { BrandForm } from "./brand-form";
 import { PromptForm } from "./prompt-form";
 import { DeletePromptButton } from "./delete-prompt-button";
 import { RecheckPromptButton } from "./recheck-prompt-button";
+import { EditPromptGroupButton } from "./edit-prompt-group-button";
 import { UpgradePrompt } from "./upgrade-button";
 import { RankBadge, SentimentDot, RawResponseButton } from "./result-cell";
 
@@ -411,6 +412,7 @@ export default async function DashboardPage({
                           })}
                           <TableCell>
                             <div className="flex items-center gap-1">
+                              <EditPromptGroupButton promptId={prompt.id} currentCategory={prompt.category} />
                               <RecheckPromptButton promptId={prompt.id} />
                               <DeletePromptButton promptId={prompt.id} />
                             </div>

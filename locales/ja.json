@@ -99,6 +99,7 @@
     "firstMeasuring": "初回計測中",
     "recheckNow": "今すぐ再計測",
     "delete": "削除",
+    "editPromptGroup": "グループを編集",
     "outOfRange": "圏外",
     "mentionedNoRank": "掲載あり",
     "sentimentTitle": "論調",
@@ -194,7 +195,9 @@
     "reportTitle": "GEOトラッキングレポート",
     "summary": "サマリー",
     "detailTable": "プロンプト × LLM別 詳細結果",
-    "generatedBy": "Zonostickにより自動生成"
+    "generatedBy": "Zonostickにより自動生成",
+    "noBrandsTitle": "計測対象がありません",
+    "noBrandsDesc": "レポートを作成するには、まず計測対象を追加してください。"
   },
   "pricing": {
     "title": "プランを選んで始めましょう",

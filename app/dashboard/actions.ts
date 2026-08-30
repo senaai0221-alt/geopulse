@@ -134,6 +134,28 @@ export async function deletePrompt(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+/**
+ * Renames (or clears) an existing prompt's group/category label.
+ * RLS (prompts_crud_own) already scopes this to prompts the caller owns
+ * via their brand - no explicit ownership check needed here.
+ * revalidatePath re-fetches /dashboard's server-rendered data, so the
+ * group headings and table re-render with the new grouping immediately -
+ * no client-side cache or manual router.refresh() to keep in sync.
+ */
+export async function updatePromptCategory(formData: FormData) {
+  const { supabase } = await requireUser();
+  const promptId = String(formData.get("prompt_id") ?? "");
+  const category = String(formData.get("category") ?? "").trim();
+  if (!promptId) return;
+
+  const { error } = await supabase
+    .from("prompts")
+    .update({ category: category || null })
+    .eq("id", promptId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/dashboard");
+}
+
 export async function updateSlackSettings(formData: FormData) {
   const { supabase, user } = await requireUser();
 

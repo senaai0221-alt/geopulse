@@ -58,7 +58,22 @@ export default async function ReportPage({
   }
 
   const { data: brands } = await supabase.from("brands").select("*").order("created_at", { ascending: true });
-  if (!brands || brands.length === 0) return null;
+  if (!brands || brands.length === 0) {
+    // Reachable directly from the sidebar's "Report" link regardless of
+    // whether any brand exists yet (e.g. right after deleting the last
+    // one) - this used to `return null`, rendering a blank white page
+    // with no explanation of what to do next.
+    return (
+      <div className="mx-auto max-w-md py-16 text-center">
+        <h1 className="text-xl font-semibold">
+          <T k="report.noBrandsTitle" />
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          <T k="report.noBrandsDesc" />
+        </p>
+      </div>
+    );
+  }
   const selectedBrand = brands.find((b) => b.id === searchParams.brand) ?? brands[0];
 
   const [{ data: prompts }, { data: recentRankings }] = await Promise.all([
