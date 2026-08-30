@@ -12,6 +12,7 @@ import {
 } from "recharts";
 
 import type { LlmProvider } from "@/lib/geo-engine";
+import { useI18n } from "@/lib/i18n/context";
 
 export type TrendPoint = {
   date: string;
@@ -81,12 +82,10 @@ function TrendTooltip({
 }
 
 export function RankTrendChart({ data }: { data: TrendPoint[] }) {
+  const { t } = useI18n();
+
   if (data.length < 2) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        トレンドを表示するには、2回以上の日次計測が必要です。
-      </p>
-    );
+    return <p className="text-sm text-muted-foreground">{t("dashboard.trendNeedsMoreData")}</p>;
   }
 
   return (
@@ -108,7 +107,7 @@ export function RankTrendChart({ data }: { data: TrendPoint[] }) {
             tickLine={false}
             width={28}
             label={{
-              value: "順位",
+              value: t("dashboard.positionAxisLabel"),
               angle: -90,
               position: "insideLeft",
               style: { fontSize: 11, fill: "hsl(215 16% 47%)" },
