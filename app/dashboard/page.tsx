@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { AlertTriangle, Bell, TrendingUp, Target, Link2 } from "lucide-react";
+import { AlertTriangle, Bell, TrendingUp, Target, Link2, Loader2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { LLM_PROVIDERS, type LlmProvider } from "@/lib/geo-engine";
@@ -164,9 +164,11 @@ export default async function DashboardPage({
   const allRankings = (recentRankings ?? []) as RankingRecord[];
 
   const latestByKey = new Map<string, RankingRecord>();
+  const promptsWithAnyData = new Set<string>();
   for (const r of allRankings) {
     const key = `${r.prompt_id}-${r.provider}`;
     if (!latestByKey.has(key)) latestByKey.set(key, r);
+    promptsWithAnyData.add(r.prompt_id);
   }
 
   const latestList = Array.from(latestByKey.values());
@@ -353,8 +355,13 @@ export default async function DashboardPage({
                                       </span>
                                     )}
                                   </div>
-                                ) : (
+                                ) : promptsWithAnyData.has(prompt.id) ? (
                                   <span className="text-xs text-muted-foreground">未計測</span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                    初回計測中
+                                  </span>
                                 )}
                               </TableCell>
                             );

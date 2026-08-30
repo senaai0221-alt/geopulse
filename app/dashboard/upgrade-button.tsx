@@ -3,9 +3,19 @@
 import { useState } from "react";
 import { Loader2, Rocket } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 
-export function UpgradeButton({ priceId, label }: { priceId: string; label: string }) {
+export function UpgradeButton({
+  priceId,
+  label,
+  size = "sm",
+  className,
+}: {
+  priceId: string;
+  label: string;
+  size?: ButtonProps["size"];
+  className?: string;
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +41,7 @@ export function UpgradeButton({ priceId, label }: { priceId: string; label: stri
 
   return (
     <div className="flex flex-col gap-2">
-      <Button onClick={handleClick} disabled={loading} size="sm">
+      <Button onClick={handleClick} disabled={loading} size={size} className={className}>
         {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
         {label}
       </Button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { createPrompt } from "./actions";
 
 export function PromptForm({ brandId }: { brandId: string }) {
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -16,8 +18,20 @@ export function PromptForm({ brandId }: { brandId: string }) {
     setError(null);
     startTransition(async () => {
       try {
-        await createPrompt(formData);
+        const newPrompt = await createPrompt(formData);
         formRef.current?.reset();
+
+        // Kick off one immediate measurement for the new prompt so it
+        // shows real data right away instead of an empty row until
+        // tomorrow's cron. Fire-and-forget: if it fails, tomorrow's
+        // cron still covers it normally, so it must not block the form.
+        fetch("/api/prompts/check-now", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ promptId: newPrompt.id }),
+        })
+          .catch(() => {})
+          .finally(() => router.refresh());
       } catch (err) {
         setError(err instanceof Error ? err.message : "登録に失敗しました");
       }

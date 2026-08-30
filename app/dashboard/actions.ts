@@ -67,14 +67,22 @@ export async function createPrompt(formData: FormData) {
   ]);
   assertCanAddPrompt(profile?.plan, promptCount ?? 0);
 
-  const { error } = await supabase.from("prompts").insert({
-    brand_id: brandId,
-    text,
-    category: category || null,
-  });
+  const { data: newPrompt, error } = await supabase
+    .from("prompts")
+    .insert({
+      brand_id: brandId,
+      text,
+      category: category || null,
+    })
+    .select("id")
+    .single();
 
   if (error) throw new Error(error.message);
   revalidatePath("/dashboard");
+  // Returned so the client can kick off an immediate first-time
+  // measurement (see PromptForm) instead of leaving the user staring at
+  // an empty row until tomorrow's cron run.
+  return { id: newPrompt.id as string };
 }
 
 export async function deletePrompt(formData: FormData) {
