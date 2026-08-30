@@ -76,10 +76,14 @@ export function RawResponseButton({
           onClick={() => setOpen(false)}
         >
           <div
-            className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-5 shadow-xl"
+            // flex-col + max-h (not overflow-y-auto directly on this
+            // outer div) so only the <pre> below scrolls - the header
+            // (and its close button) stays reachable even for a very
+            // long response, instead of scrolling out of view with it.
+            className="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-3 flex items-start justify-between gap-4">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border p-5 pb-3">
               <div className="min-w-0">
                 <h3 className="font-semibold">
                   {t("dashboard.rawResponseTitle")} · {provider}
@@ -95,7 +99,7 @@ export function RawResponseButton({
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
+            <pre className="overflow-y-auto whitespace-pre-wrap break-words p-5 pt-3 text-xs leading-relaxed text-foreground">
               {rawResponse}
             </pre>
           </div>
