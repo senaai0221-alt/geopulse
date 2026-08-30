@@ -3,6 +3,7 @@ import { Sparkles } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { T } from "@/components/t";
 import { CheckoutPolling } from "./checkout-polling";
 
 /**
@@ -30,7 +31,9 @@ export default async function CheckoutCompletePage() {
             <Sparkles className="h-5 w-5 text-primary" />
             Zonostick
           </div>
-          <CardTitle>ご契約ありがとうございます</CardTitle>
+          <CardTitle>
+            <T k="dashboard.checkoutThanks" />
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <CheckoutPolling />

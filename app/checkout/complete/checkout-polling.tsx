@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n/context";
 
 const POLL_INTERVAL_MS = 1500;
 // Webhooks normally land in well under this; past it we assume something
@@ -20,6 +21,7 @@ type State = "polling" | "confirmed" | "timed_out";
  * why this indirection exists instead of redirecting there directly.
  */
 export function CheckoutPolling() {
+  const { t } = useI18n();
   const [state, setState] = useState<State>("polling");
   const startedAt = useRef(Date.now());
 
@@ -62,12 +64,12 @@ export function CheckoutPolling() {
       <div className="flex flex-col items-center gap-3 text-center">
         <AlertTriangle className="h-8 w-8 text-amber-500" />
         <p className="text-sm text-muted-foreground">
-          決済の反映にいつもより時間がかかっています。決済自体は完了している可能性が高いです。
+          {t("checkout.slowLine1")}
           <br />
-          少し時間を置いてから、もう一度お試しください。
+          {t("checkout.slowLine2")}
         </p>
         <Button onClick={() => window.location.reload()} size="sm" className="mt-1">
-          もう一度確認する
+          {t("checkout.retryButton")}
         </Button>
       </div>
     );
@@ -80,9 +82,7 @@ export function CheckoutPolling() {
       ) : (
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       )}
-      <p className="text-sm text-muted-foreground">
-        決済を確認しています…このまま数秒お待ちください。
-      </p>
+      <p className="text-sm text-muted-foreground">{t("checkout.confirming")}</p>
     </div>
   );
 }

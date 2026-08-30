@@ -7,9 +7,12 @@ import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { useI18n } from "@/lib/i18n/context";
+import { translateActionError } from "@/lib/i18n/action-error";
 import { createPrompt } from "./actions";
 
 export function PromptForm({ brandId }: { brandId: string }) {
+  const { t } = useI18n();
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
@@ -34,7 +37,7 @@ export function PromptForm({ brandId }: { brandId: string }) {
           .catch(() => {})
           .finally(() => router.refresh());
       } catch (err) {
-        setError(err instanceof Error ? err.message : "登録に失敗しました");
+        setError(translateActionError(t, err instanceof Error ? err.message : "", "dashboard.addPromptFailed"));
       }
     });
   }
@@ -44,19 +47,19 @@ export function PromptForm({ brandId }: { brandId: string }) {
       <input type="hidden" name="brand_id" value={brandId} />
       <Input
         name="text"
-        placeholder="例: 中小企業向けのおすすめCRMツールは？"
+        placeholder={t("dashboard.promptPlaceholder")}
         required
         className="flex-1"
       />
       <Input
         name="category"
-        placeholder="グループ名(任意)"
+        placeholder={t("dashboard.promptCategoryPlaceholder")}
         className="sm:w-40"
       />
       {error && <InlineAlert>{error}</InlineAlert>}
       <Button type="submit" disabled={isPending} size="sm">
         {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-        追加
+        {t("dashboard.addPromptButton")}
       </Button>
     </form>
   );

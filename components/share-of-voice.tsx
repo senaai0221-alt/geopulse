@@ -1,4 +1,7 @@
+"use client";
+
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/context";
 
 export interface ShareOfVoiceEntry {
   name: string;
@@ -12,11 +15,11 @@ export interface ShareOfVoiceEntry {
  * the number of (prompt x provider) checks the counts are a share of.
  */
 export function ShareOfVoice({ entries, total }: { entries: ShareOfVoiceEntry[]; total: number }) {
+  const { t } = useI18n();
+
   if (total === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        まだ計測結果がありません。プロンプトを追加すると表示されます。
-      </p>
+      <p className="text-sm text-muted-foreground">{t("dashboard.shareOfVoiceEmpty")}</p>
     );
   }
 
@@ -49,7 +52,7 @@ export function ShareOfVoice({ entries, total }: { entries: ShareOfVoiceEntry[];
         );
       })}
       <p className="text-xs text-muted-foreground">
-        直近の計測(全{total}件のプロンプト×LLM回答)における言及割合
+        {t("dashboard.shareOfVoiceFooter", { total })}
       </p>
     </div>
   );

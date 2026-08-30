@@ -83,6 +83,8 @@
     "notSubscribed": "Not subscribed",
     "settings": "Settings",
     "dashboard": "Dashboard",
+    "reportNav": "Report",
+    "helpNav": "Guide & FAQ",
     "mentionRate": "AI Exposure Rate",
     "mentionRateHint": "% of AI responses mentioning your brand",
     "mentionRateTooltip": "The percentage of AI responses that featured or recommended your brand.",
@@ -129,7 +131,23 @@
     "firstBrand": "Add your first tracking target",
     "firstBrandDesc": "Register your target (company, product, or service) and competitors to start tracking.",
     "upgradeToPro": "Upgrade to Pro",
-    "upgradeToBusiness": "Upgrade to Business"
+    "upgradeToBusiness": "Upgrade to Business",
+    "promptTextRequired": "Prompt text is required",
+    "addPromptFailed": "Failed to save. Please try again.",
+    "promptPlaceholder": "e.g. best CRM tools for small businesses?",
+    "promptCategoryPlaceholder": "Group name (optional)",
+    "addPromptButton": "Add",
+    "promptLimitReached": "Your current plan allows up to {max} prompts per brand. Upgrade your plan to add more (from the Settings page).",
+    "recheckFailed": "Re-check failed. Please try again.",
+    "recheckAriaLabel": "Re-check now",
+    "recheckTitle": "Re-check now (once per hour)",
+    "recheckRateLimited": "This prompt was already checked within the last hour. Please try again in about {minutes} minute(s).",
+    "deletePromptConfirm": "Delete this prompt?",
+    "shareOfVoiceEmpty": "No measurements yet. Add a prompt to see this.",
+    "shareOfVoiceFooter": "Mention share across the latest measurement ({total} prompt x LLM responses)",
+    "checkoutCreateFailed": "We couldn't start checkout. Please try again.",
+    "genericError": "Something went wrong.",
+    "checkoutThanks": "Thank you for subscribing!"
   },
   "error": {
     "title": "Something went wrong",
@@ -138,6 +156,31 @@
   },
   "langToggle": {
     "label": "Language"
+  },
+  "help": {
+    "title": "Guide & FAQ",
+    "subtitle": "How to use Zonostick, what the metrics mean, and answers to common questions.",
+    "quickStartTitle": "Quick start guide",
+    "quickStart1Title": "Register a target",
+    "quickStart1Desc": "Add the target you want to track (company, product, or service name) and its competitors from Settings.",
+    "quickStart2Title": "Add prompts",
+    "quickStart2Desc": "Add the questions a prospective customer would ask an AI, from the dashboard.",
+    "quickStart3Title": "Automated daily checks",
+    "quickStart3Desc": "Starting the next morning, all 6 major LLMs are checked automatically and Slack is notified.",
+    "metricsTitle": "Understanding the metrics",
+    "metricsMentionTitle": "AI Exposure Rate",
+    "metricsMentionDesc": "The percentage of AI responses to your saved prompts that featured or recommended your brand.",
+    "metricsRankTitle": "Avg. Position",
+    "metricsRankDesc": "When an AI's answer is a ranked list, this is the average position your brand appeared at. No number means it was mentioned in an unranked list or prose instead.",
+    "metricsShareTitle": "Share of Voice",
+    "metricsShareDesc": "Of all mentions across your brand and its competitors, the share that went to you.",
+    "faqTitle": "Frequently asked questions",
+    "faqQ1": "When do checks run?",
+    "faqA1": "Automatically, every morning, against all 6 major LLMs.",
+    "faqQ2": "What kind of prompts should I set up?",
+    "faqA2": "Questions a prospective customer would actually ask an AI - e.g. \"best tools for X\" or \"X vs Y comparison\".",
+    "faqQ3": "Can I export data for internal reporting?",
+    "faqA3": "Yes - CSV from the dashboard, or a print/PDF-optimized A4 report from the Report page on the Business plan."
   },
   "report": {
     "print": "Print / Save as PDF",
@@ -169,7 +212,7 @@
     "deleteBrandConfirm": "Delete this tracking target? All of its prompts and measurement data will be deleted too.",
     "saveBrand": "Save",
     "cancel": "Cancel",
-    "brandName": "Target Name",
+    "brandName": "Name",
     "brandNamePlaceholder": "e.g. Zonostick, a specific service, or product name",
     "brandDomain": "Domain (optional)",
     "brandCompetitors": "Competitors (comma-separated)",
@@ -189,6 +232,20 @@
     "subscribedThanks": "Thanks for subscribing!",
     "manageSubscription": "Manage subscription & invoices",
     "portalNoCustomer": "Stripe customer data not found. Please contact support.",
-    "portalError": "We couldn't open the billing portal. Please try again in a moment."
+    "portalError": "We couldn't open the billing portal. Please try again in a moment.",
+    "brandCompetitorsPlaceholder": "Competitor A, Competitor B",
+    "brandNameRequired": "Name is required",
+    "addBrandFailed": "Failed to save. Please try again.",
+    "noFreeTier": "Zonostick currently runs on paid plans only (Pro/Business). Subscribe from the Settings page, then add a tracking target.",
+    "brandLimitReached": "Your current plan allows up to {max} tracking targets. Upgrade your plan to add more (from the Settings page).",
+    "slackTestWebhookNotSet": "No Slack Webhook URL is set.",
+    "slackTestSent": "Test message sent.",
+    "slackTestFailed": "Failed to send."
+  },
+  "checkout": {
+    "confirming": "Confirming your payment... this will just take a few seconds.",
+    "slowLine1": "This is taking longer than usual to reflect. Your payment has most likely already gone through.",
+    "slowLine2": "Please wait a moment, then try again.",
+    "retryButton": "Check again"
   }
 }

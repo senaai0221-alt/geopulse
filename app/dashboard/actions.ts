@@ -27,7 +27,7 @@ export async function createBrand(formData: FormData) {
     .map((c) => c.trim())
     .filter(Boolean);
 
-  if (!name) throw new Error("ブランド名は必須です");
+  if (!name) throw new Error("brand_name_required");
 
   const [{ data: profile }, { count: brandCount }] = await Promise.all([
     supabase.from("profiles").select("plan").eq("id", user.id).single(),
@@ -61,7 +61,7 @@ export async function updateBrand(formData: FormData) {
     .map((c) => c.trim())
     .filter(Boolean);
 
-  if (!brandId || !name) throw new Error("ブランド名は必須です");
+  if (!brandId || !name) throw new Error("brand_name_required");
 
   // RLS (brands_crud_own) already scopes this update to brands the
   // caller owns - no need to re-check ownership here.
@@ -95,7 +95,7 @@ export async function createPrompt(formData: FormData) {
   const text = String(formData.get("text") ?? "").trim();
   const category = String(formData.get("category") ?? "").trim();
 
-  if (!brandId || !text) throw new Error("プロンプト内容は必須です");
+  if (!brandId || !text) throw new Error("prompt_text_required");
 
   const [{ data: profile }, { count: promptCount }] = await Promise.all([
     supabase.from("profiles").select("plan").eq("id", user.id).single(),
@@ -152,7 +152,10 @@ export async function updateSlackSettings(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
-export async function sendTestSlackMessage(): Promise<{ ok: boolean; message: string }> {
+// Returns a code (never user-facing text) - see lib/i18n/action-error.ts's
+// sibling mapping in slack-settings-form.tsx for why: this runs before any
+// locale is known.
+export async function sendTestSlackMessage(): Promise<{ ok: boolean; code: string }> {
   const { supabase, user } = await requireUser();
 
   const { data: profile } = await supabase
@@ -162,21 +165,18 @@ export async function sendTestSlackMessage(): Promise<{ ok: boolean; message: st
     .single();
 
   if (!profile?.slack_webhook_url) {
-    return { ok: false, message: "Slack Webhook URLが設定されていません。" };
+    return { ok: false, code: "webhook_not_set" };
   }
 
   try {
     await sendSlackMessage(
       profile.slack_webhook_url,
       buildTestMessageBlocks(),
-      "Zonostick: Slack接続テスト"
+      "Zonostick: Slack connection test"
     );
-    return { ok: true, message: "テストメッセージを送信しました。" };
-  } catch (err) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "送信に失敗しました。",
-    };
+    return { ok: true, code: "sent" };
+  } catch {
+    return { ok: false, code: "send_failed" };
   }
 }
 

@@ -61,10 +61,11 @@ export async function POST(request: NextRequest) {
     if (elapsedMs < RATE_LIMIT_MS) {
       const retryAfterSec = Math.ceil((RATE_LIMIT_MS - elapsedMs) / 1000);
       const retryAfterMin = Math.ceil(retryAfterSec / 60);
+      // No locale is known server-side - return a code + the raw number
+      // and let the client build the translated message (see
+      // RecheckPromptButton).
       return NextResponse.json(
-        {
-          error: `このプロンプトは直近1時間以内に計測済みです。あと約${retryAfterMin}分後に再度お試しください。`,
-        },
+        { code: "rate_limited", retryAfterMin },
         { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
       );
     }

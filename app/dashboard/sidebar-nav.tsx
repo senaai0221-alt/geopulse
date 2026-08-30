@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Settings } from "lucide-react";
+import { LayoutDashboard, Settings, FileText, HelpCircle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 
 const NAV_ITEMS = [
   { href: "/dashboard", labelKey: "dashboard.dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/report", labelKey: "dashboard.reportNav", icon: FileText, exact: false },
+  { href: "/dashboard/help", labelKey: "dashboard.helpNav", icon: HelpCircle, exact: false },
   { href: "/dashboard/settings", labelKey: "dashboard.settings", icon: Settings, exact: false },
 ];
 

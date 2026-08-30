@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { RefreshCw, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n/context";
 
 export function RecheckPromptButton({ promptId }: { promptId: string }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,13 +24,17 @@ export function RecheckPromptButton({ promptId }: { promptId: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        // 429 (rate limited) has a friendly, ready-to-show message from
-        // the API; anything else falls back to a generic one.
-        throw new Error(data.error ?? "再計測に失敗しました");
+        // 429 (rate limited) carries a retryAfterMin so the message can
+        // be built from a translated template; anything else falls back
+        // to a generic translated message.
+        if (data.code === "rate_limited") {
+          throw new Error(t("dashboard.recheckRateLimited", { minutes: data.retryAfterMin ?? "" }));
+        }
+        throw new Error(t("dashboard.recheckFailed"));
       }
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "再計測に失敗しました");
+      setError(err instanceof Error ? err.message : t("dashboard.recheckFailed"));
     } finally {
       setLoading(false);
     }
@@ -40,8 +46,8 @@ export function RecheckPromptButton({ promptId }: { promptId: string }) {
         type="button"
         variant="ghost"
         size="icon"
-        aria-label="今すぐ再計測"
-        title="今すぐ再計測(1時間に1回まで)"
+        aria-label={t("dashboard.recheckAriaLabel")}
+        title={t("dashboard.recheckTitle")}
         onClick={handleClick}
         disabled={loading}
       >

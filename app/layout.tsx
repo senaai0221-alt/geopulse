@@ -3,10 +3,13 @@ import "./globals.css";
 
 import { I18nProvider } from "@/lib/i18n/context";
 
+// English content: Zonostick's product default is English-first (see
+// lib/i18n/context.tsx), and this static metadata is rendered before any
+// client-side locale detection can run.
 export const metadata: Metadata = {
-  title: "Zonostick - AI検索順位トラッカー",
+  title: "Zonostick - AI Search Ranking Tracker",
   description:
-    "ChatGPT・Claude・Perplexity・GeminiにおけるブランドのGEO(生成エンジン最適化)順位を毎朝自動計測し、異常をSlackへ通知します。",
+    "Zonostick automatically tracks your brand's GEO (Generative Engine Optimization) ranking across ChatGPT, Claude, Perplexity, Gemini, Grok, and DeepSeek every morning, and alerts you on Slack the moment something shifts.",
 };
 
 // maximumScale: 1 stops iOS Safari's auto-zoom-on-input-focus (the
@@ -24,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ja">
+    <html lang="en">
       <body className="min-h-screen antialiased">
         <I18nProvider>{children}</I18nProvider>
       </body>

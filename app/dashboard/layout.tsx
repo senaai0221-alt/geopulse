@@ -1,12 +1,11 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Sparkles } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { T } from "@/components/t";
 import { LangToggle } from "@/components/lang-toggle";
 import { SignOutButton } from "./sign-out-button";
 import { SidebarNav } from "./sidebar-nav";
+import { DashboardLogoLink } from "./logo-link";
 
 const PLAN_LABELS: Record<string, string | null> = {
   free: null, // rendered via <T k="dashboard.notSubscribed" /> instead
@@ -42,10 +41,7 @@ export default async function DashboardLayout({
               marketing page - the marketing header shows "login" CTAs
               that read as a sign-out even though the session is still
               live. */}
-          <Link href="/dashboard" className="flex shrink-0 items-center gap-2 font-bold text-lg">
-            <Sparkles className="h-5 w-5 text-primary" />
-            Zonostick
-          </Link>
+          <DashboardLogoLink />
           <div className="flex min-w-0 items-center gap-3">
             <LangToggle />
             <span className="hidden max-w-[16rem] truncate text-sm text-muted-foreground sm:inline">

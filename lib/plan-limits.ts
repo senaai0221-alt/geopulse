@@ -22,19 +22,15 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
   business: { maxBrands: null, maxPromptsPerBrand: null },
 };
 
-const PLAN_LABELS: Record<PlanTier, string> = {
-  free: "Free",
-  pro: "Pro",
-  business: "Business",
-};
-
-const NO_FREE_TIER_MESSAGE =
-  "Zonostickは現在、有料プラン(Pro/Business)のみでご利用いただけます。設定ページからプランをご契約のうえ、ブランドを追加してください。";
-
 /** Normalizes whatever is stored in profiles.plan into a known PlanTier. */
 export function normalizePlan(plan: string | null | undefined): PlanTier {
   return plan === "pro" || plan === "business" ? plan : "free";
 }
+
+// These throw plain error *codes* (never user-facing text) - Server
+// Actions run before any locale is known, so the client-side catch block
+// translates the code via lib/i18n/action-error.ts once it knows which
+// language to show. See that file for the code -> message mapping.
 
 /**
  * Throws a user-facing error if adding one more brand would exceed the
@@ -43,13 +39,11 @@ export function normalizePlan(plan: string | null | undefined): PlanTier {
  */
 export function assertCanAddBrand(plan: string | null | undefined, currentCount: number): void {
   const tier = normalizePlan(plan);
-  if (tier === "free") throw new Error(NO_FREE_TIER_MESSAGE);
+  if (tier === "free") throw new Error("no_free_tier");
 
   const { maxBrands } = PLAN_LIMITS[tier];
   if (maxBrands !== null && currentCount >= maxBrands) {
-    throw new Error(
-      `${PLAN_LABELS[tier]}プランは${maxBrands}ブランドまでです。プランをアップグレードすると追加できます(設定ページから変更できます)。`
-    );
+    throw new Error(`brand_limit:${maxBrands}`);
   }
 }
 
@@ -60,12 +54,10 @@ export function assertCanAddBrand(plan: string | null | undefined, currentCount:
  */
 export function assertCanAddPrompt(plan: string | null | undefined, currentCount: number): void {
   const tier = normalizePlan(plan);
-  if (tier === "free") throw new Error(NO_FREE_TIER_MESSAGE);
+  if (tier === "free") throw new Error("no_free_tier");
 
   const { maxPromptsPerBrand } = PLAN_LIMITS[tier];
   if (maxPromptsPerBrand !== null && currentCount >= maxPromptsPerBrand) {
-    throw new Error(
-      `${PLAN_LABELS[tier]}プランは1ブランドあたりプロンプト${maxPromptsPerBrand}件までです。プランをアップグレードすると追加できます(設定ページから変更できます)。`
-    );
+    throw new Error(`prompt_limit:${maxPromptsPerBrand}`);
   }
 }

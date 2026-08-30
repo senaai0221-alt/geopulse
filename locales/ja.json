@@ -83,6 +83,8 @@
     "notSubscribed": "未契約",
     "settings": "設定・連携",
     "dashboard": "ダッシュボード",
+    "reportNav": "レポート",
+    "helpNav": "ガイド・Q&A",
     "mentionRate": "AI露出率",
     "mentionRateHint": "AI回答内で自社が紹介された割合",
     "mentionRateTooltip": "登録プロンプトに対するAI回答のうち、自社ブランドが推奨・抽出された確率です。",
@@ -129,7 +131,23 @@
     "firstBrand": "最初の計測対象を追加しましょう",
     "firstBrandDesc": "追跡したい対象(社名・製品・サービス名)と競合を登録すると、プロンプトの追加・毎朝の自動計測が始まります。",
     "upgradeToPro": "Proにアップグレード",
-    "upgradeToBusiness": "Businessにアップグレード"
+    "upgradeToBusiness": "Businessにアップグレード",
+    "promptTextRequired": "プロンプト内容は必須です",
+    "addPromptFailed": "登録に失敗しました",
+    "promptPlaceholder": "例: 中小企業向けのおすすめCRMツールは？",
+    "promptCategoryPlaceholder": "グループ名(任意)",
+    "addPromptButton": "追加",
+    "promptLimitReached": "現在のプランでは、1ブランドあたりプロンプト{max}件までです。プランをアップグレードすると追加できます(設定ページから変更できます)。",
+    "recheckFailed": "再計測に失敗しました",
+    "recheckAriaLabel": "今すぐ再計測",
+    "recheckTitle": "今すぐ再計測(1時間に1回まで)",
+    "recheckRateLimited": "このプロンプトは直近1時間以内に計測済みです。あと約{minutes}分後に再度お試しください。",
+    "deletePromptConfirm": "このプロンプトを削除しますか？",
+    "shareOfVoiceEmpty": "まだ計測結果がありません。プロンプトを追加すると表示されます。",
+    "shareOfVoiceFooter": "直近の計測(全{total}件のプロンプト×LLM回答)における言及割合",
+    "checkoutCreateFailed": "決済ページの作成に失敗しました",
+    "genericError": "エラーが発生しました",
+    "checkoutThanks": "ご契約ありがとうございます"
   },
   "error": {
     "title": "一時的に読み込めませんでした",
@@ -138,6 +156,31 @@
   },
   "langToggle": {
     "label": "言語"
+  },
+  "help": {
+    "title": "ガイド・Q&A",
+    "subtitle": "Zonostickの使い方、指標の見方、よくある質問をまとめました。",
+    "quickStartTitle": "クイックスタートガイド",
+    "quickStart1Title": "対象を登録",
+    "quickStart1Desc": "計測したい対象(社名・製品・サービス名)と競合を、設定画面から登録します。",
+    "quickStart2Title": "プロンプトを登録",
+    "quickStart2Desc": "見込み客がAIに聞きそうな質問を、ダッシュボードから追加します。",
+    "quickStart3Title": "毎朝自動計測",
+    "quickStart3Desc": "翌朝から、6大LLMへの自動計測とSlack通知が始まります。",
+    "metricsTitle": "指標の見方",
+    "metricsMentionTitle": "AI露出率",
+    "metricsMentionDesc": "登録プロンプトに対するAI回答のうち、自社が推奨・言及された割合です。",
+    "metricsRankTitle": "平均掲載ポジション",
+    "metricsRankDesc": "AIの回答が順位付きリストだった場合、自社が何番目に登場したかの平均です。数値がないのは、順位のない箇条書き・文章内での言及を意味します。",
+    "metricsShareTitle": "Share of Voice",
+    "metricsShareDesc": "自社と競合を合わせた言及回数のうち、自社が占める割合です。",
+    "faqTitle": "よくある質問",
+    "faqQ1": "計測はいつ行われますか？",
+    "faqA1": "毎朝自動で6大LLMに対して実行されます。",
+    "faqQ2": "どのようなプロンプトを設定すべきですか？",
+    "faqA2": "「〇〇のおすすめサービスは？」「〇〇ツールの比較」など、見込み客がAIに検索しそうなキーワードを設定してください。",
+    "faqQ3": "社内報告用にデータを出力できますか？",
+    "faqA3": "ダッシュボードからCSV出力、またはBusinessプランのレポート画面からPDF出力が可能です。"
   },
   "report": {
     "print": "印刷 / PDFとして保存",
@@ -169,7 +212,7 @@
     "deleteBrandConfirm": "この計測対象を削除しますか？関連するプロンプト・計測データもすべて削除されます。",
     "saveBrand": "保存",
     "cancel": "キャンセル",
-    "brandName": "対象名(社名・サービス名・製品名など)",
+    "brandName": "対象名",
     "brandNamePlaceholder": "例: Zonostick、〇〇サービス、特定プロダクト名など",
     "brandDomain": "ドメイン(任意)",
     "brandCompetitors": "競合(カンマ区切り)",
@@ -189,6 +232,20 @@
     "subscribedThanks": "ご契約ありがとうございます。",
     "manageSubscription": "契約管理・領収書発行",
     "portalNoCustomer": "Stripeの決済情報が確認できませんでした。お困りの場合はサポートまでお問い合わせください。",
-    "portalError": "契約管理ページを開けませんでした。時間をおいて再度お試しください。"
+    "portalError": "契約管理ページを開けませんでした。時間をおいて再度お試しください。",
+    "brandCompetitorsPlaceholder": "競合A, 競合B",
+    "brandNameRequired": "対象名は必須です",
+    "addBrandFailed": "登録に失敗しました",
+    "noFreeTier": "Zonostickは現在、有料プラン(Pro/Business)のみでご利用いただけます。設定ページからプランをご契約のうえ、計測対象を追加してください。",
+    "brandLimitReached": "現在のプランでは、計測対象は{max}件までです。プランをアップグレードすると追加できます(設定ページから変更できます)。",
+    "slackTestWebhookNotSet": "Slack Webhook URLが設定されていません。",
+    "slackTestSent": "テストメッセージを送信しました。",
+    "slackTestFailed": "送信に失敗しました。"
+  },
+  "checkout": {
+    "confirming": "決済を確認しています…このまま数秒お待ちください。",
+    "slowLine1": "決済の反映にいつもより時間がかかっています。決済自体は完了している可能性が高いです。",
+    "slowLine2": "少し時間を置いてから、もう一度お試しください。",
+    "retryButton": "もう一度確認する"
   }
 }

@@ -19,8 +19,14 @@ export function SlackSettingsForm({
   const { t } = useI18n();
   const [isPending, startTransition] = useTransition();
   const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; code: string } | null>(null);
   const [saved, setSaved] = useState(false);
+
+  const TEST_MESSAGES: Record<string, string> = {
+    webhook_not_set: t("settings.slackTestWebhookNotSet"),
+    sent: t("settings.slackTestSent"),
+    send_failed: t("settings.slackTestFailed"),
+  };
 
   function handleSubmit(formData: FormData) {
     setSaved(false);
@@ -87,7 +93,7 @@ export function SlackSettingsForm({
       </div>
       {testResult && (
         <p className={testResult.ok ? "text-sm text-emerald-600" : "text-sm text-destructive"}>
-          {testResult.message}
+          {TEST_MESSAGES[testResult.code] ?? t("settings.slackTestFailed")}
         </p>
       )}
     </form>

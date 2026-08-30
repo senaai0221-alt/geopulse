@@ -18,6 +18,7 @@ export function UpgradeButton({
   size?: ButtonProps["size"];
   className?: string;
 }) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,11 +33,11 @@ export function UpgradeButton({
       });
       const data = await res.json();
       if (!res.ok || !data.url) {
-        throw new Error(data.error ?? "決済ページの作成に失敗しました");
+        throw new Error(t("dashboard.checkoutCreateFailed"));
       }
       window.location.href = data.url;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
+    } catch {
+      setError(t("dashboard.genericError"));
       setLoading(false);
     }
   }

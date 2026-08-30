@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { useI18n } from "@/lib/i18n/context";
+import { translateActionError } from "@/lib/i18n/action-error";
 import { updateBrand, deleteBrand } from "./actions";
 
 interface Brand {
@@ -37,7 +38,7 @@ export function BrandListItem({ brand }: { brand: Brand }) {
         await updateBrand(formData);
         setEditing(false);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to save");
+        setError(translateActionError(t, err instanceof Error ? err.message : "", "settings.addBrandFailed"));
       }
     });
   }

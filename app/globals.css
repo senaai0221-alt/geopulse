@@ -10,7 +10,10 @@
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
 
-    --primary: 245 58% 51%;
+    /* True Tailwind indigo-600 (#4f46e5) - the earlier --primary (245
+       58% 51%) was a slightly muted/violet-leaning indigo; this is the
+       crisper, more saturated shade Stripe/Linear-style UIs use. */
+    --primary: 243 75% 59%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96%;
@@ -25,11 +28,17 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
+    /* --border stays slate-200 (crisp against white cards/table rows);
+       --input is a notch darker (slate-300) so form fields read as
+       clearly interactive against a white page, not just outlined. */
     --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 245 58% 51%;
+    --input: 213 27% 84%;
+    --ring: 243 75% 59%;
 
-    --radius: 0.5rem;
+    /* 0.75rem = Tailwind's rounded-xl. Card uses the `rounded-lg`
+       utility, which resolves to this var - bumping it here restyles
+       every card/button/input radius across the app from one place. */
+    --radius: 0.75rem;
   }
 }
 

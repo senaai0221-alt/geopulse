@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { useI18n } from "@/lib/i18n/context";
+import { translateActionError } from "@/lib/i18n/action-error";
 import { createBrand } from "./actions";
 
 export function BrandForm() {
@@ -23,7 +24,7 @@ export function BrandForm() {
         await createBrand(formData);
         formRef.current?.reset();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "登録に失敗しました");
+        setError(translateActionError(t, err instanceof Error ? err.message : "", "settings.addBrandFailed"));
       }
     });
   }
@@ -41,7 +42,7 @@ export function BrandForm() {
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="competitors">{t("settings.brandCompetitors")}</Label>
-          <Input id="competitors" name="competitors" placeholder="競合A, 競合B" />
+          <Input id="competitors" name="competitors" placeholder={t("settings.brandCompetitorsPlaceholder")} />
         </div>
       </div>
       {error && <InlineAlert>{error}</InlineAlert>}
