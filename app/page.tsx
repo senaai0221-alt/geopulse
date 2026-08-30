@@ -1,5 +1,17 @@
 import Link from "next/link";
-import { ArrowRight, Bell, LineChart, Sparkles, Slack, CheckCircle2, Layers } from "lucide-react";
+import {
+  ArrowRight,
+  Bell,
+  LineChart,
+  Sparkles,
+  Slack,
+  CheckCircle2,
+  Layers,
+  MousePointerClick,
+  FileDown,
+  MessageSquareText,
+  ChevronDown,
+} from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +23,24 @@ import { LangToggle } from "@/components/lang-toggle";
 // All 6 providers Zonostick actually queries - keep in sync with
 // LLM_PROVIDERS in lib/geo-engine.ts.
 const PROVIDERS = ["ChatGPT", "Claude", "Perplexity", "Gemini", "Grok", "DeepSeek"];
+
+const BENEFITS = [
+  { icon: MousePointerClick, titleKey: "landing.benefit1Title", descKey: "landing.benefit1Desc" },
+  { icon: FileDown, titleKey: "landing.benefit2Title", descKey: "landing.benefit2Desc" },
+  { icon: MessageSquareText, titleKey: "landing.benefit3Title", descKey: "landing.benefit3Desc" },
+] as const;
+
+const STEPS = [
+  { titleKey: "landing.step1Title", descKey: "landing.step1Desc" },
+  { titleKey: "landing.step2Title", descKey: "landing.step2Desc" },
+  { titleKey: "landing.step3Title", descKey: "landing.step3Desc" },
+] as const;
+
+const FAQS = [
+  { qKey: "landing.faqQ1", aKey: "landing.faqA1" },
+  { qKey: "landing.faqQ2", aKey: "landing.faqA2" },
+  { qKey: "landing.faqQ3", aKey: "landing.faqA3" },
+] as const;
 
 const FEATURES = [
   { icon: LineChart, titleKey: "landing.feature1Title", descKey: "landing.feature1Desc" },
@@ -105,8 +135,62 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features */}
+      {/* Benefits */}
+      <section className="border-t border-border py-24">
+        <div className="container">
+          <h2 className="text-center text-3xl font-bold tracking-tight text-balance">
+            <T k="landing.benefitsTitle" />
+          </h2>
+          <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+            {BENEFITS.map((benefit) => (
+              <div key={benefit.titleKey} className="flex flex-col items-center gap-3 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                  <benefit.icon className="h-6 w-6 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold">
+                  <T k={benefit.titleKey} />
+                </h3>
+                <p className="max-w-xs text-sm text-muted-foreground">
+                  <T k={benefit.descKey} />
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How it works */}
       <section className="border-t border-border bg-muted/30 py-24">
+        <div className="container">
+          <h2 className="text-center text-3xl font-bold tracking-tight">
+            <T k="landing.howItWorksTitle" />
+          </h2>
+          <p className="mt-3 text-center text-muted-foreground">
+            <T k="landing.howItWorksSubtitle" />
+          </p>
+          <div className="mx-auto mt-14 grid max-w-4xl grid-cols-1 gap-10 md:grid-cols-3">
+            {STEPS.map((step, i) => (
+              <div key={step.titleKey} className="relative flex flex-col items-center gap-3 text-center">
+                {i < STEPS.length - 1 && (
+                  <div className="absolute left-1/2 top-5 hidden h-px w-full -translate-y-1/2 bg-border md:block" />
+                )}
+                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                  {i + 1}
+                </div>
+                <h3 className="text-base font-semibold">
+                  <T k={step.titleKey} />
+                </h3>
+                <p className="max-w-xs text-sm text-muted-foreground">
+                  <T k={step.descKey} />
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="border-t border-border py-24">
         <div className="container">
           <h2 className="text-center text-3xl font-bold tracking-tight">
             <T k="landing.featuresTitle" />
@@ -190,6 +274,28 @@ export default function LandingPage() {
                   </Link>
                 </CardContent>
               </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="border-t border-border bg-muted/30 py-24">
+        <div className="container">
+          <h2 className="text-center text-3xl font-bold tracking-tight">
+            <T k="landing.faqTitle" />
+          </h2>
+          <div className="mx-auto mt-10 flex max-w-2xl flex-col gap-3">
+            {FAQS.map((faq) => (
+              <details key={faq.qKey} className="group rounded-lg border border-border bg-background px-5 py-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium marker:content-none">
+                  <T k={faq.qKey} />
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                </summary>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  <T k={faq.aKey} />
+                </p>
+              </details>
             ))}
           </div>
         </div>
