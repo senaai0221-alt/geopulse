@@ -46,8 +46,13 @@ export async function POST(request: NextRequest) {
       customer: profile?.stripe_customer_id ?? undefined,
       customer_email: profile?.stripe_customer_id ? undefined : profile?.email ?? user.email ?? undefined,
       client_reference_id: user.id,
-      success_url: `${appUrl}/dashboard?checkout=success`,
-      cancel_url: `${appUrl}/dashboard?checkout=cancelled`,
+      // /checkout/complete polls until profiles.plan reflects the new
+      // subscription (the Stripe webhook updates it asynchronously) and
+      // only then sends the user on to /dashboard - avoids a race where
+      // landing on /dashboard before the webhook lands gets the user
+      // bounced back to /pricing by the paywall guard in middleware.ts.
+      success_url: `${appUrl}/checkout/complete?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/pricing?checkout=cancelled`,
       metadata: { supabase_user_id: user.id },
       subscription_data: {
         metadata: { supabase_user_id: user.id },

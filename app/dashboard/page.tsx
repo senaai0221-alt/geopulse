@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { AlertTriangle, Bell, TrendingUp, Target, Link2, Loader2 } from "lucide-react";
+import { AlertTriangle, Bell, TrendingUp, Target, Link2, Loader2, Download } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { LLM_PROVIDERS, type LlmProvider } from "@/lib/geo-engine";
@@ -15,6 +15,7 @@ import { ShareOfVoice, type ShareOfVoiceEntry } from "@/components/share-of-voic
 import { BrandForm } from "./brand-form";
 import { PromptForm } from "./prompt-form";
 import { DeletePromptButton } from "./delete-prompt-button";
+import { RecheckPromptButton } from "./recheck-prompt-button";
 import { UpgradeButton } from "./upgrade-button";
 
 const PROVIDERS = LLM_PROVIDERS;
@@ -303,9 +304,18 @@ export default async function DashboardPage({
 
       {/* Main table - prompt form compact on top */}
       <Card>
-        <CardHeader>
-          <CardTitle>最新の推奨順位</CardTitle>
-          <CardDescription>{selectedBrand.name} - プロンプト × LLM別の最新結果</CardDescription>
+        <CardHeader className="flex-row items-start justify-between space-y-0">
+          <div>
+            <CardTitle>最新の推奨順位</CardTitle>
+            <CardDescription>{selectedBrand.name} - プロンプト × LLM別の最新結果</CardDescription>
+          </div>
+          <a
+            href={`/api/export/csv?brand=${selectedBrand.id}`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 gap-1.5")}
+          >
+            <Download className="h-3.5 w-3.5" />
+            CSVダウンロード
+          </a>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <PromptForm brandId={selectedBrand.id} />
@@ -367,7 +377,10 @@ export default async function DashboardPage({
                             );
                           })}
                           <TableCell>
-                            <DeletePromptButton promptId={prompt.id} />
+                            <div className="flex items-center gap-1">
+                              <RecheckPromptButton promptId={prompt.id} />
+                              <DeletePromptButton promptId={prompt.id} />
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}

@@ -9,6 +9,13 @@ export const dynamic = "force-dynamic";
 // 30s per-provider timeout - comfortably inside the 60s Hobby-plan cap.
 export const maxDuration = 60;
 
+// Each call fans out to 6 paid LLM APIs, so this is rate-limited per
+// prompt regardless of who/what triggers it (first-time auto-check from
+// PromptForm, or a manual "re-check" click) - otherwise a rapid double
+// click, an accidental resubmit, or a scripted retry loop could run up
+// real API spend with no bound.
+const RATE_LIMIT_MS = 60 * 60 * 1000; // 1 check per prompt per hour
+
 /**
  * Runs one immediate measurement for a single, newly-created prompt so a
  * new subscriber sees real data right away instead of an empty table
@@ -38,7 +45,7 @@ export async function POST(request: NextRequest) {
 
   const { data: prompt } = await supabase
     .from("prompts")
-    .select("id, text, brand_id, brands(name, competitors)")
+    .select("id, text, brand_id, last_checked_at, brands(name, competitors)")
     .eq("id", promptId)
     .single();
 
@@ -47,6 +54,31 @@ export async function POST(request: NextRequest) {
     // Either the prompt doesn't exist, or RLS hid it because it belongs
     // to someone else's brand - both look the same from here.
     return NextResponse.json({ error: "Prompt not found" }, { status: 404 });
+  }
+
+  if (prompt.last_checked_at) {
+    const elapsedMs = Date.now() - new Date(prompt.last_checked_at).getTime();
+    if (elapsedMs < RATE_LIMIT_MS) {
+      const retryAfterSec = Math.ceil((RATE_LIMIT_MS - elapsedMs) / 1000);
+      const retryAfterMin = Math.ceil(retryAfterSec / 60);
+      return NextResponse.json(
+        {
+          error: `このプロンプトは直近1時間以内に計測済みです。あと約${retryAfterMin}分後に再度お試しください。`,
+        },
+        { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
+      );
+    }
+  }
+
+  // Claim the slot before doing any of the (slow, costly) provider calls,
+  // so a rapid double-click or resubmit can't both pass the check above
+  // before either has a chance to record that a check just started.
+  const { error: claimError } = await supabase
+    .from("prompts")
+    .update({ last_checked_at: new Date().toISOString() })
+    .eq("id", promptId);
+  if (claimError) {
+    console.error(`check-now: failed to claim rate-limit slot for prompt ${promptId}:`, claimError.message);
   }
 
   try {

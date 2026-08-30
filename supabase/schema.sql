@@ -77,6 +77,10 @@ create table if not exists public.prompts (
   -- "Core", "競合比較", "機能訴求" - used to group results on the dashboard.
   category text,
   is_active boolean not null default true,
+  -- When the on-demand check (app/api/prompts/check-now) last ran for
+  -- this prompt - used to rate-limit that endpoint so a user can't spam
+  -- real LLM API spend via repeated manual/first-time checks.
+  last_checked_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -85,6 +89,7 @@ create index if not exists prompts_brand_idx on public.prompts (brand_id);
 -- Adds the category column for databases created before this field
 -- existed; safe to re-run.
 alter table public.prompts add column if not exists category text;
+alter table public.prompts add column if not exists last_checked_at timestamptz;
 
 -- ---------------------------------------------------------------------
 -- rankings: one row per (prompt, provider, check run)
