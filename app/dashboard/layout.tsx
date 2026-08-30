@@ -6,6 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "./sign-out-button";
 import { SidebarNav } from "./sidebar-nav";
 
+const PLAN_DISPLAY_LABELS: Record<string, string> = {
+  free: "未契約",
+  pro: "Pro",
+  business: "Business",
+};
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -23,6 +29,7 @@ export default async function DashboardLayout({
     .select("email, plan")
     .eq("id", user.id)
     .single();
+  const planLabel = PLAN_DISPLAY_LABELS[profile?.plan ?? "free"] ?? profile?.plan ?? "未契約";
 
   return (
     <div className="min-h-screen bg-muted/50">
@@ -34,10 +41,10 @@ export default async function DashboardLayout({
           </Link>
           <div className="flex min-w-0 items-center gap-3">
             <span className="hidden max-w-[16rem] truncate text-sm text-muted-foreground sm:inline">
-              {profile?.email} ・ プラン: {profile?.plan ?? "free"}
+              {profile?.email} ・ プラン: {planLabel}
             </span>
             <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium uppercase text-muted-foreground sm:hidden">
-              {profile?.plan ?? "free"}
+              {planLabel}
             </span>
             <SignOutButton />
           </div>

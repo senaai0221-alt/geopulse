@@ -8,6 +8,12 @@ import { BrandForm } from "../brand-form";
 import { SlackSettingsForm } from "../slack-settings-form";
 import { UpgradeButton } from "../upgrade-button";
 
+const PLAN_DISPLAY_LABELS: Record<string, string> = {
+  free: "未契約",
+  pro: "Pro",
+  business: "Business",
+};
+
 export default async function SettingsPage() {
   const supabase = createClient();
   const {
@@ -70,7 +76,13 @@ export default async function SettingsPage() {
             )}
             <div className="border-t border-border pt-4">
               <p className="mb-3 text-sm font-medium">新しいブランドを追加</p>
-              <BrandForm />
+              {(profile?.plan ?? "free") === "free" ? (
+                <p className="text-sm text-muted-foreground">
+                  ブランドの追加には有料プラン(Pro/Business)のご契約が必要です。右のカードからご契約いただけます。
+                </p>
+              ) : (
+                <BrandForm />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -93,7 +105,9 @@ export default async function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>プラン</CardTitle>
-            <CardDescription>現在のプラン: {profile?.plan ?? "free"}</CardDescription>
+            <CardDescription>
+              現在のプラン: {PLAN_DISPLAY_LABELS[profile?.plan ?? "free"] ?? profile?.plan}
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {(profile?.plan ?? "free") === "free" && (

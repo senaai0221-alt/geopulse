@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { sendSlackMessage, buildTestMessageBlocks } from "@/lib/slack";
+import { assertCanAddBrand, assertCanAddPrompt } from "@/lib/plan-limits";
 
 async function requireUser() {
   const supabase = createClient();
@@ -28,6 +29,15 @@ export async function createBrand(formData: FormData) {
 
   if (!name) throw new Error("ブランド名は必須です");
 
+  const [{ data: profile }, { count: brandCount }] = await Promise.all([
+    supabase.from("profiles").select("plan").eq("id", user.id).single(),
+    supabase
+      .from("brands")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id),
+  ]);
+  assertCanAddBrand(profile?.plan, brandCount ?? 0);
+
   const { error } = await supabase.from("brands").insert({
     user_id: user.id,
     name,
@@ -40,13 +50,22 @@ export async function createBrand(formData: FormData) {
 }
 
 export async function createPrompt(formData: FormData) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
 
   const brandId = String(formData.get("brand_id") ?? "");
   const text = String(formData.get("text") ?? "").trim();
   const category = String(formData.get("category") ?? "").trim();
 
   if (!brandId || !text) throw new Error("プロンプト内容は必須です");
+
+  const [{ data: profile }, { count: promptCount }] = await Promise.all([
+    supabase.from("profiles").select("plan").eq("id", user.id).single(),
+    supabase
+      .from("prompts")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", brandId),
+  ]);
+  assertCanAddPrompt(profile?.plan, promptCount ?? 0);
 
   const { error } = await supabase.from("prompts").insert({
     brand_id: brandId,

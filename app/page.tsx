@@ -37,14 +37,6 @@ const FEATURES = [
 
 const PLANS = [
   {
-    name: "Free",
-    price: "¥0",
-    description: "まずは試してみたい方向け",
-    features: ["1ブランドまで", "3プロンプトまで", "週次サマリー"],
-    cta: "無料で始める",
-    highlighted: false,
-  },
-  {
     name: "Pro",
     price: "¥9,800",
     period: "/月",
@@ -89,7 +81,7 @@ export default function LandingPage() {
               ログイン
             </Link>
             <Link href="/login" className={cn(buttonVariants({ size: "sm" }))}>
-              無料で始める
+              今すぐ始める
             </Link>
           </nav>
         </div>
@@ -111,7 +103,7 @@ export default function LandingPage() {
         </p>
         <div className="mt-10 flex items-center justify-center gap-4">
           <Link href="/login" className={cn(buttonVariants({ size: "lg" }))}>
-            無料で始める <ArrowRight className="ml-2 h-4 w-4" />
+            今すぐ始める <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
           <Link href="#pricing" className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>
             料金プランを見る
@@ -153,9 +145,9 @@ export default function LandingPage() {
         <div className="container">
           <h2 className="text-center text-3xl font-bold tracking-tight">料金プラン</h2>
           <p className="mt-3 text-center text-muted-foreground">
-            チームの規模に合わせて選べる3つのプラン
+            チームの規模に合わせて選べる2つのプラン
           </p>
-          <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+          <div className="mx-auto mt-12 grid max-w-3xl grid-cols-1 gap-6 md:grid-cols-2">
             {PLANS.map((plan) => (
               <Card
                 key={plan.name}

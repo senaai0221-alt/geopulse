@@ -25,7 +25,6 @@ const ROWS: { label: string; value: React.ReactNode }[] = [
     label: "販売価格",
     value: (
       <>
-        Free: ¥0 / 月<br />
         Pro: ¥9,800(税込)/ 月<br />
         Business: ¥29,800(税込)/ 月<br />
         ※詳細は

@@ -177,10 +177,14 @@ async function runDailyCheck() {
   const supabase = createAdminClient();
   const checkedAt = new Date();
 
+  // Only check brands owned by a paying (pro/business) user - there is no
+  // free tier, so an unpaid profile should never trigger LLM API calls
+  // (see lib/plan-limits.ts for why).
   const { data: brands, error: brandsError } = await supabase
     .from("brands")
-    .select("id, user_id, name, competitors, rank_drop_threshold")
-    .eq("is_active", true);
+    .select("id, user_id, name, competitors, rank_drop_threshold, profiles!inner(plan)")
+    .eq("is_active", true)
+    .in("profiles.plan", ["pro", "business"]);
 
   if (brandsError) {
     return NextResponse.json({ error: brandsError.message }, { status: 500 });

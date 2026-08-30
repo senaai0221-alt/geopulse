@@ -15,6 +15,7 @@ import { ShareOfVoice, type ShareOfVoiceEntry } from "@/components/share-of-voic
 import { BrandForm } from "./brand-form";
 import { PromptForm } from "./prompt-form";
 import { DeletePromptButton } from "./delete-prompt-button";
+import { UpgradeButton } from "./upgrade-button";
 
 const PROVIDERS = LLM_PROVIDERS;
 const PROVIDER_LABELS: Record<LlmProvider, string> = {
@@ -84,23 +85,41 @@ export default async function DashboardPage({
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: brands } = await supabase
-    .from("brands")
-    .select("*")
-    .order("created_at", { ascending: true });
+  const [{ data: brands }, { data: profile }] = await Promise.all([
+    supabase.from("brands").select("*").order("created_at", { ascending: true }),
+    supabase.from("profiles").select("plan").eq("id", user.id).single(),
+  ]);
+  const plan = profile?.plan ?? "free";
 
   if (!brands || brands.length === 0) {
     return (
       <div className="flex flex-col gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>最初のブランドを追加しましょう</CardTitle>
+            <CardTitle>
+              {plan === "free" ? "プランのご契約が必要です" : "最初のブランドを追加しましょう"}
+            </CardTitle>
             <CardDescription>
-              追跡したいブランド名と競合を登録すると、プロンプトの追加・毎朝の自動計測が始まります。
+              {plan === "free"
+                ? "Zonostickは有料プラン(Pro/Business)でご利用いただけます。プランをご契約いただくと、ブランドの追加・毎朝の自動計測が始まります。"
+                : "追跡したいブランド名と競合を登録すると、プロンプトの追加・毎朝の自動計測が始まります。"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <BrandForm />
+            {plan === "free" ? (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <UpgradeButton
+                  priceId={process.env.STRIPE_PRICE_ID_PRO ?? ""}
+                  label="Proにアップグレード"
+                />
+                <UpgradeButton
+                  priceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""}
+                  label="Businessにアップグレード"
+                />
+              </div>
+            ) : (
+              <BrandForm />
+            )}
           </CardContent>
         </Card>
       </div>
