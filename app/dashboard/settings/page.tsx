@@ -1,11 +1,9 @@
-import { Globe, Tag } from "lucide-react";
-
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { T } from "@/components/t";
 
 import { BrandForm } from "../brand-form";
+import { BrandListItem } from "../brand-list-item";
 import { SlackSettingsForm } from "../slack-settings-form";
 import { UpgradePrompt } from "../upgrade-button";
 import { ManageSubscriptionButton } from "../manage-subscription-button";
@@ -57,27 +55,8 @@ export default async function SettingsPage() {
             {brands && brands.length > 0 && (
               <ul className="flex flex-col gap-3">
                 {brands.map((brand) => (
-                  <li
-                    key={brand.id}
-                    className="flex flex-col gap-1.5 rounded-md border border-border p-3"
-                  >
-                    <span className="font-medium">{brand.name}</span>
-                    {brand.domain && (
-                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Globe className="h-3 w-3" />
-                        {brand.domain}
-                      </span>
-                    )}
-                    {brand.competitors && brand.competitors.length > 0 && (
-                      <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                        <Tag className="h-3 w-3 shrink-0" />
-                        {brand.competitors.map((c: string) => (
-                          <Badge key={c} variant="outline" className="text-[11px]">
-                            {c}
-                          </Badge>
-                        ))}
-                      </span>
-                    )}
+                  <li key={brand.id}>
+                    <BrandListItem brand={brand} />
                   </li>
                 ))}
               </ul>

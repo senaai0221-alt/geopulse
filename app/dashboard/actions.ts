@@ -49,6 +49,45 @@ export async function createBrand(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+export async function updateBrand(formData: FormData) {
+  const { supabase } = await requireUser();
+
+  const brandId = String(formData.get("brand_id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const domain = String(formData.get("domain") ?? "").trim();
+  const competitorsRaw = String(formData.get("competitors") ?? "");
+  const competitors = competitorsRaw
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
+
+  if (!brandId || !name) throw new Error("ブランド名は必須です");
+
+  // RLS (brands_crud_own) already scopes this update to brands the
+  // caller owns - no need to re-check ownership here.
+  const { error } = await supabase
+    .from("brands")
+    .update({ name, domain: domain || null, competitors })
+    .eq("id", brandId);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/settings");
+}
+
+export async function deleteBrand(formData: FormData) {
+  const { supabase } = await requireUser();
+  const brandId = String(formData.get("brand_id") ?? "");
+  if (!brandId) return;
+
+  // `on delete cascade` on prompts/rankings/alerts (see
+  // supabase/schema.sql) takes every measurement for this brand with it.
+  const { error } = await supabase.from("brands").delete().eq("id", brandId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/settings");
+}
+
 export async function createPrompt(formData: FormData) {
   const { supabase, user } = await requireUser();
 
