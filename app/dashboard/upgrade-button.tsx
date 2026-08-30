@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Loader2, Rocket } from "lucide-react";
 
 import { Button, type ButtonProps } from "@/components/ui/button";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { useI18n } from "@/lib/i18n/context";
 
 export function UpgradeButton({
   priceId,
@@ -45,7 +47,23 @@ export function UpgradeButton({
         {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
         {label}
       </Button>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <InlineAlert>{error}</InlineAlert>}
+    </div>
+  );
+}
+
+/** The pair of Pro/Business upgrade buttons shown wherever a free-plan
+ *  user needs to be routed to Stripe Checkout (dashboard empty states,
+ *  settings). Kept together so the translated labels live in one place.
+ *  Price IDs are server-only env vars, so the caller (a Server
+ *  Component) must resolve and pass them in - a Client Component can't
+ *  read process.env.STRIPE_PRICE_ID_* itself. */
+export function UpgradePrompt({ proPriceId, businessPriceId }: { proPriceId: string; businessPriceId: string }) {
+  const { t } = useI18n();
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row">
+      <UpgradeButton priceId={proPriceId} label={t("dashboard.upgradeToPro")} />
+      <UpgradeButton priceId={businessPriceId} label={t("dashboard.upgradeToBusiness")} />
     </div>
   );
 }

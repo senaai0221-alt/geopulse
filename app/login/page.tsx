@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { LangToggle } from "@/components/lang-toggle";
+import { useI18n } from "@/lib/i18n/context";
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -34,6 +37,7 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 export default function LoginPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -124,33 +128,34 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-app flex flex-col bg-gradient-to-b from-primary/[0.06] via-background to-muted/40 px-4">
-      <div className="flex flex-1 items-center justify-center py-10">
+      <div className="flex justify-end pt-4">
+        <LangToggle />
+      </div>
+      <div className="flex flex-1 items-center justify-center py-6">
         <Card className="w-full max-w-md shadow-lg shadow-primary/5">
           <CardHeader className="items-center gap-1 text-center">
             <Link href="/" className="mb-3 flex items-center gap-2 text-xl font-bold">
               <Sparkles className="h-6 w-6 text-primary" />
               Zonostick
             </Link>
-            <CardTitle>ログイン / 新規登録</CardTitle>
-            <CardDescription>
-              Googleアカウント、またはメールアドレスでログインできます
-            </CardDescription>
+            <CardTitle>{t("login.title")}</CardTitle>
+            <CardDescription>{t("login.subtitle")}</CardDescription>
           </CardHeader>
           <CardContent>
             {sent ? (
               <div className="flex flex-col gap-4">
                 {error ? (
                   <div className="rounded-md bg-amber-50 p-4 text-center text-sm text-amber-800">
-                    メールの送信に失敗しました。お手元にログインコードがあれば、下に入力してログインできます。
+                    {t("login.sendFailed")}
                   </div>
                 ) : (
                   <div className="rounded-md bg-emerald-50 p-4 text-center text-sm text-emerald-800">
-                    {email} 宛にログインリンクを送信しました。メールをご確認ください。
+                    {email} {t("login.linkSent")}
                   </div>
                 )}
                 <form onSubmit={handleVerifyCode} className="flex flex-col gap-2">
                   <Label htmlFor="code">
-                    {error ? "ログインコードを入力" : "またはメール内の8桁コードを入力"}
+                    {error ? t("login.enterCode") : t("login.enterCodeHint")}
                   </Label>
                   <Input
                     id="code"
@@ -160,10 +165,10 @@ export default function LoginPage() {
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
                   />
-                  {verifyError && <p className="text-sm text-destructive">{verifyError}</p>}
+                  {verifyError && <InlineAlert>{verifyError}</InlineAlert>}
                   <Button type="submit" disabled={verifying} className="w-full">
                     {verifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    コードを確認
+                    {t("login.confirmCode")}
                   </Button>
                 </form>
               </div>
@@ -181,19 +186,19 @@ export default function LoginPage() {
                   ) : (
                     <GoogleIcon className="h-4 w-4" />
                   )}
-                  Googleでログイン
+                  {t("login.googleSignIn")}
                 </Button>
-                {googleError && <p className="text-sm text-destructive">{googleError}</p>}
+                {googleError && <InlineAlert>{googleError}</InlineAlert>}
 
                 <div className="flex items-center gap-3">
                   <div className="h-px flex-1 bg-border" />
-                  <span className="text-xs text-muted-foreground">または</span>
+                  <span className="text-xs text-muted-foreground">{t("login.or")}</span>
                   <div className="h-px flex-1 bg-border" />
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="email">メールアドレス</Label>
+                    <Label htmlFor="email">{t("login.email")}</Label>
                     <Input
                       id="email"
                       type="email"
@@ -203,10 +208,10 @@ export default function LoginPage() {
                       onChange={(e) => setEmail(e.target.value)}
                     />
                   </div>
-                  {error && <p className="text-sm text-destructive">{error}</p>}
+                  {error && <InlineAlert>{error}</InlineAlert>}
                   <Button type="submit" variant="secondary" disabled={loading} className="w-full">
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    ログインリンクを送信
+                    {t("login.sendLink")}
                   </Button>
                 </form>
               </div>
@@ -218,11 +223,11 @@ export default function LoginPage() {
       <footer className="flex flex-col items-center gap-1 pb-6 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           <Link href="/legal/terms" className="hover:text-foreground">
-            利用規約
+            {t("login.terms")}
           </Link>
           <span aria-hidden="true">|</span>
           <Link href="/legal/privacy" className="hover:text-foreground">
-            プライバシーポリシー
+            {t("login.privacy")}
           </Link>
         </div>
         <p>&copy; {new Date().getFullYear()} Zonostick</p>

@@ -6,6 +6,7 @@ import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { createBrand } from "./actions";
 
 export function BrandForm() {
@@ -41,7 +42,7 @@ export function BrandForm() {
           <Input id="competitors" name="competitors" placeholder="競合A, 競合B" />
         </div>
       </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <InlineAlert>{error}</InlineAlert>}
       <Button type="submit" disabled={isPending} className="w-fit">
         {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
         ブランドを追加

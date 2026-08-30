@@ -1,22 +1,23 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { AlertTriangle, Bell, TrendingUp, Target, Link2, Loader2, Download } from "lucide-react";
+import { AlertTriangle, Bell, TrendingUp, Target, Link2, Loader2, Download, Megaphone } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { LLM_PROVIDERS, type LlmProvider } from "@/lib/geo-engine";
 import { cn, formatDate } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { buttonVariants } from "@/components/ui/button";
 import { RankTrendChart, type TrendPoint } from "@/components/rank-trend-chart";
 import { ShareOfVoice, type ShareOfVoiceEntry } from "@/components/share-of-voice";
+import { T } from "@/components/t";
 
 import { BrandForm } from "./brand-form";
 import { PromptForm } from "./prompt-form";
 import { DeletePromptButton } from "./delete-prompt-button";
 import { RecheckPromptButton } from "./recheck-prompt-button";
-import { UpgradeButton } from "./upgrade-button";
+import { UpgradePrompt } from "./upgrade-button";
+import { RankBadge, SentimentDot, RawResponseButton } from "./result-cell";
 
 const PROVIDERS = LLM_PROVIDERS;
 const PROVIDER_LABELS: Record<LlmProvider, string> = {
@@ -31,48 +32,8 @@ const PROVIDER_LABELS: Record<LlmProvider, string> = {
 const UNCATEGORIZED = "__uncategorized__";
 const VISIBLE_ALERTS = 3;
 
-function RankBadge({
-  mentioned,
-  rank,
-}: {
-  mentioned: boolean;
-  rank: number | null;
-}) {
-  if (!mentioned) {
-    return <Badge variant="destructive">圏外</Badge>;
-  }
-  if (rank === null) {
-    return <Badge variant="secondary">言及あり</Badge>;
-  }
-  if (rank <= 3) {
-    return <Badge variant="success">#{rank}</Badge>;
-  }
-  return <Badge variant="warning">#{rank}</Badge>;
-}
-
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
-}
-
-const SENTIMENT_LABEL: Record<string, string> = {
-  positive: "好意的",
-  neutral: "中立的",
-  negative: "否定的",
-};
-const SENTIMENT_DOT: Record<string, string> = {
-  positive: "bg-emerald-500",
-  neutral: "bg-slate-400",
-  negative: "bg-destructive",
-};
-
-function SentimentDot({ sentiment }: { sentiment: string | null }) {
-  if (!sentiment) return null;
-  return (
-    <span
-      title={`論調: ${SENTIMENT_LABEL[sentiment] ?? sentiment}`}
-      className={cn("inline-block h-2 w-2 shrink-0 rounded-full", SENTIMENT_DOT[sentiment])}
-    />
-  );
 }
 
 export default async function DashboardPage({
@@ -98,26 +59,18 @@ export default async function DashboardPage({
         <Card>
           <CardHeader>
             <CardTitle>
-              {plan === "free" ? "プランのご契約が必要です" : "最初のブランドを追加しましょう"}
+              <T k={plan === "free" ? "dashboard.needSubscription" : "dashboard.firstBrand"} />
             </CardTitle>
             <CardDescription>
-              {plan === "free"
-                ? "Zonostickは有料プラン(Pro/Business)でご利用いただけます。プランをご契約いただくと、ブランドの追加・毎朝の自動計測が始まります。"
-                : "追跡したいブランド名と競合を登録すると、プロンプトの追加・毎朝の自動計測が始まります。"}
+              <T k={plan === "free" ? "dashboard.needSubscriptionDesc" : "dashboard.firstBrandDesc"} />
             </CardDescription>
           </CardHeader>
           <CardContent>
             {plan === "free" ? (
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <UpgradeButton
-                  priceId={process.env.STRIPE_PRICE_ID_PRO ?? ""}
-                  label="Proにアップグレード"
-                />
-                <UpgradeButton
-                  priceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""}
-                  label="Businessにアップグレード"
-                />
-              </div>
+              <UpgradePrompt
+                proPriceId={process.env.STRIPE_PRICE_ID_PRO ?? ""}
+                businessPriceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""}
+              />
             ) : (
               <BrandForm />
             )}
@@ -160,6 +113,7 @@ export default async function DashboardPage({
     sentiment: string | null;
     competitors_mentioned: string[];
     citations: string[];
+    raw_response: string | null;
     checked_at: string;
   }
   const allRankings = (recentRankings ?? []) as RankingRecord[];
@@ -266,38 +220,78 @@ export default async function DashboardPage({
         ))}
       </div>
 
+      {/* Zero-mention warning: churn-risk empty state, not just a blank chart */}
+      {latestList.length > 0 && mentionRate === 0 && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardHeader className="flex-row items-start gap-3 space-y-0">
+            <Megaphone className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+            <div>
+              <CardTitle className="text-destructive">
+                <T k="dashboard.zeroMentionTitle" />
+              </CardTitle>
+              <CardDescription className="mt-1 text-foreground/80">
+                <T k="dashboard.zeroMentionDesc" />
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ul className="ml-1 flex list-disc flex-col gap-1.5 pl-4 text-sm text-foreground/80">
+              <li>
+                <T k="dashboard.zeroMentionTip1" />
+              </li>
+              <li>
+                <T k="dashboard.zeroMentionTip2" />
+              </li>
+              <li>
+                <T k="dashboard.zeroMentionTip3" />
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
       {/* KPI cards - top row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">言及率</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              <T k="dashboard.mentionRate" />
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{Math.round(mentionRate * 100)}%</div>
-            <p className="text-xs text-muted-foreground">直近の計測に基づく</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">平均順位</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{avgRank ? avgRank.toFixed(1) : "-"}</div>
-            <p className="text-xs text-muted-foreground">ランク付けされた回答のみ</p>
+            <p className="text-xs text-muted-foreground">
+              <T k="dashboard.mentionRateHint" />
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              直近7日間のアラート
+              <T k="dashboard.avgRank" />
+            </CardTitle>
+            <Target className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{avgRank ? avgRank.toFixed(1) : "-"}</div>
+            <p className="text-xs text-muted-foreground">
+              <T k="dashboard.avgRankHint" />
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              <T k="dashboard.alertsThisWeek" />
             </CardTitle>
             <Bell className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{alertsThisWeek}</div>
-            <p className="text-xs text-muted-foreground">順位異常の検知件数</p>
+            <p className="text-xs text-muted-foreground">
+              <T k="dashboard.alertsThisWeekHint" />
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -306,15 +300,17 @@ export default async function DashboardPage({
       <Card>
         <CardHeader className="flex-row items-start justify-between space-y-0">
           <div>
-            <CardTitle>最新の推奨順位</CardTitle>
-            <CardDescription>{selectedBrand.name} - プロンプト × LLM別の最新結果</CardDescription>
+            <CardTitle>
+              <T k="dashboard.latestRankings" />
+            </CardTitle>
+            <CardDescription>{selectedBrand.name}</CardDescription>
           </div>
           <a
             href={`/api/export/csv?brand=${selectedBrand.id}`}
             className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 gap-1.5")}
           >
             <Download className="h-3.5 w-3.5" />
-            CSVダウンロード
+            <T k="dashboard.downloadCsv" />
           </a>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -322,7 +318,7 @@ export default async function DashboardPage({
 
           {!prompts || prompts.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              まだプロンプトが登録されていません。上のフォームから追加してください。
+              <T k="dashboard.noPrompts" />
             </p>
           ) : (
             <div className="flex flex-col gap-6 border-t border-border pt-4">
@@ -330,13 +326,15 @@ export default async function DashboardPage({
                 <div key={groupKey} className="flex flex-col gap-2">
                   {showGroupHeadings && (
                     <h4 className="text-sm font-semibold text-foreground">
-                      {groupKey === UNCATEGORIZED ? "未分類" : groupKey}
+                      {groupKey === UNCATEGORIZED ? <T k="dashboard.uncategorized" /> : groupKey}
                     </h4>
                   )}
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>プロンプト</TableHead>
+                        <TableHead>
+                          <T k="dashboard.prompt" />
+                        </TableHead>
                         {PROVIDERS.map((p) => (
                           <TableHead key={p}>{PROVIDER_LABELS[p]}</TableHead>
                         ))}
@@ -364,13 +362,20 @@ export default async function DashboardPage({
                                         {r.citations.length}
                                       </span>
                                     )}
+                                    <RawResponseButton
+                                      rawResponse={r.raw_response}
+                                      provider={PROVIDER_LABELS[provider]}
+                                      promptText={prompt.text}
+                                    />
                                   </div>
                                 ) : promptsWithAnyData.has(prompt.id) ? (
-                                  <span className="text-xs text-muted-foreground">未計測</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    <T k="dashboard.notMeasured" />
+                                  </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                                     <Loader2 className="h-3 w-3 animate-spin" />
-                                    初回計測中
+                                    <T k="dashboard.firstMeasuring" />
                                   </span>
                                 )}
                               </TableCell>
@@ -397,8 +402,12 @@ export default async function DashboardPage({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>順位トレンド</CardTitle>
-            <CardDescription>LLMごとの平均順位の推移(日次)</CardDescription>
+            <CardTitle>
+              <T k="dashboard.trend" />
+            </CardTitle>
+            <CardDescription>
+              <T k="dashboard.trendDesc" />
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <RankTrendChart data={trendData} />
@@ -407,8 +416,12 @@ export default async function DashboardPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>競合との言及シェア</CardTitle>
-            <CardDescription>{selectedBrand.name}と競合の、直近の言及割合</CardDescription>
+            <CardTitle>
+              <T k="dashboard.shareOfVoice" />
+            </CardTitle>
+            <CardDescription>
+              <T k="dashboard.shareOfVoiceDesc" vars={{ name: selectedBrand.name }} />
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ShareOfVoice entries={shareOfVoiceEntries} total={latestList.length} />
@@ -419,12 +432,18 @@ export default async function DashboardPage({
       {/* Recent alerts - compact */}
       <Card>
         <CardHeader>
-          <CardTitle>最近のアラート</CardTitle>
-          <CardDescription>毎朝のバッチで検知された順位変動</CardDescription>
+          <CardTitle>
+            <T k="dashboard.recentAlerts" />
+          </CardTitle>
+          <CardDescription>
+            <T k="dashboard.recentAlertsDesc" />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {visibleAlerts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">まだアラートはありません。</p>
+            <p className="text-sm text-muted-foreground">
+              <T k="dashboard.noAlerts" />
+            </p>
           ) : (
             <ul className="flex flex-col gap-2.5">
               {visibleAlerts.map((alert) => (
@@ -449,7 +468,7 @@ export default async function DashboardPage({
           )}
           {alerts && alerts.length > VISIBLE_ALERTS && (
             <p className="mt-3 text-xs text-muted-foreground">
-              他 {alerts.length - VISIBLE_ALERTS} 件のアラートがあります。
+              <T k="dashboard.moreAlerts" vars={{ count: alerts.length - VISIBLE_ALERTS }} />
             </p>
           )}
         </CardContent>

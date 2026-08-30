@@ -5,39 +5,36 @@ import { CheckCircle2, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { UpgradeButton } from "@/app/dashboard/upgrade-button";
+import { T } from "@/components/t";
+import { LangToggle } from "@/components/lang-toggle";
+import { UpgradeButtonLabel } from "@/app/dashboard/upgrade-button-label";
 import { SignOutButton } from "@/app/dashboard/sign-out-button";
 
 const PLANS = [
   {
     name: "Pro",
     price: "¥9,800",
-    description: "本格運用するチーム向け",
-    features: [
-      "5ブランドまで",
-      "プロンプト無制限",
-      "毎朝自動計測",
-      "Slack異常検知アラート",
-    ],
+    descKey: "landing.proDesc",
+    featureKeys: ["landing.proFeature1", "landing.proFeature2", "landing.proFeature3", "landing.proFeature4"],
     priceIdEnv: "STRIPE_PRICE_ID_PRO",
-    cta: "Proを選択して決済する",
+    ctaKey: "pricing.ctaPro",
     highlighted: true,
   },
   {
     name: "Business",
     price: "¥29,800",
-    description: "複数ブランド・代理店向け",
-    features: [
-      "ブランド無制限",
-      "プロンプト無制限",
-      "毎朝自動計測",
-      "Slack異常検知アラート",
+    descKey: "landing.businessDesc",
+    featureKeys: [
+      "landing.businessFeature1",
+      "landing.businessFeature2",
+      "landing.businessFeature3",
+      "landing.businessFeature4",
     ],
     priceIdEnv: "STRIPE_PRICE_ID_BUSINESS",
-    cta: "Businessを選択して決済する",
+    ctaKey: "pricing.ctaBusiness",
     highlighted: false,
   },
-];
+] as const;
 
 /**
  * Plan-selection screen shown to any logged-in user who isn't on a paid
@@ -72,16 +69,20 @@ export default async function PricingPage() {
             <Sparkles className="h-5 w-5 text-primary" />
             Zonostick
           </Link>
-          <SignOutButton />
+          <div className="flex items-center gap-3">
+            <LangToggle />
+            <SignOutButton />
+          </div>
         </div>
       </header>
 
       <div className="container flex flex-1 flex-col items-center py-16">
         <div className="mb-10 max-w-xl text-center">
-          <h1 className="text-3xl font-bold tracking-tight">プランを選んで始めましょう</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            <T k="pricing.title" />
+          </h1>
           <p className="mt-3 text-muted-foreground">
-            Zonostickは有料プランでご利用いただけます。プランを選択すると、そのまま決済画面に進みます。
-            決済完了後、すぐにダッシュボードでブランドの追跡を開始できます。
+            <T k="pricing.subtitle" />
           </p>
         </div>
 
@@ -92,29 +93,32 @@ export default async function PricingPage() {
               className={plan.highlighted ? "border-primary shadow-lg ring-1 ring-primary" : ""}
             >
               <CardHeader>
-                {plan.highlighted && <Badge className="mb-2 w-fit">おすすめ</Badge>}
+                {plan.highlighted && (
+                  <Badge className="mb-2 w-fit">
+                    <T k="landing.recommended" />
+                  </Badge>
+                )}
                 <CardTitle>{plan.name}</CardTitle>
                 <div className="flex items-baseline gap-1">
                   <span className="text-3xl font-bold">{plan.price}</span>
-                  <span className="text-sm text-muted-foreground">/月</span>
+                  <span className="text-sm text-muted-foreground">
+                    <T k="pricing.perMonth" />
+                  </span>
                 </div>
-                <CardDescription>{plan.description}</CardDescription>
+                <CardDescription>
+                  <T k={plan.descKey} />
+                </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <ul className="flex flex-col gap-2">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-sm">
-                      <CheckCircle2 className="h-4 w-4 text-primary" />
-                      {f}
+                  {plan.featureKeys.map((key) => (
+                    <li key={key} className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                      <T k={key} />
                     </li>
                   ))}
                 </ul>
-                <UpgradeButton
-                  priceId={process.env[plan.priceIdEnv] ?? ""}
-                  label={plan.cta}
-                  size="lg"
-                  className="w-full"
-                />
+                <UpgradeButtonLabel priceId={process.env[plan.priceIdEnv] ?? ""} labelKey={plan.ctaKey} />
               </CardContent>
             </Card>
           ))}

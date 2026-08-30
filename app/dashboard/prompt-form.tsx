@@ -6,6 +6,7 @@ import { Plus, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { createPrompt } from "./actions";
 
 export function PromptForm({ brandId }: { brandId: string }) {
@@ -52,7 +53,7 @@ export function PromptForm({ brandId }: { brandId: string }) {
         placeholder="グループ名(任意)"
         className="sm:w-40"
       />
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <InlineAlert>{error}</InlineAlert>}
       <Button type="submit" disabled={isPending} size="sm">
         {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
         追加

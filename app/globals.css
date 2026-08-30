@@ -37,8 +37,31 @@
   * {
     @apply border-border;
   }
+  html,
+  body {
+    /* Prevents horizontal rubber-banding/scroll if any element ever
+       overflows the viewport width - a wide table or long unbroken
+       string shouldn't be able to shove the whole page sideways. */
+    overflow-x: hidden;
+    max-width: 100%;
+  }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Belt-and-suspenders alongside Input's text-base: any input/textarea/
+   select on a narrow (mobile) viewport must render at 16px or larger,
+   or iOS Safari auto-zooms the whole page on focus. Scoped to the
+   mobile breakpoint (rather than applied globally) so desktop form
+   styling is unaffected. !important because this is a deliberate,
+   final override - a component should never win back a mobile-zoom bug
+   by accident via a more specific selector. */
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
   }
 }
 

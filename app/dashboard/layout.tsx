@@ -3,11 +3,13 @@ import { redirect } from "next/navigation";
 import { Sparkles } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
+import { T } from "@/components/t";
+import { LangToggle } from "@/components/lang-toggle";
 import { SignOutButton } from "./sign-out-button";
 import { SidebarNav } from "./sidebar-nav";
 
-const PLAN_DISPLAY_LABELS: Record<string, string> = {
-  free: "未契約",
+const PLAN_LABELS: Record<string, string | null> = {
+  free: null, // rendered via <T k="dashboard.notSubscribed" /> instead
   pro: "Pro",
   business: "Business",
 };
@@ -29,7 +31,7 @@ export default async function DashboardLayout({
     .select("email, plan")
     .eq("id", user.id)
     .single();
-  const planLabel = PLAN_DISPLAY_LABELS[profile?.plan ?? "free"] ?? profile?.plan ?? "未契約";
+  const planLabel = PLAN_LABELS[profile?.plan ?? "free"] ?? profile?.plan ?? null;
 
   return (
     <div className="min-h-screen bg-muted/50">
@@ -40,11 +42,12 @@ export default async function DashboardLayout({
             Zonostick
           </Link>
           <div className="flex min-w-0 items-center gap-3">
+            <LangToggle />
             <span className="hidden max-w-[16rem] truncate text-sm text-muted-foreground sm:inline">
-              {profile?.email} ・ プラン: {planLabel}
+              {profile?.email} · <T k="dashboard.plan" />: {planLabel ?? <T k="dashboard.notSubscribed" />}
             </span>
             <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium uppercase text-muted-foreground sm:hidden">
-              {planLabel}
+              {planLabel ?? <T k="dashboard.notSubscribed" />}
             </span>
             <SignOutButton />
           </div>

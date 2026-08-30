@@ -5,14 +5,16 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, Settings } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/context";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "ダッシュボード", icon: LayoutDashboard, exact: true },
-  { href: "/dashboard/settings", label: "設定・連携", icon: Settings, exact: false },
+  { href: "/dashboard", labelKey: "dashboard.dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/settings", labelKey: "dashboard.settings", icon: Settings, exact: false },
 ];
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   return (
     <nav className="flex flex-col gap-1">
@@ -30,7 +32,7 @@ export function SidebarNav() {
             )}
           >
             <item.icon className="h-4 w-4 shrink-0" />
-            {item.label}
+            {t(item.labelKey)}
           </Link>
         );
       })}
