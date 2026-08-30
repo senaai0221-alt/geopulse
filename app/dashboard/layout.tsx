@@ -37,7 +37,12 @@ export default async function DashboardLayout({
     <div className="min-h-screen bg-muted/50 print:bg-background">
       <header className="border-b border-border bg-background print:hidden">
         <div className="container flex h-16 items-center justify-between gap-3">
-          <Link href="/" className="flex shrink-0 items-center gap-2 font-bold text-lg">
+          {/* Inside the logged-in app, the logo stays inside the app
+              (/dashboard) rather than bouncing out to the public
+              marketing page - the marketing header shows "login" CTAs
+              that read as a sign-out even though the session is still
+              live. */}
+          <Link href="/dashboard" className="flex shrink-0 items-center gap-2 font-bold text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
             Zonostick
           </Link>

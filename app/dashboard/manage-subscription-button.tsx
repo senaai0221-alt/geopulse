@@ -21,11 +21,14 @@ export function ManageSubscriptionButton() {
       const res = await fetch("/api/stripe/portal", { method: "POST" });
       const data = await res.json();
       if (!res.ok || !data.url) {
-        throw new Error(data.error ?? "Failed to open the billing portal");
+        // The API returns a code (not a locale-specific message - it
+        // has no idea which language this UI is in), so map it here.
+        const key = data.error === "no_customer" ? "settings.portalNoCustomer" : "settings.portalError";
+        throw new Error(t(key));
       }
       window.location.href = data.url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(err instanceof Error ? err.message : t("settings.portalError"));
       setLoading(false);
     }
   }

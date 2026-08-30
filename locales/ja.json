@@ -3,7 +3,8 @@
     "login": "ログイン",
     "getStarted": "今すぐ始める",
     "logout": "ログアウト",
-    "pricingPlan": "料金プラン"
+    "pricingPlan": "料金プラン",
+    "backToDashboard": "ダッシュボードへ戻る"
   },
   "landing": {
     "badge": "GEO (Generative Engine Optimization) 対応",
@@ -125,8 +126,8 @@
     "zeroMentionTip3": "比較・レビュー記事への掲載を狙う",
     "needSubscription": "プランのご契約が必要です",
     "needSubscriptionDesc": "Zonostickは有料プラン(Pro/Business)でご利用いただけます。プランをご契約いただくと、ブランドの追加・毎朝の自動計測が始まります。",
-    "firstBrand": "最初のブランドを追加しましょう",
-    "firstBrandDesc": "追跡したいブランド名と競合を登録すると、プロンプトの追加・毎朝の自動計測が始まります。",
+    "firstBrand": "最初の計測対象を追加しましょう",
+    "firstBrandDesc": "追跡したい対象(社名・製品・サービス名)と競合を登録すると、プロンプトの追加・毎朝の自動計測が始まります。",
     "upgradeToPro": "Proにアップグレード",
     "upgradeToBusiness": "Businessにアップグレード"
   },
@@ -186,6 +187,8 @@
     "slackStep3": "発行された「Webhook URL」をコピーし、上の入力欄に貼り付けてください。",
     "currentPlan": "現在のプラン",
     "subscribedThanks": "ご契約ありがとうございます。",
-    "manageSubscription": "契約管理・領収書発行"
+    "manageSubscription": "契約管理・領収書発行",
+    "portalNoCustomer": "Stripeの決済情報が確認できませんでした。お困りの場合はサポートまでお問い合わせください。",
+    "portalError": "契約管理ページを開けませんでした。時間をおいて再度お試しください。"
   }
 }

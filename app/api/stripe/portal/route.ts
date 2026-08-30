@@ -26,10 +26,12 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (!profile?.stripe_customer_id) {
-    return NextResponse.json(
-      { error: "契約情報が見つかりませんでした。プランをご契約後にご利用いただけます。" },
-      { status: 400 }
-    );
+    // A known, expected state (e.g. a plan set manually in the DB
+    // without ever going through Checkout) rather than a failure -
+    // return a code so the client can show a translated, non-alarming
+    // message instead of a raw error string with no locale awareness
+    // (this route has no idea which language the caller's UI is in).
+    return NextResponse.json({ error: "no_customer" }, { status: 400 });
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? request.nextUrl.origin;
@@ -44,9 +46,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("Stripe billing portal session creation failed:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Billing portal session creation failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "portal_error" }, { status: 500 });
   }
 }

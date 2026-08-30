@@ -3,7 +3,8 @@
     "login": "Log in",
     "getStarted": "Get Started",
     "logout": "Log out",
-    "pricingPlan": "Pricing"
+    "pricingPlan": "Pricing",
+    "backToDashboard": "Back to Dashboard"
   },
   "landing": {
     "badge": "GEO (Generative Engine Optimization) Ready",
@@ -125,8 +126,8 @@
     "zeroMentionTip3": "Get featured in comparison and review articles",
     "needSubscription": "A subscription is required",
     "needSubscriptionDesc": "Zonostick runs on paid plans (Pro/Business). Once you subscribe, you can add brands and daily checks will begin automatically.",
-    "firstBrand": "Add your first brand",
-    "firstBrandDesc": "Register the brand and competitors you want to track, then add prompts to start the daily automated checks.",
+    "firstBrand": "Add your first tracking target",
+    "firstBrandDesc": "Register your target (company, product, or service) and competitors to start tracking.",
     "upgradeToPro": "Upgrade to Pro",
     "upgradeToBusiness": "Upgrade to Business"
   },
@@ -186,6 +187,8 @@
     "slackStep3": "Copy the \"Webhook URL\" it gives you, and paste it into the field above.",
     "currentPlan": "Current plan",
     "subscribedThanks": "Thanks for subscribing!",
-    "manageSubscription": "Manage subscription & invoices"
+    "manageSubscription": "Manage subscription & invoices",
+    "portalNoCustomer": "Stripe customer data not found. Please contact support.",
+    "portalError": "We couldn't open the billing portal. Please try again in a moment."
   }
 }

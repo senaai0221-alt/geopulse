@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { T } from "@/components/t";
 import { LangToggle } from "@/components/lang-toggle";
+import { createClient } from "@/lib/supabase/server";
 
 // All 6 providers Zonostick actually queries - keep in sync with
 // LLM_PROVIDERS in lib/geo-engine.ts.
@@ -83,23 +84,44 @@ const PLANS = [
   },
 ] as const;
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  // Header/CTA state must reflect whether a session already exists -
+  // otherwise a logged-in user sees "Log in / Get Started" here, which
+  // reads as having been signed out even though nothing changed.
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const primaryHref = user ? "/dashboard" : "/login";
+  const primaryLabelKey = user ? "nav.backToDashboard" : "nav.getStarted";
+  // A logged-in-but-unpaid visitor goes to the real checkout flow
+  // (/pricing); /pricing itself redirects paid users straight on to
+  // /dashboard, so this never shows pricing to someone already paying.
+  const planCtaHref = user ? "/pricing" : "/login";
+
   return (
     <main className="flex flex-col">
       {/* Header */}
       <header className="border-b border-border">
         <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2 font-bold text-lg">
+          <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-2 font-bold text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
             Zonostick
-          </div>
+          </Link>
           <nav className="flex items-center gap-4">
             <LangToggle />
-            <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">
-              <T k="nav.login" />
-            </Link>
-            <Link href="/login" className={cn(buttonVariants({ size: "sm" }))}>
-              <T k="nav.getStarted" />
+            {user ? (
+              <span className="hidden max-w-[14rem] truncate text-sm text-muted-foreground sm:inline">
+                {user.email}
+              </span>
+            ) : (
+              <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">
+                <T k="nav.login" />
+              </Link>
+            )}
+            <Link href={primaryHref} className={cn(buttonVariants({ size: "sm" }))}>
+              <T k={primaryLabelKey} />
             </Link>
           </nav>
         </div>
@@ -119,8 +141,8 @@ export default function LandingPage() {
           <T k="landing.heroDescription" />
         </p>
         <div className="mt-10 flex items-center justify-center gap-4">
-          <Link href="/login" className={cn(buttonVariants({ size: "lg" }))}>
-            <T k="nav.getStarted" /> <ArrowRight className="ml-2 h-4 w-4" />
+          <Link href={primaryHref} className={cn(buttonVariants({ size: "lg" }))}>
+            <T k={primaryLabelKey} /> <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
           <Link href="#pricing" className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>
             <T k="landing.viewPricing" />
@@ -264,7 +286,7 @@ export default function LandingPage() {
                     )}
                   </ul>
                   <Link
-                    href="/login"
+                    href={planCtaHref}
                     className={cn(
                       buttonVariants({ variant: plan.highlighted ? "default" : "outline" }),
                       "w-full"
@@ -308,8 +330,8 @@ export default function LandingPage() {
             © {new Date().getFullYear()} ENDEVER, Inc. <T k="landing.footerRights" />
           </span>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/login" className="hover:text-foreground">
-              <T k="nav.login" />
+            <Link href={primaryHref} className="hover:text-foreground">
+              <T k={user ? "nav.backToDashboard" : "nav.login"} />
             </Link>
             <Link href="/legal/tokushoho" className="hover:text-foreground">
               <T k="landing.footerTokushoho" />
