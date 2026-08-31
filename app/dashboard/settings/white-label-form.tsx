@@ -109,6 +109,25 @@ export function WhiteLabelForm({
     setUploadError(null);
     setIsUploading(true);
     try {
+      // Best-effort: also delete the actual Storage object, not just the
+      // profile's reference to it - otherwise every "remove" leaves an
+      // orphaned file sitting in the bucket forever (the fixed
+      // <uid>/logo.<ext> path only gets overwritten by a *future*
+      // upload, never cleaned up on its own). Derived from the current
+      // public URL rather than tracked separately, since that URL
+      // already fully encodes the object's path within the bucket.
+      const path = logoUrl ? new URL(logoUrl).pathname.split("/report-logos/")[1] : null;
+      if (path) {
+        try {
+          await createClient().storage.from("report-logos").remove([path]);
+        } catch {
+          // Non-fatal - clearing the profile's reference below is what
+          // actually makes the logo disappear from the report; a failed
+          // Storage delete just leaves an unreferenced file behind for
+          // a future upload to overwrite.
+        }
+      }
+
       const formData = new FormData();
       formData.set("report_logo_url", "");
       await updateWhiteLabelSettings(formData);

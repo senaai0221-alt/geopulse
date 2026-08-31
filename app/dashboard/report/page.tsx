@@ -323,10 +323,25 @@ export default async function ReportPage({
           </div>
         </header>
 
-        <h1 className="text-xl font-bold tracking-tight">
-          <T k="report.monthlyReportTitle" /> (<MonthLabel month={month} />)
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{selectedBrand.name}</p>
+        {/* The brand name is the one thing a reader must register in the
+            first second of looking at this document - who is this
+            report even about - so it carries the biggest, boldest type
+            on the page; the report's own title/month become a small
+            eyebrow label above it instead of competing for the same
+            attention. The accent bar underneath is the "badge" framing
+            without boxing the name in, which would fight print
+            pagination at long brand names. break-inside-avoid keeps the
+            whole block (label + name + bar) from splitting across a
+            page break in print. */}
+        <div className="break-inside-avoid">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <T k="report.monthlyReportTitle" /> · <MonthLabel month={month} />
+          </p>
+          <h1 className="mt-1 break-words text-4xl font-extrabold leading-tight tracking-tight text-foreground print:text-4xl">
+            {selectedBrand.name}
+          </h1>
+          <div className="mt-2 h-1.5 w-20 rounded-full bg-primary print:bg-primary" />
+        </div>
 
         <section className="mt-6">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">

@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/context";
 import { generateReportNotes } from "../actions";
 import type { ReportInsightsInput } from "@/lib/report-insights";
@@ -15,15 +14,13 @@ import type { ReportInsightsInput } from "@/lib/report-insights";
  * (near the commentary section), not once per textarea, since one
  * generation call writes both fields together from the same data.
  *
- * Auto-fires on mount only when `hasNotesRow` is false - i.e. no
- * report_notes row exists yet for this brand/month at all, not merely
- * "the field is currently empty". That distinction matters: a user who
- * generated once and then deliberately cleared a field to write their
- * own text from scratch has a *row* (with a null/empty column), and
- * must never have their edit silently overwritten by another auto-run
- * on the next page load. The manual button below covers "I want a new
- * AI draft" for every other case - after that first auto-fill, it's
- * opt-in only.
+ * Fires automatically, at most once, only when `hasNotesRow` is false -
+ * i.e. no report_notes row exists yet for this brand/month at all, not
+ * merely "the field is currently empty". There is deliberately no
+ * manual (re)generate control: once that first background draft lands,
+ * the only way to change either field is to edit the textarea directly
+ * (see report-notes.tsx) - a second AI pass would risk quietly
+ * clobbering whatever the user has since written in its place.
  */
 export function AiGenerateNotes({
   brandId,
@@ -40,48 +37,40 @@ export function AiGenerateNotes({
 }) {
   const { t } = useI18n();
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isGenerating, setIsGenerating] = useState(false);
   const [failed, setFailed] = useState(false);
   const autoFired = useRef(false);
 
-  function generate() {
-    setFailed(false);
-    startTransition(async () => {
-      const result = await generateReportNotes(brandId, month, insightsData);
+  useEffect(() => {
+    if (autoFired.current || hasNotesRow || !hasData) return;
+    autoFired.current = true;
+    setIsGenerating(true);
+    generateReportNotes(brandId, month, insightsData).then((result) => {
+      setIsGenerating(false);
       if (result.ok) {
         router.refresh();
       } else {
         setFailed(true);
       }
     });
-  }
-
-  useEffect(() => {
-    if (autoFired.current || hasNotesRow || !hasData) return;
-    autoFired.current = true;
-    generate();
     // Only the identity of the brand/month should ever re-arm this -
     // insightsData changes on every keystroke-triggered refresh
     // elsewhere on the page and must not retrigger auto-generation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandId, month, hasNotesRow, hasData]);
 
-  if (!hasData) return null;
+  if (!hasData || (!isGenerating && !failed && hasNotesRow)) return null;
 
   return (
-    <div className="flex flex-col gap-1.5 print:hidden">
-      <div className="flex items-center gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={generate} disabled={isPending} className="gap-1.5">
-          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-          {isPending
-            ? t("report.notesGenerating")
-            : hasNotesRow
-            ? t("report.notesRegenerateWithAi")
-            : t("report.notesGenerateWithAi")}
-        </Button>
-      </div>
+    <div className="flex flex-col gap-1 print:hidden">
+      {isGenerating && (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          {t("report.notesGenerating")}
+        </p>
+      )}
       {failed && <p className="text-xs text-destructive">{t("report.notesGenerateFailed")}</p>}
-      <p className="text-xs text-muted-foreground">{t("report.notesAiDisclaimer")}</p>
+      {!hasNotesRow && <p className="text-xs text-muted-foreground">{t("report.notesAiDisclaimer")}</p>}
     </div>
   );
 }
