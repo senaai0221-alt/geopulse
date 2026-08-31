@@ -286,12 +286,20 @@ function isAsciiWordChar(ch: string | undefined): boolean {
  * back to a plain literal substring match instead, which is the correct
  * notion of "exact match" for scripts with no whitespace-tokenization
  * concept to begin with - and, critically, one that can actually match.
+ *
+ * Exported (in addition to being used internally by parseResponse) so
+ * anywhere else that needs to find the *same* mentions this module
+ * already judged - e.g. highlighting a brand name inside a quoted
+ * response snippet on the report page - reuses this exact matcher
+ * rather than a second, potentially-diverging implementation. `flags`
+ * defaults to "i" (single-match test); pass "gi" to find every
+ * occurrence instead of just testing presence.
  */
-function nameRegex(name: string): RegExp {
+export function nameRegex(name: string, flags = "i"): RegExp {
   const escaped = escapeRegExp(name);
   const leading = isAsciiWordChar(name[0]) ? "\\b" : "";
   const trailing = isAsciiWordChar(name[name.length - 1]) ? "\\b" : "";
-  return new RegExp(`${leading}${escaped}${trailing}`, "i");
+  return new RegExp(`${leading}${escaped}${trailing}`, flags);
 }
 
 /**

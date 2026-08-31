@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { sendSlackMessage, buildTestMessageBlocks, buildFeedbackBlocks, type FeedbackInput } from "@/lib/slack";
 import { sendTestAlertEmail } from "@/lib/email";
 import { assertCanAddBrand, assertCanAddPrompt } from "@/lib/plan-limits";
+import { generateReportInsights, type ReportInsightsInput } from "@/lib/report-insights";
 
 // Defense-in-depth against pathological input (a multi-thousand-character
 // name/prompt, hundreds of "competitors", etc.) that could otherwise
@@ -233,6 +234,59 @@ export async function upsertReportNotes(formData: FormData): Promise<{ ok: boole
 
   revalidatePath("/dashboard/report");
   return { ok: true };
+}
+
+/**
+ * Writes both report_notes fields at once from an LLM-generated first
+ * draft (see lib/report-insights.ts) - either the report page's
+ * auto-generate-on-first-view trigger for a month with no saved notes
+ * yet, or the "Regenerate with AI" button next to either textarea.
+ *
+ * `data` is the same aggregate numbers the report page itself already
+ * computed and rendered for this brand/month (KPIs, per-LLM stats,
+ * competitor share, category breakdown) - passed through from the
+ * client rather than re-queried here, so the generated commentary can
+ * never end up describing different numbers than the charts sitting
+ * next to it on the page.
+ *
+ * Ownership is verified explicitly (not just left to the report_notes
+ * upsert's own RLS) before the paid OpenAI call runs, so an arbitrary
+ * brandId can't be used to spend API credits against a brand that
+ * doesn't belong to the caller even if the eventual write would fail
+ * anyway.
+ */
+export async function generateReportNotes(
+  brandId: string,
+  month: string,
+  data: ReportInsightsInput
+): Promise<{ ok: boolean; commentary?: string; nextActions?: string }> {
+  const { supabase } = await requireUser();
+
+  if (!brandId || !/^\d{4}-\d{2}$/.test(month)) return { ok: false };
+
+  const { data: brand } = await supabase.from("brands").select("id").eq("id", brandId).single();
+  if (!brand) return { ok: false };
+
+  const insights = await generateReportInsights(data);
+  if (!insights) return { ok: false };
+
+  const commentary = truncate(insights.commentary, 4000);
+  const nextActions = truncate(insights.nextActions, 4000);
+
+  const { error } = await supabase.from("report_notes").upsert(
+    {
+      brand_id: brandId,
+      month,
+      commentary: commentary || null,
+      next_actions: nextActions || null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "brand_id,month" }
+  );
+  if (error) return { ok: false };
+
+  revalidatePath("/dashboard/report");
+  return { ok: true, commentary, nextActions };
 }
 
 export async function updateSlackSettings(formData: FormData) {

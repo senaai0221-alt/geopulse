@@ -5,6 +5,12 @@ import { Calendar } from "lucide-react";
 
 import { Select } from "@/components/ui/select";
 import { useI18n } from "@/lib/i18n/context";
+import { formatMonthLabel } from "@/lib/format-month-label";
+
+// Re-exported for existing callers of this module (this file used to
+// define formatMonthLabel itself) - see lib/format-month-label.ts for
+// why the real implementation had to move out of this "use client" file.
+export { formatMonthLabel };
 
 /** The last 12 months (this one first), as 'YYYY-MM' strings. Not
  *  filtered by which months actually have data - an empty month just
@@ -20,12 +26,6 @@ function recentMonths(count = 12): string[] {
   return months;
 }
 
-export function formatMonthLabel(month: string, locale: "ja" | "en"): string {
-  const [year, monthNum] = month.split("-").map(Number);
-  if (locale === "ja") return `${year}年${monthNum}月度`;
-  const date = new Date(year, monthNum - 1, 1);
-  return date.toLocaleDateString("en-US", { year: "numeric", month: "long" });
-}
 
 /** Leaf component for embedding the locale-formatted month label inside
  *  otherwise server-rendered report copy (report/page.tsx is a Server

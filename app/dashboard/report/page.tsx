@@ -6,8 +6,14 @@ import { T } from "@/components/t";
 import { PrintButton } from "../print-button";
 import { UpgradePrompt } from "../upgrade-button";
 import { MonthSelector, MonthLabel } from "./month-selector";
+import { formatMonthLabel } from "@/lib/format-month-label";
 import { ReportNotes } from "./report-notes";
 import { ReportLogo } from "./report-logo";
+import { ShareOfVoiceDonut } from "./share-of-voice-donut";
+import { LlmComparisonChart } from "./llm-comparison-chart";
+import { EvidenceSnippet } from "./evidence-snippet";
+import { AiGenerateNotes } from "./ai-generate-notes";
+import type { ReportInsightsInput } from "@/lib/report-insights";
 
 const PROVIDER_LABELS: Record<LlmProvider, string> = {
   chatgpt: "ChatGPT",
@@ -196,6 +202,19 @@ export default async function ReportPage({
     return { provider, mentionRate: stats.mentionRate, avgRank: stats.avgRank };
   });
 
+  // Feeds both the page-2 Share of Voice donut and (further below) the
+  // AI insights prompt - one shared computation so the chart and the
+  // AI-written commentary can never disagree with each other.
+  const shareOfVoiceRows = [
+    { name: selectedBrand.name, count: kpis.mentionedCount, isBrand: true },
+    ...competitorNames.map((name) => ({
+      name,
+      count: rankings.filter((r) => r.competitors_mentioned?.includes(name)).length,
+      isBrand: false,
+    })),
+  ];
+  const shareOfVoiceTotal = shareOfVoiceRows.reduce((sum, r) => sum + r.count, 0);
+
   interface PromptRecord {
     id: string;
     text: string;
@@ -231,6 +250,32 @@ export default async function ReportPage({
   const commentaryValue = notes?.commentary ?? "";
   const nextActionsValue = notes?.next_actions ?? "";
 
+  // Feeds the "AI first draft" generator (see ai-generate-notes.tsx) -
+  // exactly the aggregate numbers already computed above for the
+  // charts/tables, so the generated commentary is guaranteed to match
+  // what the reader sees next to it rather than a second, independently
+  // (re-)computed view of the same month.
+  const insightsData: ReportInsightsInput = {
+    brandName: selectedBrand.name,
+    monthLabel: formatMonthLabel(month, "ja"),
+    kpis: { mentionRate: kpis.mentionRate, avgRank: kpis.avgRank, shareOfVoice: kpis.shareOfVoice },
+    prevKpis: prevKpis
+      ? { mentionRate: prevKpis.mentionRate, avgRank: prevKpis.avgRank, shareOfVoice: prevKpis.shareOfVoice }
+      : null,
+    providerStats,
+    competitorShare: shareOfVoiceRows.map((r) => ({
+      name: r.name,
+      pct: shareOfVoiceTotal > 0 ? Math.round((r.count / shareOfVoiceTotal) * 100) : 0,
+      isBrand: r.isBrand,
+    })),
+    categoryStats: categoryStats.map((c) => ({
+      category: c.category === UNCATEGORIZED ? "未分類" : c.category,
+      mentionRate: c.mentionRate,
+    })),
+  };
+  const hasNotesRow = !!notes;
+  const hasReportData = rankings.length > 0;
+
   return (
     <div className="mx-auto max-w-[210mm] bg-background p-8 print:bg-white print:p-0">
       {/* @page controls the printed sheet itself; print:hidden below
@@ -243,7 +288,17 @@ export default async function ReportPage({
         @media print {
           @page { size: A4; margin: 15mm; }
           body { background: #fff; }
+          /* Covers badge/pill backgrounds, the brand-name highlight
+             (evidence-snippet.tsx's <mark>), and category bar fills -
+             browsers drop background-color by default when printing
+             unless this is forced on every element that might set one. */
           * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          /* SVG fill/stroke attributes (every recharts bar/slice/line
+             below) print at full color regardless of the rule above -
+             print-color-adjust only ever governs CSS background-color/
+             box-shadow, never vector fill/stroke - so the charts need
+             no special handling of their own to survive printing intact. */
+          .recharts-tooltip-wrapper { display: none !important; }
         }
         .report-page { page-break-after: always; break-after: page; }
         .report-page:last-child { page-break-after: auto; break-after: auto; }
@@ -301,11 +356,37 @@ export default async function ReportPage({
             <T k="report.commentaryTitle" />
           </h2>
           <ReportNotes
+            // ReportNotes seeds its editable local state from
+            // `initialValue` once, on mount, and (correctly, for a
+            // plain manual edit) never re-syncs to a changed prop
+            // afterward - but the AI-generate flow writes fresh text
+            // server-side and refreshes this page without this
+            // component ever unmounting, so without a key forcing
+            // React to treat it as a new instance, the textarea would
+            // keep showing whatever it had before generation ran.
+            // Keyed on this field's OWN current server value (not a
+            // shared per-row timestamp) so it remounts only when *this*
+            // field's stored content actually changed - saving the
+            // sibling next_actions box, or typing here without blurring
+            // yet, must never interrupt/reset this one.
+            key={commentaryValue}
             brandId={selectedBrand.id}
             month={month}
             field="commentary"
             initialValue={commentaryValue}
           />
+          {/* Rendered once for the whole page - one generation call
+              writes both this field and next_actions on page 3
+              together. See ai-generate-notes.tsx. */}
+          <div className="mt-2">
+            <AiGenerateNotes
+              brandId={selectedBrand.id}
+              month={month}
+              insightsData={insightsData}
+              hasNotesRow={hasNotesRow}
+              hasData={hasReportData}
+            />
+          </div>
         </section>
 
         <PageFooter n={1} />
@@ -321,18 +402,22 @@ export default async function ReportPage({
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             <T k="dashboard.shareOfVoice" />
           </h2>
-          <ShareOfVoiceTable rankings={rankings} brandName={selectedBrand.name} competitorNames={competitorNames} />
+          <ShareOfVoiceDonut rows={shareOfVoiceRows} total={shareOfVoiceTotal} />
         </section>
 
         <section className="mt-8 break-inside-avoid">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             <T k="report.llmMatrixTitle" />
           </h2>
+          <LlmComparisonChart stats={providerStats} />
+        </section>
+
+        <section className="mt-8 break-inside-avoid">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-left text-muted-foreground">
                 <th className="py-1.5 pr-2 font-medium">
-                  <T k="dashboard.prompt" />
+                  <T k="report.llmMatrixModel" />
                 </th>
                 <th className="py-1.5 px-2 text-right font-medium">
                   <T k="report.llmMatrixExposure" />
@@ -358,10 +443,15 @@ export default async function ReportPage({
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             <T k="report.detailTable" />
           </h2>
-          <table className="w-full border-collapse text-xs">
+          <table className="w-full table-fixed border-collapse text-xs">
             <thead>
               <tr className="border-b border-border text-left text-muted-foreground">
-                <th className="py-1.5 pr-2">
+                {/* A fixed share of the row (rather than a max-w-px cap)
+                    so the prompt column scales with however many
+                    provider columns sit beside it, and stays wide
+                    enough for a full-length Japanese prompt to wrap
+                    across 2-3 short lines instead of many narrow ones. */}
+                <th className="w-[34%] py-1.5 pr-2">
                   <T k="dashboard.prompt" />
                 </th>
                 {LLM_PROVIDERS.map((p) => (
@@ -374,7 +464,7 @@ export default async function ReportPage({
             <tbody>
               {(prompts ?? []).map((prompt) => (
                 <tr key={prompt.id} className="border-b border-border">
-                  <td className="max-w-[200px] py-1.5 pr-2">{prompt.text}</td>
+                  <td className="break-words py-2 pr-2 leading-relaxed">{prompt.text}</td>
                   {LLM_PROVIDERS.map((provider) => {
                     const r = latestByKey.get(`${prompt.id}-${provider}`);
                     return (
@@ -423,15 +513,21 @@ export default async function ReportPage({
             <T k="report.snippetTitle" />
           </h2>
           {snippet && snippetPrompt ? (
-            <div className="rounded-md border border-border bg-muted/30 p-4 print:border-slate-300 print:bg-slate-50">
+            <div className="flex flex-col gap-1.5">
               <p className="text-xs text-muted-foreground">
                 {PROVIDER_LABELS[snippet.provider]} · {snippetPrompt.text}
               </p>
-              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
-                {snippet.raw_response && snippet.raw_response.length > 500
-                  ? `${snippet.raw_response.slice(0, 500)}…`
-                  : snippet.raw_response}
-              </p>
+              <EvidenceSnippet
+                text={
+                  snippet.raw_response && snippet.raw_response.length > 500
+                    ? `${snippet.raw_response.slice(0, 500)}…`
+                    : snippet.raw_response ?? ""
+                }
+                brandName={selectedBrand.name}
+                provider={snippet.provider}
+                rank={snippet.rank_position}
+                category={snippetPrompt.category}
+              />
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -445,6 +541,8 @@ export default async function ReportPage({
             <T k="report.nextActionsTitle" />
           </h2>
           <ReportNotes
+            // See the commentary ReportNotes above for why this is keyed.
+            key={nextActionsValue}
             brandId={selectedBrand.id}
             month={month}
             field="next_actions"
@@ -461,41 +559,6 @@ export default async function ReportPage({
   );
 }
 
-function ShareOfVoiceTable({
-  rankings,
-  brandName,
-  competitorNames,
-}: {
-  rankings: RankingRow[];
-  brandName: string;
-  competitorNames: string[];
-}) {
-  const brandMentions = rankings.filter((r) => r.mentioned).length;
-  const rows = [
-    { name: brandName, count: brandMentions, isBrand: true },
-    ...competitorNames.map((name) => ({
-      name,
-      count: rankings.filter((r) => r.competitors_mentioned?.includes(name)).length,
-      isBrand: false,
-    })),
-  ];
-  const total = rows.reduce((sum, r) => sum + r.count, 0) || 1;
-
-  return (
-    <table className="w-full border-collapse text-sm">
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.name} className="border-b border-border">
-            <td className={`py-1.5 ${row.isBrand ? "font-semibold" : ""}`}>{row.name}</td>
-            <td className="py-1.5 text-right tabular-nums text-muted-foreground">
-              {Math.round((row.count / total) * 100)}%
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
 
 /** One KPI tile with a month-over-month delta badge. Plain server-
  *  rendered markup (no client chart) - print output needs to be exact
