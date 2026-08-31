@@ -29,7 +29,6 @@ import { InfoTooltip } from "@/components/info-tooltip";
 import { BrandForm } from "./brand-form";
 import { PromptForm } from "./prompt-form";
 import { DeletePromptButton } from "./delete-prompt-button";
-import { RecheckPromptButton } from "./recheck-prompt-button";
 import { EditPromptGroupButton } from "./edit-prompt-group-button";
 import { UpgradePrompt } from "./upgrade-button";
 import { RankBadge, SentimentDot, RawResponseButton } from "./result-cell";
@@ -172,6 +171,9 @@ export default async function DashboardPage({
     promptGroups.get(key)!.push(prompt);
   }
   const showGroupHeadings = !(promptGroups.size === 1 && promptGroups.has(UNCATEGORIZED));
+  // Offered as autocomplete suggestions when adding/editing a prompt's
+  // category - see PromptForm/EditPromptGroupButton.
+  const existingCategories = Array.from(promptGroups.keys()).filter((k) => k !== UNCATEGORIZED);
 
   // Share of voice: how often the brand vs. each known competitor turned up
   // across the latest measurement round.
@@ -345,7 +347,11 @@ export default async function DashboardPage({
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <PromptForm brandId={selectedBrand.id} businessPriceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""} />
+          <PromptForm
+            brandId={selectedBrand.id}
+            businessPriceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""}
+            existingCategories={existingCategories}
+          />
 
           {!prompts || prompts.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -414,8 +420,11 @@ export default async function DashboardPage({
                           })}
                           <TableCell>
                             <div className="flex items-center gap-1">
-                              <EditPromptGroupButton promptId={prompt.id} currentCategory={prompt.category} />
-                              <RecheckPromptButton promptId={prompt.id} />
+                              <EditPromptGroupButton
+                                promptId={prompt.id}
+                                currentCategory={prompt.category}
+                                existingCategories={existingCategories}
+                              />
                               <DeletePromptButton promptId={prompt.id} />
                             </div>
                           </TableCell>

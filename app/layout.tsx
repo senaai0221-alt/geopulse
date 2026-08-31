@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 import { I18nProvider } from "@/lib/i18n/context";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 // English content: Zonostick's product default is English-first (see
 // lib/i18n/context.tsx), and this static metadata is rendered before any
@@ -29,7 +30,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen antialiased">
-        <I18nProvider>{children}</I18nProvider>
+        <I18nProvider>
+          <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+        </I18nProvider>
       </body>
     </html>
   );

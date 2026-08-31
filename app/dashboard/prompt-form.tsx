@@ -17,7 +17,19 @@ import { PlanLimitAlert } from "./plan-limit-alert";
 const TEXT_MAX = 300;
 const CATEGORY_MAX = 50;
 
-export function PromptForm({ brandId, businessPriceId }: { brandId: string; businessPriceId: string }) {
+export function PromptForm({
+  brandId,
+  businessPriceId,
+  existingCategories,
+}: {
+  brandId: string;
+  businessPriceId: string;
+  /** Categories already in use on this brand's other prompts, offered
+   *  as autocomplete suggestions (native <datalist>) - reusing "比較系"
+   *  instead of retyping a near-duplicate like "比較" is what actually
+   *  keeps a large prompt set tidy at scale. */
+  existingCategories: string[];
+}) {
   const { t } = useI18n();
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -76,10 +88,16 @@ export function PromptForm({ brandId, businessPriceId }: { brandId: string; busi
       />
       <Input
         name="category"
+        list="prompt-category-suggestions"
         placeholder={t("dashboard.promptCategoryPlaceholder")}
         maxLength={CATEGORY_MAX}
-        className="sm:w-40"
+        className="sm:w-48"
       />
+      <datalist id="prompt-category-suggestions">
+        {existingCategories.map((c) => (
+          <option key={c} value={c} />
+        ))}
+      </datalist>
       {isPlanLimitError && errorCode ? (
         <PlanLimitAlert code={errorCode} businessPriceId={businessPriceId} />
       ) : (

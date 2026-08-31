@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Tag, Loader2, Check, X } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/context";
@@ -15,16 +16,23 @@ import { updatePromptCategory } from "./actions";
  * Saving calls the same revalidatePath-backed server action pattern
  * used everywhere else in this file (see BrandListItem), so the group
  * heading and table above re-render with the change immediately - no
- * page reload, no manual router.refresh().
+ * page reload, no manual router.refresh(). No modal - editing happens
+ * inline in the table row, so sorting a large prompt set into
+ * categories is a series of one-click edits, not a series of dialogs.
  */
 export function EditPromptGroupButton({
   promptId,
   currentCategory,
+  existingCategories,
 }: {
   promptId: string;
   currentCategory: string | null;
+  /** Categories already used elsewhere on this brand, offered as
+   *  autocomplete suggestions - see PromptForm for why. */
+  existingCategories: string[];
 }) {
   const { t } = useI18n();
+  const datalistId = `category-suggestions-${promptId}`;
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(currentCategory ?? "");
   const [isPending, startTransition] = useTransition();
@@ -49,6 +57,7 @@ export function EditPromptGroupButton({
       <div className="flex items-center gap-1">
         <Input
           autoFocus
+          list={datalistId}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
@@ -61,8 +70,13 @@ export function EditPromptGroupButton({
           }}
           placeholder={t("dashboard.promptCategoryPlaceholder")}
           maxLength={50}
-          className="h-7 w-32 text-xs"
+          className="h-7 w-40 text-xs"
         />
+        <datalist id={datalistId}>
+          {existingCategories.map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
         <Button
           type="button"
           variant="ghost"
@@ -99,10 +113,10 @@ export function EditPromptGroupButton({
       variant="ghost"
       size="icon"
       aria-label={t("dashboard.editPromptGroup")}
-      title={t("dashboard.editPromptGroup")}
+      title={currentCategory ? `${t("dashboard.editPromptGroup")}: ${currentCategory}` : t("dashboard.editPromptGroup")}
       onClick={() => setEditing(true)}
     >
-      <Tag className="h-4 w-4 text-muted-foreground" />
+      <Tag className={cn("h-4 w-4", currentCategory ? "text-primary" : "text-muted-foreground")} />
     </Button>
   );
 }
