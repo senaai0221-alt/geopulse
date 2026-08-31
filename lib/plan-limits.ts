@@ -18,8 +18,8 @@ export interface PlanLimits {
 // subscribes via Stripe; until then they cannot add any brand/prompt.
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
   free: { maxBrands: 0, maxPromptsPerBrand: 0 },
-  pro: { maxBrands: 5, maxPromptsPerBrand: null },
-  business: { maxBrands: null, maxPromptsPerBrand: null },
+  pro: { maxBrands: 5, maxPromptsPerBrand: 50 },
+  business: { maxBrands: 20, maxPromptsPerBrand: 300 },
 };
 
 /** Normalizes whatever is stored in profiles.plan into a known PlanTier. */

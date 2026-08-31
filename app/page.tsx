@@ -79,7 +79,6 @@ const PLANS = [
       "landing.businessFeature1",
       "landing.businessFeature2",
       "landing.businessFeature3",
-      "landing.businessFeature4",
     ],
     highlighted: false,
   },
