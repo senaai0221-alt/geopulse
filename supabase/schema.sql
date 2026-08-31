@@ -35,7 +35,12 @@ exception when duplicate_object then null; end $$;
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text not null,
+  -- White-label report branding (Business plan - app/dashboard/settings/
+  -- white-label-form.tsx): company_name already existed unused; adding
+  -- only the logo URL. Both null means the printed/PDF report falls
+  -- back to standard Zonostick branding.
   company_name text,
+  report_logo_url text,
   slack_webhook_url text,
   slack_enabled boolean not null default false,
   plan plan_tier not null default 'free',
@@ -46,6 +51,10 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Adds report_logo_url for databases created before this field existed;
+-- safe to re-run.
+alter table public.profiles add column if not exists report_logo_url text;
 
 -- ---------------------------------------------------------------------
 -- brands: a tracked brand / product owned by a user
@@ -179,6 +188,37 @@ alter table public.feedback enable row level security;
 drop policy if exists "feedback_insert_own" on public.feedback;
 create policy "feedback_insert_own" on public.feedback
   for insert with check (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------
+-- report_notes: the free-text "agency commentary" and "next actions"
+-- boxes on the monthly A4 report (app/dashboard/report/report-notes.tsx),
+-- one row per (brand, month) so they persist and print with the report
+-- instead of resetting every time it's regenerated.
+-- ---------------------------------------------------------------------
+create table if not exists public.report_notes (
+  id uuid primary key default uuid_generate_v4(),
+  brand_id uuid not null references public.brands (id) on delete cascade,
+  -- 'YYYY-MM' - the report month this note belongs to.
+  month text not null,
+  commentary text,
+  next_actions text,
+  updated_at timestamptz not null default now(),
+  unique (brand_id, month)
+);
+
+create index if not exists report_notes_brand_month_idx on public.report_notes (brand_id, month);
+
+alter table public.report_notes enable row level security;
+
+-- report_notes: full CRUD restricted via the parent brand's owner, same
+-- pattern as prompts_crud_own.
+drop policy if exists "report_notes_crud_own" on public.report_notes;
+create policy "report_notes_crud_own" on public.report_notes
+  for all using (
+    exists (select 1 from public.brands b where b.id = report_notes.brand_id and b.user_id = auth.uid())
+  ) with check (
+    exists (select 1 from public.brands b where b.id = report_notes.brand_id and b.user_id = auth.uid())
+  );
 
 -- ---------------------------------------------------------------------
 -- updated_at trigger for profiles

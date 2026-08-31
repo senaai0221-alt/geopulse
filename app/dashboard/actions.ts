@@ -176,6 +176,63 @@ export async function updatePromptCategory(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+/**
+ * White-label branding for the Business-plan A4 report (logo + company
+ * name shown in the report header instead of Zonostick's own). No plan
+ * check here - the settings card that renders this form is already
+ * Business-gated (see settings/page.tsx), and report/page.tsx falls
+ * back to Zonostick branding on its own if a non-Business profile
+ * somehow has these set (e.g. after a downgrade) or if they're empty.
+ */
+export async function updateWhiteLabelSettings(formData: FormData) {
+  const { supabase, user } = await requireUser();
+
+  const logoUrl = truncate(String(formData.get("report_logo_url") ?? "").trim(), 500);
+  const companyName = truncate(String(formData.get("report_company_name") ?? "").trim(), 100);
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      report_logo_url: logoUrl || null,
+      company_name: companyName || null,
+    })
+    .eq("id", user.id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard/report");
+}
+
+/**
+ * Saves one field ("commentary" or "next_actions") of the report's
+ * free-text notes for one (brand, month) - see report_notes in
+ * supabase/schema.sql. Upserting with only the one changed column in
+ * the payload leaves the other field (set independently, from the
+ * other box on the page) untouched on conflict, rather than clobbering
+ * it with null.
+ */
+export async function upsertReportNotes(formData: FormData): Promise<{ ok: boolean }> {
+  const { supabase } = await requireUser();
+
+  const brandId = String(formData.get("brand_id") ?? "");
+  const month = String(formData.get("month") ?? "");
+  const field = String(formData.get("field") ?? "");
+  const value = truncate(String(formData.get("value") ?? ""), 4000);
+
+  if (!brandId || !/^\d{4}-\d{2}$/.test(month) || (field !== "commentary" && field !== "next_actions")) {
+    return { ok: false };
+  }
+
+  const { error } = await supabase.from("report_notes").upsert(
+    { brand_id: brandId, month, [field]: value || null, updated_at: new Date().toISOString() },
+    { onConflict: "brand_id,month" }
+  );
+  if (error) return { ok: false };
+
+  revalidatePath("/dashboard/report");
+  return { ok: true };
+}
+
 export async function updateSlackSettings(formData: FormData) {
   const { supabase, user } = await requireUser();
 

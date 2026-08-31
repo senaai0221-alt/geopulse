@@ -1,4 +1,4 @@
-import { Target, Bell, ShieldCheck } from "lucide-react";
+import { Target, Bell, ShieldCheck, Palette } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { BrandListItem } from "../brand-list-item";
 import { SlackSettingsForm } from "../slack-settings-form";
 import { UpgradePrompt } from "../upgrade-button";
 import { ManageSubscriptionButton } from "../manage-subscription-button";
+import { WhiteLabelForm } from "./white-label-form";
 
 const PLAN_LABELS: Record<string, string | null> = {
   free: null, // rendered via <T k="dashboard.notSubscribed" /> instead
@@ -97,6 +98,27 @@ export default async function SettingsPage() {
             />
           </CardContent>
         </Card>
+
+        {/* White-label report branding - Business plan only */}
+        {(profile?.plan ?? "free") === "business" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Palette className="h-4 w-4 text-primary" />
+                <T k="settings.whiteLabelTitle" />
+              </CardTitle>
+              <CardDescription>
+                <T k="settings.whiteLabelDesc" />
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <WhiteLabelForm
+                initialLogoUrl={profile?.report_logo_url ?? null}
+                initialCompanyName={profile?.company_name ?? null}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Plan / upgrade */}
         <Card>
