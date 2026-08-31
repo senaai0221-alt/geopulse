@@ -33,6 +33,13 @@ const PROVIDER_LABELS: Record<LlmProvider, string> = {
   deepseek: "DeepSeek",
 };
 
+// Fallback mirrors lib/email.ts's APP_URL constant - both point the
+// user back into the app from a notification, so they must resolve to
+// the same place. NEXT_PUBLIC_APP_URL is expected to be set in
+// production; this is only what a dev/misconfigured environment falls
+// back to.
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.zonostick.com";
+
 function rankLabel(rank: number | null, mentioned: boolean): string {
   if (rank !== null) return `#${rank}`;
   if (mentioned) return "圏内(順位なし)";
@@ -51,52 +58,65 @@ function severityEmoji(change: RankingChange): string {
   return "🟡";
 }
 
-/** Builds the Slack Block Kit payload for the daily summary + anomalies. */
+/**
+ * Builds the Slack Block Kit payload for the daily summary + anomalies.
+ *
+ * Conclusion-first, not a data dump: the header block itself states the
+ * one thing a reader needs before anything else - is this brand fine
+ * today, or does it need attention - since a header renders as the
+ * largest, boldest text Slack has. Everything below either confirms
+ * that ("正常" + the two numbers that actually matter, AI露出率 and
+ * how many prompts were behind them) or explains it (the anomaly list,
+ * each one showing exactly which prompt/LLM moved and from what to
+ * what). Internal operational counts that don't change what the reader
+ * should do next (raw total-checks, an explicit anomaly-count field
+ * that's just restating what the header already conveys) are left out
+ * entirely rather than competing for attention with the one number that
+ * matters.
+ */
 export function buildDailySummaryBlocks(input: DailySummaryInput) {
   const dateLabel = new Intl.DateTimeFormat("ja-JP", {
     year: "numeric",
     month: "long",
     day: "numeric",
   }).format(input.checkedAt);
+  const mentionRatePct = Math.round(input.mentionRate * 100);
+  const hasAnomalies = input.anomalies.length > 0;
 
   const blocks: Record<string, unknown>[] = [
     {
       type: "header",
       text: {
         type: "plain_text",
-        text: `📊 Zonostick 日次レポート - ${input.brandName}`,
+        text: hasAnomalies
+          ? `🚨 要確認 - ${input.brandName}`
+          : `✅ ステータス: 正常 - ${input.brandName}`,
         emoji: true,
       },
     },
     {
       type: "context",
-      elements: [{ type: "mrkdwn", text: `${dateLabel} の計測結果` }],
-    },
-    {
-      type: "section",
-      fields: [
-        { type: "mrkdwn", text: `*計測プロンプト数:*\n${input.totalPrompts}` },
-        { type: "mrkdwn", text: `*総チェック数:*\n${input.totalChecks}` },
-        {
-          type: "mrkdwn",
-          text: `*言及率:*\n${Math.round(input.mentionRate * 100)}%`,
-        },
-        { type: "mrkdwn", text: `*検知された異常:*\n${input.anomalies.length}件` },
-      ],
+      elements: [{ type: "mrkdwn", text: `Zonostick 日次レポート · ${dateLabel} の計測結果` }],
     },
   ];
 
-  if (input.anomalies.length === 0) {
+  if (!hasAnomalies) {
     blocks.push({
       type: "section",
-      text: { type: "mrkdwn", text: "✅ 順位の異常な変動は検出されませんでした。" },
+      fields: [
+        { type: "mrkdwn", text: `*AI露出率:*\n${mentionRatePct}%` },
+        { type: "mrkdwn", text: `*計測プロンプト数:*\n${input.totalPrompts}` },
+      ],
     });
   } else {
-    blocks.push({ type: "divider" });
     blocks.push({
       type: "section",
-      text: { type: "mrkdwn", text: "*⚠️ 検知された変動:*" },
+      text: {
+        type: "mrkdwn",
+        text: `*AI露出率:* ${mentionRatePct}% ・ 以下 ${input.anomalies.length}件で順位の急落・除外を検知しました:`,
+      },
     });
+    blocks.push({ type: "divider" });
 
     for (const change of input.anomalies.slice(0, 20)) {
       blocks.push({
@@ -117,8 +137,15 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
 
   blocks.push({ type: "divider" });
   blocks.push({
-    type: "context",
-    elements: [{ type: "mrkdwn", text: "Zonostick - AI検索順位トラッカー" }],
+    type: "actions",
+    elements: [
+      {
+        type: "button",
+        text: { type: "plain_text", text: "ダッシュボードを開く", emoji: true },
+        url: `${APP_URL}/dashboard`,
+        style: hasAnomalies ? "primary" : undefined,
+      },
+    ],
   });
 
   return blocks;
@@ -205,9 +232,9 @@ export async function sendDailySummary(
   input: DailySummaryInput
 ): Promise<void> {
   const blocks = buildDailySummaryBlocks(input);
-  await sendSlackMessage(
-    webhookUrl,
-    blocks,
-    `Zonostick 日次レポート: ${input.brandName} - 異常${input.anomalies.length}件`
-  );
+  const fallbackText =
+    input.anomalies.length > 0
+      ? `🚨 要確認 - ${input.brandName}: ${input.anomalies.length}件の変動を検知しました`
+      : `✅ ステータス: 正常 - ${input.brandName} (AI露出率 ${Math.round(input.mentionRate * 100)}%)`;
+  await sendSlackMessage(webhookUrl, blocks, fallbackText);
 }

@@ -186,6 +186,41 @@ slackIssues += checkBlocksForEmptyOrBrokenText(dailySummaryBlocks, "daily summar
 slackIssues += checkBlocksForEmptyOrBrokenText(dailySummaryNoAnomalies, "daily summary (no anomalies)");
 slackIssues += checkBlocksForEmptyOrBrokenText(buildTestMessageBlocks(), "test message");
 
+// Redesign-specific checks: status-first header, dashboard button, and
+// that the removed/renamed fields ("総チェック数", old "言及率" label)
+// are actually gone rather than just relabeled somewhere else.
+function jsonOf(blocks: Record<string, unknown>[]): string {
+  return JSON.stringify(blocks);
+}
+function hasDashboardButton(blocks: Record<string, unknown>[]): boolean {
+  const actionsBlock = blocks.find((b) => b.type === "actions") as
+    | { elements?: { type: string; url?: string }[] }
+    | undefined;
+  const button = actionsBlock?.elements?.find((e) => e.type === "button");
+  return !!button?.url && button.url.startsWith("http") && button.url.endsWith("/dashboard");
+}
+
+const redesignChecks: [string, boolean][] = [
+  [
+    "no-anomaly header states 正常",
+    (dailySummaryNoAnomalies[0] as { text: { text: string } }).text.text.includes("正常"),
+  ],
+  [
+    "anomaly header states 要確認",
+    (dailySummaryBlocks[0] as { text: { text: string } }).text.text.includes("要確認"),
+  ],
+  ["no-anomaly message has a dashboard button", hasDashboardButton(dailySummaryNoAnomalies)],
+  ["anomaly message has a dashboard button", hasDashboardButton(dailySummaryBlocks)],
+  ["展示に AI露出率 が使われている", jsonOf(dailySummaryNoAnomalies).includes("AI露出率")],
+  ["旧表記「言及率」が完全に消えている", !jsonOf(dailySummaryNoAnomalies).includes("言及率") && !jsonOf(dailySummaryBlocks).includes("言及率")],
+  ["「総チェック数」フィールドが削除されている", !jsonOf(dailySummaryNoAnomalies).includes("総チェック数") && !jsonOf(dailySummaryBlocks).includes("総チェック数")],
+];
+
+for (const [label, ok] of redesignChecks) {
+  console.log(`${ok ? "PASS" : "FAIL"} - ${label}`);
+  if (!ok) slackIssues++;
+}
+
 console.log(`\n${slackIssues === 0 ? "All Slack structural checks passed." : `${slackIssues} Slack issue(s) found.`}`);
 
 if (trCount !== expectedTrCount || slackIssues > 0) {
