@@ -13,6 +13,8 @@ import {
   ListChecks,
   LineChart,
   PieChart,
+  Rocket,
+  Settings2,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
@@ -273,6 +275,17 @@ export default async function DashboardPage({
 
   const visibleAlerts = (alerts ?? []).slice(0, VISIBLE_ALERTS);
 
+  // A brand exists (the `!brands` branch above already returned) but no
+  // prompt has been added yet, so there is no ranking data of any kind -
+  // the trend explorer below would just be an empty chart. Show a
+  // 2-step "what do I do now" guide in its place instead, and highlight
+  // the prompt input the guide is pointing at. Both flip back to normal
+  // automatically the moment a prompt exists: createPrompt's
+  // revalidatePath("/dashboard") (see actions.ts) re-runs this Server
+  // Component, so `showOnboarding` just becomes false on its own - no
+  // client-side dismiss state to manage.
+  const showOnboarding = !prompts || prompts.length === 0;
+
   return (
     <div className="flex flex-col gap-6">
       {/* Brand switcher */}
@@ -374,6 +387,61 @@ export default async function DashboardPage({
         </Card>
       </div>
 
+      {/* Onboarding guide - replaces the (otherwise empty) trend chart
+          for a brand-new account, and points straight at the highlighted
+          prompt input just below it. See `showOnboarding` above. */}
+      {showOnboarding && (
+        <Card className="border-primary/30 bg-primary/[0.03]">
+          <CardHeader>
+            <CardTitle className="text-xl">
+              <T k="dashboard.onboardingTitle" />
+            </CardTitle>
+            <CardDescription>
+              <T k="dashboard.onboardingDesc" />
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div className="flex gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                  1
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+                    <Target className="h-4 w-4 text-primary" />
+                    <T k="dashboard.onboardingStep1Title" />
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    <T k="dashboard.onboardingStep1Desc" vars={{ name: selectedBrand.name }} />
+                  </p>
+                  <Link
+                    href="/dashboard/settings"
+                    className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit gap-1.5")}
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                    <T k="dashboard.onboardingStep1Cta" />
+                  </Link>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                  2
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+                    <Rocket className="h-4 w-4 text-primary" />
+                    <T k="dashboard.onboardingStep2Title" />
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    <T k="dashboard.onboardingStep2Desc" />
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Main table - prompt form compact on top */}
       <Card>
         <CardHeader className="flex-col items-start gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
@@ -408,6 +476,7 @@ export default async function DashboardPage({
             brandId={selectedBrand.id}
             businessPriceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""}
             existingCategories={existingCategories}
+            highlight={showOnboarding}
           />
 
           {!prompts || prompts.length === 0 ? (
@@ -499,26 +568,31 @@ export default async function DashboardPage({
       </Card>
 
       {/* Trend explorer - full width: exposure rate / rank position /
-          Share of Voice, each over a selectable 7/30/90-day window. */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <LineChart className="h-4 w-4 text-primary" />
-            <T k="dashboard.trend" />
-          </CardTitle>
-          <CardDescription>
-            <T k="dashboard.trendDesc" />
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <TrendExplorer
-            rankData={trendData}
-            exposureData={exposureTrendData}
-            voiceData={voiceTrendData}
-            voiceEntities={voiceEntities}
-          />
-        </CardContent>
-      </Card>
+          Share of Voice, each over a selectable 7/30/90-day window.
+          Skipped during onboarding (see showOnboarding above) - with
+          zero prompts there's no ranking data yet, so this would just
+          render an empty chart where the guide card already sits. */}
+      {!showOnboarding && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <LineChart className="h-4 w-4 text-primary" />
+              <T k="dashboard.trend" />
+            </CardTitle>
+            <CardDescription>
+              <T k="dashboard.trendDesc" />
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TrendExplorer
+              rankData={trendData}
+              exposureData={exposureTrendData}
+              voiceData={voiceTrendData}
+              voiceEntities={voiceEntities}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Share of voice snapshot + recent alerts side by side */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

@@ -89,4 +89,28 @@
       min-height: 100dvh;
     }
   }
+
+  /* Draws the eye to the prompt input during onboarding (zero prompts
+     yet) - a soft, looping blue glow around the field. Reduced to a
+     static ring (no animation) for anyone who's asked the OS for less
+     motion. */
+  .onboarding-glow {
+    animation: onboarding-glow-pulse 2s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .onboarding-glow {
+      animation: none;
+      box-shadow: 0 0 0 3px hsl(var(--primary) / 0.35);
+    }
+  }
+}
+
+@keyframes onboarding-glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.25), 0 0 0 0 hsl(var(--primary) / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.45), 0 0 12px 3px hsl(var(--primary) / 0.35);
+  }
 }

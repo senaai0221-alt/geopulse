@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 import { translateActionError } from "@/lib/i18n/action-error";
 import { createPrompt } from "./actions";
@@ -22,6 +23,7 @@ export function PromptForm({
   brandId,
   businessPriceId,
   existingCategories,
+  highlight = false,
 }: {
   brandId: string;
   businessPriceId: string;
@@ -30,6 +32,12 @@ export function PromptForm({
    *  instead of retyping a near-duplicate like "比較" is what actually
    *  keeps a large prompt set tidy at scale. */
   existingCategories: string[];
+  /** True while the account has zero prompts - draws a pulsing blue
+   *  ring around the text field so a first-time user's eye lands on
+   *  exactly the control the onboarding guide just told them to use.
+   *  Stops rendering itself the moment a prompt exists (see
+   *  dashboard/page.tsx), so there's no need to dismiss it manually. */
+  highlight?: boolean;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -98,7 +106,7 @@ export function PromptForm({
           // otherwise refuses to let a flex-1 item shrink below its own
           // content size - without it, this input could get pushed
           // past the row's available width instead of shrinking to fit.
-          className="min-w-0 flex-1"
+          className={cn("min-w-0 flex-1", highlight && "onboarding-glow ring-2 ring-primary/40")}
         />
         <div className="flex shrink-0 items-center gap-1.5">
           <Input
