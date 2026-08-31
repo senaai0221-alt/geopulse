@@ -285,7 +285,7 @@
     "slackStep3": "表示された「Webhook URL」をコピーして、左の入力欄に貼り付けて保存",
     "currentPlan": "現在のプラン",
     "subscribedThanks": "ご契約ありがとうございます。",
-    "manageSubscription": "契約管理・領収書発行",
+    "manageSubscription": "サブスクリプション管理・解約",
     "portalNoCustomer": "Stripeの決済情報が確認できませんでした。お困りの場合はサポートまでお問い合わせください。",
     "portalError": "契約管理ページを開けませんでした。時間をおいて再度お試しください。",
     "whiteLabelTitle": "レポートのブランドカスタマイズ",

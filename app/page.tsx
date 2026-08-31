@@ -339,9 +339,6 @@ export default async function LandingPage() {
             © {new Date().getFullYear()} ENDEVER, Inc. <T k="landing.footerRights" />
           </span>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link href={primaryHref} className="hover:text-foreground">
-              <T k={user ? "nav.backToDashboard" : "nav.login"} />
-            </Link>
             <Link href="/legal/tokushoho" className="hover:text-foreground">
               <T k="landing.footerTokushoho" />
             </Link>

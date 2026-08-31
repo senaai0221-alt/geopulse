@@ -285,7 +285,7 @@
     "slackStep3": "Copy the \"Webhook URL\" it shows you, then paste it into the field on the left and save",
     "currentPlan": "Current plan",
     "subscribedThanks": "Thanks for subscribing!",
-    "manageSubscription": "Manage subscription & invoices",
+    "manageSubscription": "Manage subscription & cancel",
     "portalNoCustomer": "Stripe customer data not found. Please contact support.",
     "portalError": "We couldn't open the billing portal. Please try again in a moment.",
     "whiteLabelTitle": "Report Branding",
