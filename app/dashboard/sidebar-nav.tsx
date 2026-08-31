@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { LayoutDashboard, Settings, FileText, HelpCircle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -16,16 +16,26 @@ const NAV_ITEMS = [
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { t } = useI18n();
+
+  // Carries the currently-selected brand across every sidebar link, not
+  // just the one the user happened to click from - without this,
+  // following any nav link (Report, back to Dashboard, ...) silently
+  // dropped back to the first/oldest brand instead of staying on
+  // whichever one was actually on screen. Harmless to append on pages
+  // that don't read a `brand` param (Help) - an unused query param.
+  const brand = searchParams.get("brand");
 
   return (
     <nav className="flex flex-col gap-1">
       {NAV_ITEMS.map((item) => {
         const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+        const href = brand ? `${item.href}?brand=${encodeURIComponent(brand)}` : item.href;
         return (
           <Link
             key={item.href}
-            href={item.href}
+            href={href}
             className={cn(
               "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
               isActive

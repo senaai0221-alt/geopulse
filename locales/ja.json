@@ -229,6 +229,7 @@
     "noBrandsTitle": "計測対象がありません",
     "noBrandsDesc": "レポートを作成するには、まず計測対象を追加してください。",
     "monthSelectorLabel": "対象月",
+    "brandSelectorLabel": "計測対象",
     "monthlyReportTitle": "GEO / AI検索露出 月次パフォーマンスレポート",
     "execSummaryTitle": "エグゼクティブサマリー",
     "vsLastMonth": "前月比",

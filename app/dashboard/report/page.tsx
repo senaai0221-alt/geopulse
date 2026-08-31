@@ -7,6 +7,7 @@ import { PrintButton } from "../print-button";
 import { UpgradePrompt } from "../upgrade-button";
 import { MonthSelector, MonthLabel } from "./month-selector";
 import { formatMonthLabel } from "@/lib/format-month-label";
+import { ReportBrandSelector } from "./report-brand-selector";
 import { ReportNotes } from "./report-notes";
 import { ReportLogo } from "./report-logo";
 import { ShareOfVoiceDonut } from "./share-of-voice-donut";
@@ -305,9 +306,7 @@ export default async function ReportPage({
       `}</style>
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <p className="text-sm text-muted-foreground">
-          {selectedBrand.name} · <T k="report.openReport" />
-        </p>
+        <ReportBrandSelector brands={brands} selectedBrandId={selectedBrand.id} month={month} />
         <div className="flex items-center gap-2">
           <MonthSelector brandId={selectedBrand.id} month={month} />
           <PrintButton />

@@ -229,6 +229,7 @@
     "noBrandsTitle": "No tracking targets yet",
     "noBrandsDesc": "Add a tracking target before generating a report.",
     "monthSelectorLabel": "Month",
+    "brandSelectorLabel": "Tracking target",
     "monthlyReportTitle": "GEO / AI Search Exposure Monthly Performance Report",
     "execSummaryTitle": "Executive Summary",
     "vsLastMonth": "vs. last month",
