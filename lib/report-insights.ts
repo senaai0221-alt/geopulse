@@ -5,10 +5,17 @@
  * page itself renders (see app/dashboard/report/page.tsx), so the
  * generated copy can never contradict the charts/tables sitting next to
  * it. Purely additive: report_notes stays a plain editable text field
- * either way (see app/dashboard/report/report-notes.tsx) - this just
- * decides what's pre-filled into it the first time a month has no
- * saved notes yet, instead of a generic "please write something here"
- * placeholder.
+ * either way (see app/dashboard/report/report-notes.tsx,
+ * next-actions-table.tsx) - this just decides what's pre-filled into it
+ * the first time a month has no saved notes yet, instead of a generic
+ * "please write something here" placeholder.
+ *
+ * `commentary` is a consulting-report-style structured text block
+ * (summary, then positive/negative factors under their own headings -
+ * see buildPrompt) rather than a single paragraph; `nextActions` is a
+ * GFM Markdown table (see next-actions-table.tsx's parser) with one row
+ * per recommended action, each carrying a purpose, a priority, and a
+ * suggested owner - not just a bulleted list of sentences.
  *
  * Same fetch-only, no-SDK, gpt-4o-mini-by-default approach as
  * geo-engine.ts's judgeBrandTreatment - fully optional: if
@@ -74,9 +81,10 @@ function buildPrompt(input: ReportInsightsInput): string {
     : "前月データなし(今月が初回計測)";
 
   return (
-    `あなたはGEO(Generative Engine Optimization)専門のアナリストです。` +
+    `あなたはGEO(Generative Engine Optimization)専門のコンサルタントです。` +
     `以下は「${input.brandName}」の${input.monthLabel}分のAI検索露出データです。` +
-    `このデータのみを根拠に、月次レポート用の分析テキストをJSON形式で生成してください。数値を捏造せず、与えられたデータの範囲内で客観的に記述してください。\n\n` +
+    `このデータのみを根拠に、クライアント向け月次レポートの分析をJSON形式で生成してください。` +
+    `数値を捏造せず、与えられたデータの範囲内で客観的に記述してください。\n\n` +
     `【全体指標】\n` +
     `- AI露出率: ${input.kpis.mentionRate}%\n` +
     `- 平均掲載順位: ${input.kpis.avgRank !== null ? `${input.kpis.avgRank.toFixed(1)}位` : "圏外のため算出不可"}\n` +
@@ -86,13 +94,29 @@ function buildPrompt(input: ReportInsightsInput): string {
     `【競合とのシェア比較】\n${competitorLines}\n\n` +
     `【カテゴリ別露出率】\n${categoryLines}\n\n` +
     `以下のJSONのみを返答してください。他のテキストは一切含めないでください。\n` +
-    `{"commentary": string, "next_actions": string}\n\n` +
-    `- commentary: 当月の総評・ハイライト。2〜4文程度。具体的な数値・LLM名を引用しながら、` +
-    `好調な点と要注意点の両方を客観的に述べること。例:「今月はGemini(85%)およびPerplexity(66%)での認知が` +
-    `高水準を維持。一方でClaudeでの順位下落が見られるため要対策。」のような文体。\n` +
-    `- next_actions: 次月に向けた推奨アクション。2〜4個の具体的な施策を箇条書き(改行区切り、` +
-    `各行「1. 」「2. 」のように番号を付与)で。データ上の弱点(露出率が低いLLM、競合に劣後している点など)に` +
-    `対応する、実行可能な施策にすること。一般論ではなく、上記データの弱点に直接紐づく提案にすること。`
+    `{"commentary": string, "next_actions_table": string}\n\n` +
+    `- commentary: 必ず以下の見出しをそのまま使い、この構成・順序で出力すること(見出し文字列を変更しないこと):\n\n` +
+    `【サマリー】\n` +
+    `(今月のコア成果と、要対応の課題を2〜3文で簡潔に要約。数値を引用すること)\n\n` +
+    `【要因分析】\n` +
+    `好調要因(ポジティブ): (具体的に良かった点を1〜2文。数値・LLM名を引用すること。` +
+    `例:「Gemini(85%)およびPerplexity(66%)での認知が高水準」)\n` +
+    `ボトルネック(ネガティブ): (具体的な課題・弱点を1〜2文。数値・LLM名を引用すること。` +
+    `例:「Claudeでの順位下落が見られ要対策」。好調要因が無い場合や課題が無い場合も、` +
+    `データから読み取れる最も注意すべき点を必ず1つ挙げること)\n\n` +
+    `- next_actions_table: 次月に向けた推奨アクションを、必ず以下の4列・区切り文字「|」の` +
+    `Markdownテーブル形式のみで2〜4行(ヘッダー行・区切り行を除く)出力すること。テーブル以外の` +
+    `文章やコメントは一切含めないこと:\n` +
+    `| 具体的対策 | 目的・効果 | 優先度 | 推奨担当 |\n` +
+    `| --- | --- | --- | --- |\n` +
+    `| (施策) | (施策) | (施策) | (施策) |\n\n` +
+    `  各行のルール:\n` +
+    `  * 「具体的対策」は上記データの弱点(露出率が低いLLM、競合に劣後している点、` +
+    `露出率が低いカテゴリなど)に直接紐づく、一般論ではない実行可能な施策にすること\n` +
+    `  * 「目的・効果」はその施策で何が改善される見込みかを一言で\n` +
+    `  * 「優先度」は必ず「高」「中」「低」のいずれか一文字の単語のみにすること\n` +
+    `  * 「推奨担当」は「SEO担当」「コンテンツ担当」「広報・PR担当」「制作・クリエイティブ担当」` +
+    `のように、施策の性質に応じた妥当な担当領域を1つ記載すること`
   );
 }
 
@@ -134,7 +158,7 @@ export async function generateReportInsights(input: ReportInsightsInput): Promis
 
     const parsed = JSON.parse(content);
     const commentary = typeof parsed.commentary === "string" ? parsed.commentary.trim() : "";
-    const nextActions = typeof parsed.next_actions === "string" ? parsed.next_actions.trim() : "";
+    const nextActions = typeof parsed.next_actions_table === "string" ? parsed.next_actions_table.trim() : "";
     if (!commentary && !nextActions) return null;
 
     return { commentary, nextActions };

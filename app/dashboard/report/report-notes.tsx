@@ -8,13 +8,19 @@ import { useI18n } from "@/lib/i18n/context";
 import { upsertReportNotes } from "../actions";
 
 /**
- * The "agency commentary" / "next actions" free-text boxes on the
- * report - persisted per (brand, month) so they survive regenerating
- * the report, and editable in place rather than through a separate
- * screen. On screen it's an obviously-editable bordered textarea; in
- * print/PDF the border, save button, and focus chrome all disappear
- * (print:border-0 etc.) so it reads as plain report copy, not a form
- * control that happened to get captured.
+ * The "agency commentary" free-text box on the report (summary +
+ * positive/negative factor analysis, see lib/report-insights.ts for
+ * the AI-generated structure) - persisted per (brand, month) so it
+ * survives regenerating the report, and editable in place rather than
+ * through a separate screen. On screen it's an obviously-editable
+ * bordered textarea; in print/PDF the border, save button, and focus
+ * chrome all disappear (print:border-0 etc.) so it reads as plain
+ * report copy, not a form control that happened to get captured.
+ *
+ * "next_actions" is handled by next-actions-table.tsx instead (a
+ * structured 5W1H table, not a paragraph) - this component only ever
+ * renders the commentary field now, though upsertReportNotes (the
+ * shared save action) still accepts either field name.
  */
 export function ReportNotes({
   brandId,
@@ -24,14 +30,11 @@ export function ReportNotes({
 }: {
   brandId: string;
   month: string;
-  field: "commentary" | "next_actions";
+  field: "commentary";
   initialValue: string;
 }) {
   const { t } = useI18n();
-  // report/page.tsx (the caller) is a Server Component with no useI18n()
-  // access, so the placeholder is resolved here from `field` instead of
-  // being passed in as a prop.
-  const placeholder = t(field === "commentary" ? "report.commentaryPlaceholder" : "report.nextActionsPlaceholder");
+  const placeholder = t("report.commentaryPlaceholder");
   const [value, setValue] = useState(initialValue);
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
@@ -61,7 +64,7 @@ export function ReportNotes({
         onBlur={handleBlur}
         placeholder={placeholder}
         maxLength={4000}
-        rows={4}
+        rows={8}
         className="min-h-0 resize-y text-sm print:min-h-0 print:resize-none print:rounded-none print:border-0 print:bg-transparent print:p-0 print:text-foreground"
       />
       <div className="mt-1 flex h-4 items-center gap-1 text-xs text-muted-foreground print:hidden">

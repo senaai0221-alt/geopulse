@@ -15,6 +15,7 @@ import { LlmComparisonChart } from "./llm-comparison-chart";
 import { EvidenceSnippet } from "./evidence-snippet";
 import { AiGenerateNotes } from "./ai-generate-notes";
 import { CategoryExposureChart } from "./category-exposure-chart";
+import { NextActionsTable } from "./next-actions-table";
 import { Badge } from "@/components/ui/badge";
 import type { ReportInsightsInput } from "@/lib/report-insights";
 
@@ -372,6 +373,14 @@ export default async function ReportPage({
             {selectedBrand.name}
           </h1>
           <div className="mt-2 h-1.5 w-20 rounded-full bg-primary print:bg-primary" />
+          {/* A reader handed this report cold (a client's own
+              stakeholder, not the agency that generated it) may never
+              have heard the term "GEO" - one small, plain-language
+              definition up front costs nothing and heads off that
+              question before it's asked. */}
+          <p className="mt-3 text-xs text-muted-foreground">
+            <T k="report.geoExplainer" />
+          </p>
         </div>
 
         <section className="mt-6">
@@ -390,6 +399,11 @@ export default async function ReportPage({
               }
               // A lower rank number is better, so an improvement is a
               // *negative* delta here - the opposite of every other KPI.
+              // No unit suffix, matching how the raw value itself is
+              // shown bare everywhere else in the app (dashboard,
+              // llm-comparison-chart) - "位" only appears inside the
+              // (deliberately JA-only) AI-generation prompt text in
+              // lib/report-insights.ts, never in this locale-aware UI.
               lowerIsBetter
               unit=""
             />
@@ -599,12 +613,14 @@ export default async function ReportPage({
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             <T k="report.nextActionsTitle" />
           </h2>
-          <ReportNotes
-            // See the commentary ReportNotes above for why this is keyed.
+          <NextActionsTable
+            // Same reasoning as the commentary ReportNotes above - keyed
+            // on its own current server value so a fresh AI-generated
+            // table actually replaces whatever was showing before,
+            // without remounting on an unrelated page refresh.
             key={nextActionsValue}
             brandId={selectedBrand.id}
             month={month}
-            field="next_actions"
             initialValue={nextActionsValue}
           />
         </section>
@@ -637,6 +653,7 @@ function KpiCard({
 }) {
   const improved = delta !== null && (lowerIsBetter ? delta < 0 : delta > 0);
   const worsened = delta !== null && (lowerIsBetter ? delta > 0 : delta < 0);
+  const sign = delta !== null && delta > 0 ? "+" : delta !== null && delta < 0 ? "-" : "±";
 
   return (
     <div className="rounded-md border border-border p-4">
@@ -644,18 +661,27 @@ function KpiCard({
         <T k={labelKey} />
       </p>
       <p className="mt-1 text-2xl font-bold">{value}</p>
-      <p className="mt-1 text-xs">
+      <div className="mt-2 flex items-center gap-1.5">
         {delta === null ? (
-          <span className="text-muted-foreground">
-            <T k="report.noPreviousData" />
+          <span className="text-xs text-muted-foreground">
+            - (<T k="report.noPreviousData" as="span" />)
           </span>
         ) : (
-          <span className={improved ? "text-emerald-600" : worsened ? "text-destructive" : "text-muted-foreground"}>
-            {delta > 0 ? "▲" : delta < 0 ? "▼" : "±"} {Math.abs(delta)}
-            {unit} <T k="report.vsLastMonth" as="span" />
-          </span>
+          <>
+            <span className="text-xs text-muted-foreground">
+              <T k="report.vsLastMonth" />
+            </span>
+            <Badge
+              variant={improved ? "success" : worsened ? "destructive" : "secondary"}
+              className="tabular-nums"
+            >
+              {sign}
+              {Math.abs(delta)}
+              {unit}
+            </Badge>
+          </>
         )}
-      </p>
+      </div>
     </div>
   );
 }
