@@ -320,7 +320,7 @@ async function runDailyCheck() {
       // RESEND_API_KEY, a bad webhook URL) must never block the other.
       const { data: profile } = await supabase
         .from("profiles")
-        .select("email, email_alerts_enabled, slack_webhook_url, slack_enabled")
+        .select("email, notification_email, email_alerts_enabled, slack_webhook_url, slack_enabled")
         .eq("id", brand.user_id)
         .single();
 
@@ -343,9 +343,12 @@ async function runDailyCheck() {
       // rank drop or disappearance) - unlike the Slack digest, which
       // sends a routine "all clear" summary every day, an inbox alert
       // is reserved for the cases the request specifically calls out.
-      if (anomalies.length > 0 && profile?.email_alerts_enabled !== false && profile?.email) {
+      // notification_email overrides the account's own sign-in address
+      // when the user has pointed alerts somewhere else (settings page).
+      const alertTo = profile?.notification_email || profile?.email;
+      if (anomalies.length > 0 && profile?.email_alerts_enabled !== false && alertTo) {
         try {
-          await sendAlertEmail(profile.email, { brandName: brand.name, anomalies });
+          await sendAlertEmail(alertTo, { brandName: brand.name, anomalies });
         } catch (err) {
           console.error(`Failed to send alert email for brand ${brand.id}:`, err);
         }

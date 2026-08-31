@@ -48,6 +48,13 @@ create table if not exists public.profiles (
   -- existing and new, unless explicitly turned off. Slack (above) is now
   -- positioned as an optional, additional channel.
   email_alerts_enabled boolean not null default true,
+  -- Where alert emails actually go, if the user has pointed them
+  -- somewhere other than their own sign-in address (e.g. a shared team
+  -- inbox) - null means "use `email` above", never overwritten by it.
+  -- Deliberately unverified (no confirmation-link flow): the tradeoff
+  -- this app has made everywhere else too (Slack webhook URLs are the
+  -- same - paste and go) in favor of zero setup friction.
+  notification_email text,
   plan plan_tier not null default 'free',
   stripe_customer_id text unique,
   stripe_subscription_id text unique,
@@ -57,10 +64,11 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
--- Adds report_logo_url / email_alerts_enabled for databases created
--- before these fields existed; safe to re-run.
+-- Adds report_logo_url / email_alerts_enabled / notification_email for
+-- databases created before these fields existed; safe to re-run.
 alter table public.profiles add column if not exists report_logo_url text;
 alter table public.profiles add column if not exists email_alerts_enabled boolean not null default true;
+alter table public.profiles add column if not exists notification_email text;
 
 -- ---------------------------------------------------------------------
 -- brands: a tracked brand / product owned by a user

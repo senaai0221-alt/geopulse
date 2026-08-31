@@ -265,7 +265,7 @@
   },
   "settings": {
     "title": "Settings",
-    "subtitle": "Manage your brands, Slack notifications, and subscription here.",
+    "subtitle": "Manage brands, email/Slack notifications, report customization, and subscription plans here.",
     "brandManagement": "Tracking Targets",
     "brandManagementDesc": "Manage tracking targets, products, or services",
     "addBrand": "Add a new tracking target",
@@ -289,6 +289,8 @@
     "emailAlertsDesc": "We'll automatically email you when we detect a sudden rank drop or your brand disappearing from an AI's answer.",
     "emailAlertsToggleLabel": "Send alert emails",
     "emailAlertsAddressLabel": "Sending to",
+    "emailAlertsAddressChanged": "Notification email address updated",
+    "emailAlertsInvalidAddress": "Please enter a valid email address",
     "emailTestNoEmail": "We couldn't find an email address to send to.",
     "emailTestSent": "Test email sent.",
     "emailTestFailed": "Failed to send.",

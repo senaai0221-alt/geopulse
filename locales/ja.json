@@ -265,7 +265,7 @@
   },
   "settings": {
     "title": "設定・連携",
-    "subtitle": "ブランド管理、Slack通知、ご契約プランをこちらで設定します。",
+    "subtitle": "ブランド管理、メール・Slack通知、レポートカスタマイズ、ご契約プランをこちらで設定します。",
     "brandManagement": "計測対象(ブランド・サービス)設定",
     "brandManagementDesc": "追跡・計測したい対象(社名、サービス名、製品名、プロジェクトなど)の管理",
     "addBrand": "新しい計測対象を追加",
@@ -289,6 +289,8 @@
     "emailAlertsDesc": "順位の急降下やAI回答からの除外を検知した際、登録メールアドレスへ自動でお知らせします。",
     "emailAlertsToggleLabel": "メールでアラートを受け取る",
     "emailAlertsAddressLabel": "送信先",
+    "emailAlertsAddressChanged": "送信先アドレスを変更しました",
+    "emailAlertsInvalidAddress": "有効なメールアドレスを入力してください",
     "emailTestNoEmail": "送信先のメールアドレスが確認できませんでした。",
     "emailTestSent": "テストメールを送信しました。",
     "emailTestFailed": "送信に失敗しました。",

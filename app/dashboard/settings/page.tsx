@@ -107,7 +107,7 @@ export default async function SettingsPage({
           </CardHeader>
           <CardContent>
             <EmailAlertsForm
-              email={profile?.email ?? user.email ?? ""}
+              initialEmail={profile?.notification_email ?? profile?.email ?? user.email ?? ""}
               initialEnabled={profile?.email_alerts_enabled ?? true}
               highlightTestButton={highlightAlerts}
             />

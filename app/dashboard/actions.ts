@@ -23,10 +23,20 @@ const LIMITS = {
   promptText: 300,
   category: 50,
   feedbackMessage: 3000,
+  notificationEmail: 254, // RFC 5321's own limit on a full email address
 } as const;
 
 function truncate(value: string, max: number): string {
   return value.length > max ? value.slice(0, max) : value;
+}
+
+// Pragmatic sanity check, not full RFC 5322 validation - same tradeoff
+// as everywhere else in this app that accepts a URL/address with no
+// server-side ownership proof (e.g. a Slack webhook URL): reject the
+// obviously-wrong input, don't try to be the last word on what a valid
+// email looks like.
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 function parseCompetitors(raw: string): string[] {
@@ -321,32 +331,49 @@ export async function updateSlackSettings(formData: FormData) {
 
 /**
  * Email is the default notification channel (see
- * app/dashboard/settings/email-alerts-form.tsx) - unlike Slack, there's
- * no address to configure, just an on/off toggle against the account's
- * own (already-verified, sign-in) email address.
+ * app/dashboard/settings/email-alerts-form.tsx): the on/off toggle, plus
+ * where to actually send it - defaults to the account's own sign-in
+ * address, but `notification_email` can point it somewhere else (a
+ * shared team inbox, etc.). An empty submitted value resets that
+ * override (falls back to the account email again), rather than being
+ * rejected as invalid.
  */
-export async function updateEmailAlertSettings(formData: FormData) {
+export async function updateEmailAlertSettings(
+  formData: FormData
+): Promise<{ ok: boolean; code?: "invalid_email" }> {
   const { supabase, user } = await requireUser();
 
   const enabled = formData.get("email_alerts_enabled") === "on";
+  const notificationEmail = truncate(String(formData.get("notification_email") ?? "").trim(), LIMITS.notificationEmail);
+
+  if (notificationEmail && !isValidEmail(notificationEmail)) {
+    return { ok: false, code: "invalid_email" };
+  }
 
   const { error } = await supabase
     .from("profiles")
-    .update({ email_alerts_enabled: enabled })
+    .update({ email_alerts_enabled: enabled, notification_email: notificationEmail || null })
     .eq("id", user.id);
 
   if (error) throw new Error(error.message);
   revalidatePath("/dashboard/settings");
+  return { ok: true };
 }
 
 // Returns a code (never user-facing text) - see sendTestSlackMessage
 // above for why.
 export async function sendTestEmailAlert(): Promise<{ ok: boolean; code: string }> {
-  const { user } = await requireUser();
-  if (!user.email) return { ok: false, code: "no_email" };
+  const { supabase, user } = await requireUser();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("notification_email, email")
+    .eq("id", user.id)
+    .single();
+  const to = profile?.notification_email || profile?.email || user.email;
+  if (!to) return { ok: false, code: "no_email" };
 
   try {
-    await sendTestAlertEmail(user.email);
+    await sendTestAlertEmail(to);
     return { ok: true, code: "sent" };
   } catch {
     return { ok: false, code: "send_failed" };
