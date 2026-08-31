@@ -2,33 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { LLM_PROVIDERS, type LlmProvider } from "@/lib/geo-engine";
+import { PROVIDER_LABELS, SENTIMENT_LABELS, csvRow, CSV_BOM } from "@/lib/csv-export";
 
 export const dynamic = "force-dynamic";
-
-const PROVIDER_LABELS: Record<LlmProvider, string> = {
-  chatgpt: "ChatGPT",
-  claude: "Claude",
-  perplexity: "Perplexity",
-  gemini: "Gemini",
-  grok: "Grok",
-  deepseek: "DeepSeek",
-};
-
-const SENTIMENT_LABELS: Record<string, string> = {
-  positive: "好意的",
-  neutral: "中立的",
-  negative: "否定的",
-};
-
-/** Wraps a value in double quotes for CSV, escaping any quotes inside it. */
-function csvCell(value: string | number | null | undefined): string {
-  const text = value === null || value === undefined ? "" : String(value);
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
-function csvRow(values: (string | number | null | undefined)[]): string {
-  return values.map(csvCell).join(",") + "\r\n";
-}
 
 /**
  * Exports the current dashboard data for one brand as a CSV file - the
@@ -96,7 +72,7 @@ export async function GET(request: NextRequest) {
   const mentionedCount = latestList.filter((r) => r.mentioned).length;
   const mentionRate = latestList.length > 0 ? Math.round((mentionedCount / latestList.length) * 100) : 0;
 
-  let csv = "﻿"; // UTF-8 BOM so Excel (incl. Japanese locales) reads this as UTF-8, not Shift-JIS.
+  let csv = CSV_BOM; // UTF-8 BOM so Excel (incl. Japanese locales) reads this as UTF-8, not Shift-JIS.
 
   csv += `Zonostick レポート - ${brand.name}\r\n`;
   csv += `出力日時,${new Date().toLocaleString("ja-JP")}\r\n`;

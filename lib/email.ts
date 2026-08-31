@@ -25,7 +25,10 @@ const PROVIDER_LABELS: Record<LlmProvider, string> = {
   deepseek: "DeepSeek",
 };
 
-const FROM_ADDRESS = "Zonostick Alerts <alerts@zonostick.com>";
+// Exported (only) so the exact sender/body can be inspected directly by
+// scripts/verify-notifications-and-exports.ts without sending a real
+// email - not otherwise used outside this module.
+export const FROM_ADDRESS = "Zonostick Alerts <alerts@zonostick.com>";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.zonostick.com";
 
 export interface AlertEmailInput {
@@ -47,7 +50,7 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function buildAlertEmailHtml(input: AlertEmailInput): string {
+export function buildAlertEmailHtml(input: AlertEmailInput): string {
   const rows = input.anomalies
     .slice(0, 20)
     .map((change) => {
@@ -114,10 +117,16 @@ async function sendViaResend(to: string, subject: string, html: string): Promise
   }
 }
 
+/** Exported alongside buildAlertEmailHtml so the exact subject line can
+ *  be verified without sending a real email. */
+export function alertEmailSubject(brandName: string): string {
+  return `⚠️ ${brandName}で重要な変動を検知しました - Zonostick`;
+}
+
 /** Sent by the daily cron job when it detects a rank drop / disappearance
  *  for a brand whose owner has email alerts enabled (the default). */
 export async function sendAlertEmail(to: string, input: AlertEmailInput): Promise<void> {
-  await sendViaResend(to, `⚠️ ${input.brandName}で重要な変動を検知しました - Zonostick`, buildAlertEmailHtml(input));
+  await sendViaResend(to, alertEmailSubject(input.brandName), buildAlertEmailHtml(input));
 }
 
 /** Settings-page "send test email" button - confirms the address/API key
