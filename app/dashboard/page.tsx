@@ -496,11 +496,13 @@ export default async function DashboardPage({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>
+                        <TableHead className="whitespace-nowrap">
                           <T k="dashboard.prompt" />
                         </TableHead>
                         {PROVIDERS.map((p) => (
-                          <TableHead key={p}>{PROVIDER_LABELS[p]}</TableHead>
+                          <TableHead key={p} className="whitespace-nowrap">
+                            {PROVIDER_LABELS[p]}
+                          </TableHead>
                         ))}
                         <TableHead />
                       </TableRow>
@@ -508,20 +510,28 @@ export default async function DashboardPage({
                     <TableBody>
                       {groupPrompts.map((prompt) => (
                         <TableRow key={prompt.id}>
-                          <TableCell className="max-w-xs">{prompt.text}</TableCell>
+                          {/* truncate (not wrap) + title so a long prompt
+                              stays one line and is still readable on
+                              hover - the table's own overflow-auto
+                              wrapper (see ui/table.tsx) is what handles
+                              the rest of the row not fitting, not this
+                              cell wrapping internally. */}
+                          <TableCell className="max-w-xs truncate" title={prompt.text}>
+                            {prompt.text}
+                          </TableCell>
                           {PROVIDERS.map((provider) => {
                             const r = latestByKey.get(`${prompt.id}-${provider}`);
                             return (
-                              <TableCell key={provider}>
+                              <TableCell key={provider} className="whitespace-nowrap">
                                 {r ? (
-                                  <div className="flex items-center gap-1.5">
+                                  <div className="flex flex-nowrap items-center gap-1.5">
                                     <RankBadge mentioned={r.mentioned} rank={r.rank_position} />
                                     {r.error && <CheckErrorBadge />}
                                     <SentimentDot sentiment={r.sentiment} />
                                     {r.citations && r.citations.length > 0 && (
                                       <span
                                         title={r.citations.join("\n")}
-                                        className="inline-flex cursor-help items-center gap-0.5 text-xs text-muted-foreground"
+                                        className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-xs text-muted-foreground cursor-help"
                                       >
                                         <Link2 className="h-3 w-3" />
                                         {r.citations.length}
@@ -534,12 +544,12 @@ export default async function DashboardPage({
                                     />
                                   </div>
                                 ) : promptsWithAnyData.has(prompt.id) ? (
-                                  <span className="text-xs text-muted-foreground">
+                                  <span className="whitespace-nowrap text-xs text-muted-foreground">
                                     <T k="dashboard.notMeasured" />
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
+                                    <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
                                     <T k="dashboard.firstMeasuring" />
                                   </span>
                                 )}
@@ -547,7 +557,7 @@ export default async function DashboardPage({
                             );
                           })}
                           <TableCell>
-                            <div className="flex items-center gap-1">
+                            <div className="flex flex-nowrap items-center gap-1">
                               <EditPromptGroupButton
                                 promptId={prompt.id}
                                 currentCategory={prompt.category}
