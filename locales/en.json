@@ -102,6 +102,7 @@
     "outOfRange": "Not ranked",
     "mentionedNoRank": "Featured",
     "sentimentTitle": "Sentiment",
+    "checkErrorTooltip": "This check failed (API error) - showing the last known value instead.",
     "sentimentPositive": "Positive",
     "sentimentNeutral": "Neutral",
     "sentimentNegative": "Negative",

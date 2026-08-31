@@ -31,7 +31,7 @@ import { PromptForm } from "./prompt-form";
 import { DeletePromptButton } from "./delete-prompt-button";
 import { EditPromptGroupButton } from "./edit-prompt-group-button";
 import { UpgradePrompt } from "./upgrade-button";
-import { RankBadge, SentimentDot, RawResponseButton } from "./result-cell";
+import { RankBadge, SentimentDot, RawResponseButton, CheckErrorBadge } from "./result-cell";
 
 const PROVIDERS = LLM_PROVIDERS;
 const PROVIDER_LABELS: Record<LlmProvider, string> = {
@@ -130,6 +130,7 @@ export default async function DashboardPage({
     citations: string[];
     raw_response: string | null;
     checked_at: string;
+    error: string | null;
   }
   const allRankings = (recentRankings ?? []) as RankingRecord[];
 
@@ -295,7 +296,7 @@ export default async function DashboardPage({
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{avgRank ? avgRank.toFixed(1) : "-"}</div>
+            <div className="text-2xl font-bold">{avgRank !== null ? avgRank.toFixed(1) : "-"}</div>
             <p className="text-xs text-muted-foreground">
               <T k="dashboard.avgRankHint" />
             </p>
@@ -389,6 +390,7 @@ export default async function DashboardPage({
                                 {r ? (
                                   <div className="flex items-center gap-1.5">
                                     <RankBadge mentioned={r.mentioned} rank={r.rank_position} />
+                                    {r.error && <CheckErrorBadge />}
                                     <SentimentDot sentiment={r.sentiment} />
                                     {r.citations && r.citations.length > 0 && (
                                       <span

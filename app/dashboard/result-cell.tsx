@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, X } from "lucide-react";
+import { FileText, X, AlertTriangle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,21 @@ export function RankBadge({ mentioned, rank }: { mentioned: boolean; rank: numbe
   if (rank === null) return <Badge variant="secondary">{t("dashboard.mentionedNoRank")}</Badge>;
   if (rank <= 3) return <Badge variant="success">#{rank}</Badge>;
   return <Badge variant="warning">#{rank}</Badge>;
+}
+
+/** Shown next to the badge when this cell's latest row has `error` set -
+ *  a provider call that failed (timeout, rate limit, API error) never
+ *  gets written as a real "not mentioned" (see the cron/check-now
+ *  routes), so the badge itself still reads normally; this icon is the
+ *  only visible sign that today's measurement didn't actually succeed
+ *  and what's shown is carried forward from the last good check. */
+export function CheckErrorBadge() {
+  const { t } = useI18n();
+  return (
+    <span title={t("dashboard.checkErrorTooltip")} className="inline-flex cursor-help items-center text-amber-500">
+      <AlertTriangle className="h-3.5 w-3.5" />
+    </span>
+  );
 }
 
 const SENTIMENT_DOT: Record<string, string> = {

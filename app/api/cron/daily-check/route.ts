@@ -118,19 +118,47 @@ async function processBrand(
           competitors: brand.competitors ?? [],
         });
 
-        const rowsToInsert = results.map((result) => ({
-          brand_id: brand.id,
-          prompt_id: prompt.id,
-          provider: result.provider,
-          mentioned: result.mentioned,
-          rank_position: result.rankPosition,
-          sentiment: result.sentiment,
-          competitors_mentioned: result.competitorsMentioned,
-          citations: result.citations,
-          raw_response: result.rawResponse || null,
-          error: result.error ?? null,
-          checked_at: checkedAt.toISOString(),
-        }));
+        // A provider call that timed out or errored must never be
+        // written as a real "not mentioned" (a false "圏外") - that
+        // would silently read as a genuine drop everywhere the data is
+        // used (today's badge, the trend chart, monthly report KPIs)
+        // instead of the failed measurement it actually was. On error,
+        // carry forward the last known-good mentioned/rank_position for
+        // that provider instead of overwriting it with a blank result,
+        // while still recording `error` so it's visible (see the
+        // dashboard's per-cell warning icon) and never counted as a
+        // real anomaly (see the `if (result.error) continue` below).
+        const rowsToInsert = results.map((result) => {
+          if (result.error) {
+            const previous = previousByProvider.get(result.provider);
+            return {
+              brand_id: brand.id,
+              prompt_id: prompt.id,
+              provider: result.provider,
+              mentioned: previous?.mentioned ?? false,
+              rank_position: previous?.rank_position ?? null,
+              sentiment: null,
+              competitors_mentioned: [],
+              citations: [],
+              raw_response: null,
+              error: result.error,
+              checked_at: checkedAt.toISOString(),
+            };
+          }
+          return {
+            brand_id: brand.id,
+            prompt_id: prompt.id,
+            provider: result.provider,
+            mentioned: result.mentioned,
+            rank_position: result.rankPosition,
+            sentiment: result.sentiment,
+            competitors_mentioned: result.competitorsMentioned,
+            citations: result.citations,
+            raw_response: result.rawResponse || null,
+            error: null,
+            checked_at: checkedAt.toISOString(),
+          };
+        });
 
         const { error: insertError } = await supabase.from("rankings").insert(rowsToInsert);
         if (insertError) {
