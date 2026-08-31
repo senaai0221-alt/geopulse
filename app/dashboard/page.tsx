@@ -383,7 +383,6 @@ export default async function DashboardPage({
               <T k="dashboard.latestRankings" />
               <InfoTooltip textKey="dashboard.latestRankingsTooltip" />
             </CardTitle>
-            <CardDescription>{selectedBrand.name}</CardDescription>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             {plan === "business" && (
