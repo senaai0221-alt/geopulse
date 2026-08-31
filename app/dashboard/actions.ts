@@ -118,12 +118,13 @@ export async function createPrompt(formData: FormData) {
 
   if (!brandId || !text) throw new Error("prompt_text_required");
 
+  // The cap is account-wide (total prompts across every brand the user
+  // owns), not per-brand - RLS (prompts_crud_own, see supabase/schema.sql)
+  // already scopes this select to the caller's own prompts, so counting
+  // with no brand_id filter gives the account total.
   const [{ data: profile }, { count: promptCount }] = await Promise.all([
     supabase.from("profiles").select("plan").eq("id", user.id).single(),
-    supabase
-      .from("prompts")
-      .select("id", { count: "exact", head: true })
-      .eq("brand_id", brandId),
+    supabase.from("prompts").select("id", { count: "exact", head: true }),
   ]);
   assertCanAddPrompt(profile?.plan, promptCount ?? 0);
 

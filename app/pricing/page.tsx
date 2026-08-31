@@ -38,6 +38,7 @@ const PLANS = [
       "landing.businessFeature1",
       "landing.businessFeature2",
       "landing.businessFeature3",
+      "landing.businessFeature4",
     ],
     priceIdEnv: "STRIPE_PRICE_ID_BUSINESS",
     ctaKey: "pricing.ctaBusiness",
@@ -126,6 +127,11 @@ export default async function PricingPage() {
                     key === "landing.businessFeature0" ? (
                       <li key={key} className="flex items-center gap-2 text-sm font-medium">
                         <Layers className="h-4 w-4 shrink-0 text-primary" />
+                        <T k={key} />
+                      </li>
+                    ) : key === "landing.businessFeature4" ? (
+                      // A caveat/note, not a feature - no checkmark, muted.
+                      <li key={key} className="pl-6 text-xs text-muted-foreground">
                         <T k={key} />
                       </li>
                     ) : (

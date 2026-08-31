@@ -3,12 +3,17 @@ import type { PlanTier } from "./stripe";
 /**
  * Per-plan usage caps, matching the numbers advertised on the landing
  * page (app/page.tsx PLANS). `null` means unlimited.
+ *
+ * These are deliberately conservative: every prompt is re-run against
+ * all 6 LLMs every morning on the operator's own paid API accounts, so
+ * the cap is what keeps that daily cost below what the subscription
+ * revenue covers, not just a UX nicety.
  */
 export interface PlanLimits {
   /** Max number of brands a user can track. */
   maxBrands: number | null;
-  /** Max number of prompts per brand. */
-  maxPromptsPerBrand: number | null;
+  /** Max number of prompts across ALL of a user's brands combined (not per brand). */
+  maxPromptsTotal: number | null;
 }
 
 // There is no free tier: the daily check calls paid LLM APIs on the
@@ -17,9 +22,9 @@ export interface PlanLimits {
 // (see supabase/schema.sql handle_new_user) only until the user
 // subscribes via Stripe; until then they cannot add any brand/prompt.
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
-  free: { maxBrands: 0, maxPromptsPerBrand: 0 },
-  pro: { maxBrands: 5, maxPromptsPerBrand: 50 },
-  business: { maxBrands: 20, maxPromptsPerBrand: 300 },
+  free: { maxBrands: 0, maxPromptsTotal: 0 },
+  pro: { maxBrands: 3, maxPromptsTotal: 20 },
+  business: { maxBrands: 10, maxPromptsTotal: 80 },
 };
 
 /** Normalizes whatever is stored in profiles.plan into a known PlanTier. */
@@ -48,16 +53,17 @@ export function assertCanAddBrand(plan: string | null | undefined, currentCount:
 }
 
 /**
- * Throws a user-facing error if adding one more prompt to a brand would
- * exceed the plan's limit. `currentCount` is the number of prompts the
- * brand already has before this addition.
+ * Throws a user-facing error if adding one more prompt would exceed the
+ * plan's limit. `currentCount` is the number of prompts the user already
+ * has across ALL of their brands combined before this addition (not just
+ * the one brand the new prompt is being added to).
  */
 export function assertCanAddPrompt(plan: string | null | undefined, currentCount: number): void {
   const tier = normalizePlan(plan);
   if (tier === "free") throw new Error("no_free_tier");
 
-  const { maxPromptsPerBrand } = PLAN_LIMITS[tier];
-  if (maxPromptsPerBrand !== null && currentCount >= maxPromptsPerBrand) {
-    throw new Error(`prompt_limit:${maxPromptsPerBrand}`);
+  const { maxPromptsTotal } = PLAN_LIMITS[tier];
+  if (maxPromptsTotal !== null && currentCount >= maxPromptsTotal) {
+    throw new Error(`prompt_limit:${maxPromptsTotal}`);
   }
 }
