@@ -7,6 +7,7 @@ import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { InfoTooltip } from "@/components/info-tooltip";
 import { useI18n } from "@/lib/i18n/context";
 import { translateActionError } from "@/lib/i18n/action-error";
 import { createPrompt } from "./actions";
@@ -77,7 +78,7 @@ export function PromptForm({
   }
 
   return (
-    <form ref={formRef} action={handleSubmit} noValidate className="flex flex-col gap-2 sm:flex-row">
+    <form ref={formRef} action={handleSubmit} noValidate className="flex flex-col gap-2 sm:flex-row sm:items-center">
       <input type="hidden" name="brand_id" value={brandId} />
       <Input
         name="text"
@@ -86,16 +87,20 @@ export function PromptForm({
         required
         className="flex-1"
       />
-      <Input
-        name="category"
-        list="prompt-category-suggestions"
-        placeholder={t("dashboard.promptCategoryPlaceholder")}
-        maxLength={CATEGORY_MAX}
-        // min-w rather than a rigid w-48 (192px) - the JA placeholder
-        // ("カテゴリ・タグ(任意: 例: 比較系, 認知系)") needs closer to
-        // 250-300px to render without the browser silently clipping it.
-        className="sm:min-w-[16rem]"
-      />
+      <div className="flex items-center gap-1.5 sm:min-w-[16rem]">
+        <Input
+          name="category"
+          list="prompt-category-suggestions"
+          placeholder={t("dashboard.promptCategoryPlaceholder")}
+          maxLength={CATEGORY_MAX}
+          // min-w-0 lets it shrink inside this flex row instead of
+          // pushing the info icon out - the row itself carries the
+          // min-w the field needs (see PromptForm's earlier note: the
+          // JA placeholder needs ~250-300px, more than a rigid w-48).
+          className="min-w-0 flex-1"
+        />
+        <InfoTooltip textKey="dashboard.categoryFieldTooltip" />
+      </div>
       <datalist id="prompt-category-suggestions">
         {existingCategories.map((c) => (
           <option key={c} value={c} />

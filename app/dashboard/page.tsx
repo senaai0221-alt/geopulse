@@ -290,8 +290,9 @@ export default async function DashboardPage({
         </Card>
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <T k="dashboard.avgRank" />
+              <InfoTooltip textKey="dashboard.avgRankTooltip" />
             </CardTitle>
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -304,8 +305,9 @@ export default async function DashboardPage({
         </Card>
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <T k="dashboard.alertsThisWeek" />
+              <InfoTooltip textKey="dashboard.alertsThisWeekTooltip" />
             </CardTitle>
             <Bell className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -325,6 +327,7 @@ export default async function DashboardPage({
             <CardTitle className="flex items-center gap-2">
               <ListChecks className="h-4 w-4 text-primary" />
               <T k="dashboard.latestRankings" />
+              <InfoTooltip textKey="dashboard.latestRankingsTooltip" />
             </CardTitle>
             <CardDescription>{selectedBrand.name}</CardDescription>
           </div>
@@ -363,8 +366,9 @@ export default async function DashboardPage({
               {Array.from(promptGroups.entries()).map(([groupKey, groupPrompts]) => (
                 <div key={groupKey} className="flex flex-col gap-2">
                   {showGroupHeadings && (
-                    <h4 className="text-sm font-semibold text-foreground">
+                    <h4 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                       {groupKey === UNCATEGORIZED ? <T k="dashboard.uncategorized" /> : groupKey}
+                      <InfoTooltip textKey="dashboard.categoryHeadingTooltip" />
                     </h4>
                   )}
                   <Table>
