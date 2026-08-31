@@ -258,8 +258,40 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** True for the ASCII "word" characters JS regex's `\b` actually
+ *  understands ([A-Za-z0-9_]). */
+function isAsciiWordChar(ch: string | undefined): boolean {
+  return !!ch && /[A-Za-z0-9_]/.test(ch);
+}
+
+/**
+ * Builds an exact-name matcher for use against raw LLM response text.
+ *
+ * `\b` (word boundary) is only meaningful next to an ASCII "word"
+ * character - it silently never matches next to anything else,
+ * including every Japanese character. A name like "テストブランド" is
+ * 100% non-ASCII, so the previous `new RegExp(\`\\b${name}\\b\`)` could
+ * never match it ANYWHERE in ANY text, correct or not: `\b` requires one
+ * side of the boundary to be a word char, and neither the text around a
+ * Japanese name nor the name itself ever is. That regex-level "always
+ * false" was silently masked because its result was OR'd with a
+ * secondary LLM judge call (see buildResult) - and that judge, asked to
+ * describe how a brand was "talked about" with no literal-text grounding,
+ * would happily invent a verdict for a name that never appears in the
+ * text at all. That combination is what let "テストブランド" get marked
+ * as mentioned in a response that only ever discussed Anker.
+ *
+ * The fix: only anchor a `\b` on the side that actually touches an ASCII
+ * word character. A pure-Japanese (or otherwise non-ASCII) name falls
+ * back to a plain literal substring match instead, which is the correct
+ * notion of "exact match" for scripts with no whitespace-tokenization
+ * concept to begin with - and, critically, one that can actually match.
+ */
 function nameRegex(name: string): RegExp {
-  return new RegExp(`\\b${escapeRegExp(name)}\\b`, "i");
+  const escaped = escapeRegExp(name);
+  const leading = isAsciiWordChar(name[0]) ? "\\b" : "";
+  const trailing = isAsciiWordChar(name[name.length - 1]) ? "\\b" : "";
+  return new RegExp(`${leading}${escaped}${trailing}`, "i");
 }
 
 /**
@@ -308,7 +340,11 @@ function extractListItems(text: string): string[] {
     .filter(Boolean);
 }
 
-function parseResponse(
+// Exported (only) so the exact-match behavior can be verified directly
+// against real raw-response text without needing live API keys - see
+// scripts/verify-mention-matching.ts. Not otherwise used outside this
+// module.
+export function parseResponse(
   rawResponse: string,
   brandName: string,
   competitors: string[]
@@ -340,25 +376,33 @@ function parseResponse(
 interface JudgeResult {
   sentiment: Sentiment | null;
   rankPosition: number | null;
-  mentioned: boolean;
+  // Deliberately no `mentioned` field here - see buildResult for why
+  // "was the brand mentioned" is decided solely by exact-text matching,
+  // never by this judge call's own opinion.
 }
 
 const JUDGE_TIMEOUT_MS = 15_000;
 
 /**
  * Makes one call to a cheap model (gpt-4o-mini by default) asking it to
- * read the raw response and judge how the brand was treated. This is far
- * more robust than the regex-based extractListItems() against unusual
- * formatting (markdown headings, prose-style answers, etc.), so its
- * result takes priority over the regex parse when it succeeds.
+ * read the raw response and judge how the brand was treated. Only ever
+ * called once buildResult has already confirmed via exact-text matching
+ * that the brand name is actually present (see buildResult) - this call
+ * exists purely to characterize *how* an already-confirmed mention reads
+ * (rank within a real ranking, sentiment), which the regex-based
+ * extractListItems() is far more fragile at against unusual formatting
+ * (markdown headings, prose-style answers, etc.). It is never used to
+ * decide *whether* the brand was mentioned at all: a model asked that
+ * framing, with no requirement to point at literal text, will readily
+ * invent a rank/sentiment for a name that never appears in the response.
  *
  * Fully optional: if OPENAI_API_KEY is missing, the call fails, times
  * out, or returns unparseable JSON, this returns all-null/false and the
- * caller falls back to the regex-based parse - the pipeline never
+ * caller falls back to the regex-based parse's rank - the pipeline never
  * breaks because of this extra step.
  */
 async function judgeBrandTreatment(rawResponse: string, brandName: string): Promise<JudgeResult> {
-  const empty: JudgeResult = { sentiment: null, rankPosition: null, mentioned: false };
+  const empty: JudgeResult = { sentiment: null, rankPosition: null };
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey || !rawResponse.trim()) return empty;
@@ -382,10 +426,11 @@ async function judgeBrandTreatment(rawResponse: string, brandName: string): Prom
           {
             role: "user",
             content:
-              `以下のAIの回答テキストにおいて、対象ブランド「${brandName}」の言及状況を分析し、` +
+              `対象ブランド「${brandName}」は、以下のAIの回答テキスト中に文字列として実際に存在します` +
+              `(それは呼び出し元が事前に確認済みです)。その前提のうえで、言及のされ方を分析し、` +
               `JSONのみで返答してください。他のテキストは一切含めないでください。\n\n` +
               `{"sentiment": "positive" | "neutral" | "negative" | null, "recommendation_rank": number | null}\n\n` +
-              `- sentiment: ブランドが言及されている場合の論調。言及されていなければ null\n` +
+              `- sentiment: ブランドが言及されている箇所の論調。\n` +
               `- recommendation_rank: 「おすすめ順」「ベスト◯選」のように、AIが明確に優劣・優先順位をつけて` +
               `複数の候補を並べたランキングの場合のみ、対象ブランドが何位か(1始まりの整数)。\n` +
               `  判定に迷ったら必ず null にしてください。特に以下は rank ではなく null:\n` +
@@ -393,7 +438,8 @@ async function judgeBrandTreatment(rawResponse: string, brandName: string): Prom
               `    (本文中でどちらが先に登場するかは順位ではありません)\n` +
               `  * 1つの項目の中の特徴・長所・機能を箇条書きしているだけのもの\n` +
               `  * ランキングではなく単に言及・説明しているだけのもの\n` +
-              `- 言及されていない場合も null\n\n` +
+              `- 万が一、回答テキストを注意深く読んでも「${brandName}」という文字列が本当にどこにも` +
+              `見当たらない場合は、sentiment・recommendation_rankの両方を必ず null にしてください。\n\n` +
               `回答テキスト:\n${rawResponse.slice(0, 6000)}`,
           },
         ],
@@ -415,11 +461,7 @@ async function judgeBrandTreatment(rawResponse: string, brandName: string): Prom
         ? parsed.recommendation_rank
         : null;
 
-    return {
-      sentiment,
-      rankPosition,
-      mentioned: sentiment !== null || rankPosition !== null,
-    };
+    return { sentiment, rankPosition };
   } catch {
     // Network error, timeout, or malformed JSON - degrade gracefully.
     return empty;
@@ -443,11 +485,24 @@ function emptyResult(provider: LlmProvider, error: unknown): GeoQueryResult {
 
 /**
  * Turns one provider's raw response into a full GeoQueryResult: runs the
- * regex-based parse, the citation merge, and the lightweight judge call
- * (in parallel with nothing else since it needs the text first), then
- * combines them - preferring the judge's rank/mention verdict when it
- * succeeded, since it's far more robust against unusual formatting than
- * the regex parser.
+ * regex-based exact-text parse first, then - only if that confirms the
+ * brand name is actually, literally present in the response - asks the
+ * lightweight LLM judge to characterize sentiment/rank, since it reads
+ * unusual formatting (markdown headings, prose-style answers) far more
+ * reliably than the regex-based list parser.
+ *
+ * `mentioned` is decided by the literal-text match alone, never by the
+ * judge call: the judge is asked to describe *how* a brand is talked
+ * about, which is a fundamentally different (and much less grounded)
+ * question than *whether* its name appears in the text at all - a model
+ * asked the former will readily invent an answer even when the name is
+ * completely absent. Gating the judge call itself behind
+ * `parsed.mentioned` (rather than calling it unconditionally and OR-ing
+ * its opinion in afterward) closes that hole structurally instead of
+ * just downgrading the judge's vote: an unmentioned brand can no longer
+ * end up with a hallucinated sentiment/rank sitting alongside it either,
+ * and it skips a paid API call for every prompt x provider combination
+ * where the brand plainly never came up.
  */
 async function buildResult(
   provider: LlmProvider,
@@ -456,7 +511,9 @@ async function buildResult(
 ): Promise<GeoQueryResult> {
   const parsed = parseResponse(response.text, input.brandName, input.competitors);
   const citations = mergeCitations(response.citations, response.text);
-  const judge = await judgeBrandTreatment(response.text, input.brandName);
+  const judge = parsed.mentioned
+    ? await judgeBrandTreatment(response.text, input.brandName)
+    : { sentiment: null, rankPosition: null };
 
   return {
     provider,
@@ -464,7 +521,7 @@ async function buildResult(
     citations,
     sentiment: judge.sentiment,
     rankPosition: judge.rankPosition ?? parsed.rankPosition,
-    mentioned: parsed.mentioned || judge.mentioned,
+    mentioned: parsed.mentioned,
     competitorsMentioned: parsed.competitorsMentioned,
   };
 }
