@@ -70,7 +70,12 @@ export function EditPromptGroupButton({
           }}
           placeholder={t("dashboard.promptCategoryPlaceholder")}
           maxLength={50}
-          className="h-7 w-40 text-xs"
+          // min-w rather than a rigid w-40 (160px) - see PromptForm's
+          // category field for why that's not enough room for the JA
+          // placeholder. The table this sits in already scrolls
+          // horizontally (see Table in components/ui/table.tsx), so
+          // widening this is safe.
+          className="h-7 min-w-[13rem] text-xs"
         />
         <datalist id={datalistId}>
           {existingCategories.map((c) => (

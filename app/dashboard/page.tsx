@@ -320,7 +320,7 @@ export default async function DashboardPage({
 
       {/* Main table - prompt form compact on top */}
       <Card>
-        <CardHeader className="flex-row items-start justify-between space-y-0">
+        <CardHeader className="flex-col items-start gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
               <ListChecks className="h-4 w-4 text-primary" />
@@ -328,7 +328,7 @@ export default async function DashboardPage({
             </CardTitle>
             <CardDescription>{selectedBrand.name}</CardDescription>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 flex-wrap gap-2">
             {plan === "business" && (
               <a
                 href={`/dashboard/report?brand=${selectedBrand.id}`}

@@ -91,7 +91,10 @@ export function PromptForm({
         list="prompt-category-suggestions"
         placeholder={t("dashboard.promptCategoryPlaceholder")}
         maxLength={CATEGORY_MAX}
-        className="sm:w-48"
+        // min-w rather than a rigid w-48 (192px) - the JA placeholder
+        // ("カテゴリ・タグ(任意: 例: 比較系, 認知系)") needs closer to
+        // 250-300px to render without the browser silently clipping it.
+        className="sm:min-w-[16rem]"
       />
       <datalist id="prompt-category-suggestions">
         {existingCategories.map((c) => (

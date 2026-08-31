@@ -405,7 +405,7 @@ export default async function ReportPage({
           <div className="flex flex-col gap-2.5">
             {categoryStats.map(({ category, mentionRate, promptCount }) => (
               <div key={category} className="flex items-center gap-3 text-sm">
-                <span className="w-32 shrink-0 truncate">
+                <span className="w-32 shrink-0 truncate" title={category === UNCATEGORIZED ? undefined : category}>
                   {category === UNCATEGORIZED ? <T k="dashboard.uncategorized" /> : category}
                 </span>
                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">

@@ -4,7 +4,13 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none",
+  // whitespace-nowrap + shrink-0: without them, a badge squeezed inside
+  // a tight flex row (a result-table cell packed with icons, a card
+  // header) can have its own text wrap into two lines and break the
+  // pill shape - the badge should hold its size and, if truly out of
+  // room, let the row scroll instead (every table here already wraps
+  // in an overflow-auto container) rather than deform itself.
+  "inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none",
   {
     variants: {
       variant: {
