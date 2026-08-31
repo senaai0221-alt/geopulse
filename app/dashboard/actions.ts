@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { sendSlackMessage, buildTestMessageBlocks, buildFeedbackBlocks, type FeedbackInput } from "@/lib/slack";
+import { sendTestAlertEmail } from "@/lib/email";
 import { assertCanAddBrand, assertCanAddPrompt } from "@/lib/plan-limits";
 
 // Defense-in-depth against pathological input (a multi-thousand-character
@@ -249,6 +250,40 @@ export async function updateSlackSettings(formData: FormData) {
 
   if (error) throw new Error(error.message);
   revalidatePath("/dashboard");
+}
+
+/**
+ * Email is the default notification channel (see
+ * app/dashboard/settings/email-alerts-form.tsx) - unlike Slack, there's
+ * no address to configure, just an on/off toggle against the account's
+ * own (already-verified, sign-in) email address.
+ */
+export async function updateEmailAlertSettings(formData: FormData) {
+  const { supabase, user } = await requireUser();
+
+  const enabled = formData.get("email_alerts_enabled") === "on";
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ email_alerts_enabled: enabled })
+    .eq("id", user.id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/dashboard/settings");
+}
+
+// Returns a code (never user-facing text) - see sendTestSlackMessage
+// above for why.
+export async function sendTestEmailAlert(): Promise<{ ok: boolean; code: string }> {
+  const { user } = await requireUser();
+  if (!user.email) return { ok: false, code: "no_email" };
+
+  try {
+    await sendTestAlertEmail(user.email);
+    return { ok: true, code: "sent" };
+  } catch {
+    return { ok: false, code: "send_failed" };
+  }
 }
 
 // Returns a code (never user-facing text) - see lib/i18n/action-error.ts's

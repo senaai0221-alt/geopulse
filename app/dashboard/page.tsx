@@ -21,7 +21,10 @@ import { cn, formatDate } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { buttonVariants } from "@/components/ui/button";
-import { RankTrendChart, type TrendPoint } from "@/components/rank-trend-chart";
+import { type TrendPoint } from "@/components/rank-trend-chart";
+import { type ExposureTrendPoint } from "@/components/exposure-trend-chart";
+import { type VoiceTrendPoint } from "@/components/voice-trend-chart";
+import { TrendExplorer } from "@/components/trend-explorer";
 import { ShareOfVoice, type ShareOfVoiceEntry } from "@/components/share-of-voice";
 import { T } from "@/components/t";
 import { InfoTooltip } from "@/components/info-tooltip";
@@ -98,6 +101,15 @@ export default async function DashboardPage({
   const selectedBrand =
     brands.find((b) => b.id === searchParams.brand) ?? brands[0];
 
+  // Bounded by a 90-day date range (not just a row-count limit) so the
+  // trend explorer's 90-day view is always fully covered regardless of
+  // how many prompts x providers this brand runs - a limit(1000) could
+  // silently truncate to well under 90 days for an active Business
+  // account (10 prompts x 6 providers x 90 days = 5400 rows). The
+  // row cap below is just a sane upper-bound safety net on top of that.
+  const trendWindowStart = new Date();
+  trendWindowStart.setDate(trendWindowStart.getDate() - 90);
+
   const [{ data: prompts }, { data: recentRankings }, { data: alerts }] = await Promise.all([
     supabase
       .from("prompts")
@@ -108,8 +120,9 @@ export default async function DashboardPage({
       .from("rankings")
       .select("*")
       .eq("brand_id", selectedBrand.id)
+      .gte("checked_at", trendWindowStart.toISOString())
       .order("checked_at", { ascending: false })
-      .limit(1000),
+      .limit(20000),
     supabase
       .from("alerts")
       .select("*")
@@ -188,34 +201,75 @@ export default async function DashboardPage({
     })),
   ];
 
-  // Rank trend: average rank position per day per provider, across every
-  // measurement round on record for this brand (not just the latest).
-  function emptyProviderBuckets(): Record<LlmProvider, { sum: number; count: number }> {
-    const bucket = {} as Record<LlmProvider, { sum: number; count: number }>;
-    for (const p of PROVIDERS) bucket[p] = { sum: 0, count: 0 };
-    return bucket;
+  // One pass over the (up to 90-day) rankings builds every daily series
+  // the trend explorer needs - rank position per provider (existing),
+  // AI exposure rate, and Share of Voice per entity (both new) - so
+  // switching between them client-side (see TrendExplorer) never needs
+  // another fetch, just a different set of keys off the same points.
+  interface DayBucket {
+    providerRank: Record<LlmProvider, { sum: number; count: number }>;
+    mentioned: number;
+    total: number;
+    entityMentions: Record<string, number>;
+  }
+  function emptyDayBucket(): DayBucket {
+    const providerRank = {} as Record<LlmProvider, { sum: number; count: number }>;
+    for (const p of PROVIDERS) providerRank[p] = { sum: 0, count: 0 };
+    return { providerRank, mentioned: 0, total: 0, entityMentions: {} };
   }
 
-  const trendBuckets = new Map<string, Record<LlmProvider, { sum: number; count: number }>>();
+  const dayBuckets = new Map<string, DayBucket>();
   for (const r of allRankings) {
-    if (r.rank_position === null) continue;
     const dateKey = format(new Date(r.checked_at), "yyyy-MM-dd");
-    if (!trendBuckets.has(dateKey)) {
-      trendBuckets.set(dateKey, emptyProviderBuckets());
+    if (!dayBuckets.has(dateKey)) dayBuckets.set(dateKey, emptyDayBucket());
+    const bucket = dayBuckets.get(dateKey)!;
+
+    bucket.total += 1;
+    if (r.mentioned) {
+      bucket.mentioned += 1;
+      bucket.entityMentions[selectedBrand.name] = (bucket.entityMentions[selectedBrand.name] ?? 0) + 1;
     }
-    const bucket = trendBuckets.get(dateKey)!;
-    bucket[r.provider].sum += r.rank_position;
-    bucket[r.provider].count += 1;
-  }
-  const trendData: TrendPoint[] = Array.from(trendBuckets.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([dateKey, byProvider]) => {
-      const point = { date: format(new Date(dateKey), "M/d") } as TrendPoint;
-      for (const p of PROVIDERS) {
-        point[p] = byProvider[p].count > 0 ? round1(byProvider[p].sum / byProvider[p].count) : null;
+    for (const name of competitorNames) {
+      if (r.competitors_mentioned?.includes(name)) {
+        bucket.entityMentions[name] = (bucket.entityMentions[name] ?? 0) + 1;
       }
-      return point;
-    });
+    }
+    if (r.rank_position !== null) {
+      bucket.providerRank[r.provider].sum += r.rank_position;
+      bucket.providerRank[r.provider].count += 1;
+    }
+  }
+
+  const sortedDayKeys = Array.from(dayBuckets.keys()).sort();
+  const voiceEntities = [selectedBrand.name, ...competitorNames];
+
+  const trendData: TrendPoint[] = sortedDayKeys.map((dateKey) => {
+    const b = dayBuckets.get(dateKey)!;
+    const point = { date: format(new Date(dateKey), "M/d") } as TrendPoint;
+    for (const p of PROVIDERS) {
+      point[p] = b.providerRank[p].count > 0 ? round1(b.providerRank[p].sum / b.providerRank[p].count) : null;
+    }
+    return point;
+  });
+
+  const exposureTrendData: ExposureTrendPoint[] = sortedDayKeys.map((dateKey) => {
+    const b = dayBuckets.get(dateKey)!;
+    return {
+      date: format(new Date(dateKey), "M/d"),
+      exposureRate: b.total > 0 ? round1((b.mentioned / b.total) * 100) : null,
+    };
+  });
+
+  const voiceTrendData: VoiceTrendPoint[] = sortedDayKeys.map((dateKey) => {
+    const b = dayBuckets.get(dateKey)!;
+    const entityTotal = Object.values(b.entityMentions).reduce((sum, c) => sum + c, 0);
+    const point = { date: format(new Date(dateKey), "M/d") } as VoiceTrendPoint;
+    for (const name of voiceEntities) {
+      const count = b.entityMentions[name] ?? 0;
+      point[name] = entityTotal > 0 ? round1((count / entityTotal) * 100) : null;
+    }
+    return point;
+  });
 
   const visibleAlerts = (alerts ?? []).slice(0, VISIBLE_ALERTS);
 
@@ -445,23 +499,30 @@ export default async function DashboardPage({
         </CardContent>
       </Card>
 
-      {/* Bottom row - trend + share of voice side by side */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <LineChart className="h-4 w-4 text-primary" />
-              <T k="dashboard.trend" />
-            </CardTitle>
-            <CardDescription>
-              <T k="dashboard.trendDesc" />
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RankTrendChart data={trendData} />
-          </CardContent>
-        </Card>
+      {/* Trend explorer - full width: exposure rate / rank position /
+          Share of Voice, each over a selectable 7/30/90-day window. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LineChart className="h-4 w-4 text-primary" />
+            <T k="dashboard.trend" />
+          </CardTitle>
+          <CardDescription>
+            <T k="dashboard.trendDesc" />
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TrendExplorer
+            rankData={trendData}
+            exposureData={exposureTrendData}
+            voiceData={voiceTrendData}
+            voiceEntities={voiceEntities}
+          />
+        </CardContent>
+      </Card>
 
+      {/* Share of voice snapshot + recent alerts side by side */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -476,28 +537,26 @@ export default async function DashboardPage({
             <ShareOfVoice entries={shareOfVoiceEntries} total={latestList.length} />
           </CardContent>
         </Card>
-      </div>
 
-      {/* Recent alerts - compact */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-primary" />
-            <T k="dashboard.recentAlerts" />
-          </CardTitle>
-          <CardDescription>
-            <T k="dashboard.recentAlertsDesc" />
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {visibleAlerts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              <T k="dashboard.noAlerts" />
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-2.5">
-              {visibleAlerts.map((alert) => (
-                <li key={alert.id} className="flex items-start gap-2.5 text-sm">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-primary" />
+              <T k="dashboard.recentAlerts" />
+            </CardTitle>
+            <CardDescription>
+              <T k="dashboard.recentAlertsDesc" />
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {visibleAlerts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                <T k="dashboard.noAlerts" />
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2.5">
+                {visibleAlerts.map((alert) => (
+                  <li key={alert.id} className="flex items-start gap-2.5 text-sm">
                   <AlertTriangle
                     className={cn(
                       "mt-0.5 h-4 w-4 shrink-0",
@@ -516,13 +575,14 @@ export default async function DashboardPage({
               ))}
             </ul>
           )}
-          {alerts && alerts.length > VISIBLE_ALERTS && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              <T k="dashboard.moreAlerts" vars={{ count: alerts.length - VISIBLE_ALERTS }} />
-            </p>
-          )}
-        </CardContent>
-      </Card>
+            {alerts && alerts.length > VISIBLE_ALERTS && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                <T k="dashboard.moreAlerts" vars={{ count: alerts.length - VISIBLE_ALERTS }} />
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

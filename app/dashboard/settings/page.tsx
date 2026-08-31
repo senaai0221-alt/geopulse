@@ -1,4 +1,4 @@
-import { Target, Bell, ShieldCheck, Palette } from "lucide-react";
+import { Target, Bell, ShieldCheck, Palette, Mail, Settings2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { SlackSettingsForm } from "../slack-settings-form";
 import { UpgradePrompt } from "../upgrade-button";
 import { ManageSubscriptionButton } from "../manage-subscription-button";
 import { WhiteLabelForm } from "./white-label-form";
+import { EmailAlertsForm } from "./email-alerts-form";
 
 const PLAN_LABELS: Record<string, string | null> = {
   free: null, // rendered via <T k="dashboard.notSubscribed" /> instead
@@ -80,22 +81,19 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Slack settings */}
+        {/* Email alerts - the default/primary notification channel */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Bell className="h-4 w-4 text-primary" />
-              <T k="settings.slackSettings" />
+              <Mail className="h-4 w-4 text-primary" />
+              <T k="settings.emailAlertsTitle" />
             </CardTitle>
             <CardDescription>
-              <T k="settings.slackSettingsDesc" />
+              <T k="settings.emailAlertsDesc" />
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <SlackSettingsForm
-              initialWebhookUrl={profile?.slack_webhook_url ?? null}
-              initialEnabled={profile?.slack_enabled ?? false}
-            />
+            <EmailAlertsForm email={profile?.email ?? user.email ?? ""} initialEnabled={profile?.email_alerts_enabled ?? true} />
           </CardContent>
         </Card>
 
@@ -147,6 +145,35 @@ export default async function SettingsPage() {
                 <ManageSubscriptionButton />
               </>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Advanced/optional integrations - deliberately separated from the
+          main settings grid above and pushed to the very bottom: Slack
+          is an additional channel now, not the primary one (see
+          EmailAlertsForm above), so it shouldn't compete for attention
+          with the settings most people actually need. */}
+      <div>
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+          <Settings2 className="h-4 w-4" />
+          <T k="settings.advancedSectionTitle" />
+        </h2>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-primary" />
+              <T k="settings.slackSettings" />
+            </CardTitle>
+            <CardDescription>
+              <T k="settings.slackSettingsDesc" />
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SlackSettingsForm
+              initialWebhookUrl={profile?.slack_webhook_url ?? null}
+              initialEnabled={profile?.slack_enabled ?? false}
+            />
           </CardContent>
         </Card>
       </div>

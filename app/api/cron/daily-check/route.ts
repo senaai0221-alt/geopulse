@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runGeoQuery, type LlmProvider } from "@/lib/geo-engine";
 import { sendDailySummary, type RankingChange } from "@/lib/slack";
+import { sendAlertEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 // Vercel Hobby plan caps function duration at 60s; Pro/Enterprise allow more.
@@ -311,10 +312,15 @@ async function runDailyCheck() {
         anomalies: anomalies.length,
       });
 
-      // Send Slack notification for this brand's owner, if configured.
+      // Notify this brand's owner, if configured. Email is the default
+      // channel (email_alerts_enabled defaults true - see
+      // supabase/schema.sql); Slack is the optional, additional one
+      // (settings/page.tsx's "advanced" section). Each fires
+      // independently in its own try/catch - one failing (a missing
+      // RESEND_API_KEY, a bad webhook URL) must never block the other.
       const { data: profile } = await supabase
         .from("profiles")
-        .select("slack_webhook_url, slack_enabled")
+        .select("email, email_alerts_enabled, slack_webhook_url, slack_enabled")
         .eq("id", brand.user_id)
         .single();
 
@@ -330,6 +336,18 @@ async function runDailyCheck() {
           });
         } catch (err) {
           console.error(`Failed to send Slack summary for brand ${brand.id}:`, err);
+        }
+      }
+
+      // Email only fires when there's actually something to flag (a
+      // rank drop or disappearance) - unlike the Slack digest, which
+      // sends a routine "all clear" summary every day, an inbox alert
+      // is reserved for the cases the request specifically calls out.
+      if (anomalies.length > 0 && profile?.email_alerts_enabled !== false && profile?.email) {
+        try {
+          await sendAlertEmail(profile.email, { brandName: brand.name, anomalies });
+        } catch (err) {
+          console.error(`Failed to send alert email for brand ${brand.id}:`, err);
         }
       }
     } catch (err) {

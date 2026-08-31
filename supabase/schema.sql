@@ -43,6 +43,11 @@ create table if not exists public.profiles (
   report_logo_url text,
   slack_webhook_url text,
   slack_enabled boolean not null default false,
+  -- Email alerts (app/dashboard/settings/email-alerts-form.tsx) are the
+  -- default/primary notification channel - on for every profile,
+  -- existing and new, unless explicitly turned off. Slack (above) is now
+  -- positioned as an optional, additional channel.
+  email_alerts_enabled boolean not null default true,
   plan plan_tier not null default 'free',
   stripe_customer_id text unique,
   stripe_subscription_id text unique,
@@ -52,9 +57,10 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
--- Adds report_logo_url for databases created before this field existed;
--- safe to re-run.
+-- Adds report_logo_url / email_alerts_enabled for databases created
+-- before these fields existed; safe to re-run.
 alter table public.profiles add column if not exists report_logo_url text;
+alter table public.profiles add column if not exists email_alerts_enabled boolean not null default true;
 
 -- ---------------------------------------------------------------------
 -- brands: a tracked brand / product owned by a user
