@@ -61,7 +61,15 @@ export function BrandForm({ businessPriceId }: { businessPriceId: string }) {
 
   return (
     <form ref={formRef} action={handleSubmit} noValidate className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {/* This card sits beside a twin card in a lg:grid-cols-2 layout
+          (see settings/page.tsx), so at desktop widths it only ever gets
+          HALF the page's width to work with - going 3-across too early
+          left each Input too narrow for its placeholder. sm:2-up /
+          xl:3-up (competitors spanning both sm columns until xl) keeps
+          every field wide enough at every breakpoint in between, and the
+          xl 3-up split is weighted (not equal thirds) since "Competitors"
+          carries the longest placeholder of the three. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1.4fr]">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="name" className="flex items-center gap-1.5">
             <Target className="h-3.5 w-3.5 text-muted-foreground" />
@@ -77,7 +85,7 @@ export function BrandForm({ businessPriceId }: { businessPriceId: string }) {
           <Input id="domain" name="domain" placeholder="example.com" maxLength={DOMAIN_MAX} />
           <p className="text-xs text-slate-400">{t("settings.brandDomainHint")}</p>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5 sm:col-span-2 xl:col-span-1">
           <Label htmlFor="competitors" className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5 text-muted-foreground" />
             {t("settings.brandCompetitors")}
