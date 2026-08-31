@@ -22,6 +22,7 @@ const FAQS = [
   { qKey: "help.faqQ1", aKey: "help.faqA1" },
   { qKey: "help.faqQ2", aKey: "help.faqA2" },
   { qKey: "help.faqQ3", aKey: "help.faqA3" },
+  { qKey: "help.faqQ4", aKey: "help.faqA4" },
 ] as const;
 
 /** Self-serve guide/FAQ - lets a non-engineer answer their own "how do

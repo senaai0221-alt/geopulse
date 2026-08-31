@@ -189,7 +189,9 @@
     "faqQ2": "What kind of prompts should I set up?",
     "faqA2": "Questions a prospective customer would actually ask an AI - e.g. \"best tools for X\" or \"X vs Y comparison\".",
     "faqQ3": "Can I export data for internal reporting?",
-    "faqA3": "Yes - CSV from the dashboard, or a print/PDF-optimized A4 report from the Report page on the Business plan."
+    "faqA3": "Yes - CSV from the dashboard, or a print/PDF-optimized A4 report from the Report page on the Business plan.",
+    "faqQ4": "What is the purpose of aggregating \"AI Exposure Rate\" across completely different prompts?",
+    "faqA4": "The overall metrics (AI Exposure Rate, Average Position) serve as macro KPIs to grasp the brand's general visibility and health across LLMs. Aggregating them allows you to track macro trends over time without getting distracted by daily prompt-level fluctuations. For specific issue analysis, please drill down using categories or individual prompt data."
   },
   "feedback": {
     "title": "Feedback & Bug Reports",
