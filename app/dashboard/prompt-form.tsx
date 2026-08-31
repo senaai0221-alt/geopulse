@@ -78,43 +78,53 @@ export function PromptForm({
   }
 
   return (
-    <form ref={formRef} action={handleSubmit} noValidate className="flex flex-col gap-2 sm:flex-row sm:items-center">
+    // The error/plan-limit alert used to render as a direct sibling of
+    // the text/category/button controls inside the same sm:flex-row -
+    // InlineAlert has no width cap, so once an error appeared it fought
+    // the text input for space in that one row and could squeeze it
+    // down to nothing (reported as the prompt field "disappearing").
+    // Splitting the controls into their own row and letting the alert
+    // render as a full-width block below it means the two can never
+    // compete for the same horizontal space.
+    <form ref={formRef} action={handleSubmit} noValidate className="flex flex-col gap-2">
       <input type="hidden" name="brand_id" value={brandId} />
-      <Input
-        name="text"
-        placeholder={t("dashboard.promptPlaceholder")}
-        maxLength={TEXT_MAX}
-        required
-        className="flex-1"
-      />
-      <div className="flex items-center gap-1.5 sm:min-w-[16rem]">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Input
-          name="category"
-          list="prompt-category-suggestions"
-          placeholder={t("dashboard.promptCategoryPlaceholder")}
-          maxLength={CATEGORY_MAX}
-          // min-w-0 lets it shrink inside this flex row instead of
-          // pushing the info icon out - the row itself carries the
-          // min-w the field needs (see PromptForm's earlier note: the
-          // JA placeholder needs ~250-300px, more than a rigid w-48).
+          name="text"
+          placeholder={t("dashboard.promptPlaceholder")}
+          maxLength={TEXT_MAX}
+          required
+          // min-w-0 overrides the flex default (min-width: auto), which
+          // otherwise refuses to let a flex-1 item shrink below its own
+          // content size - without it, this input could get pushed
+          // past the row's available width instead of shrinking to fit.
           className="min-w-0 flex-1"
         />
-        <InfoTooltip textKey="dashboard.categoryFieldTooltip" />
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Input
+            name="category"
+            list="prompt-category-suggestions"
+            placeholder={t("dashboard.promptCategoryPlaceholder")}
+            maxLength={CATEGORY_MAX}
+            className="w-full shrink-0 sm:w-48"
+          />
+          <InfoTooltip textKey="dashboard.categoryFieldTooltip" />
+        </div>
+        <datalist id="prompt-category-suggestions">
+          {existingCategories.map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
+        <Button type="submit" disabled={isPending} size="sm" className="shrink-0">
+          {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+          {t("dashboard.addPromptButton")}
+        </Button>
       </div>
-      <datalist id="prompt-category-suggestions">
-        {existingCategories.map((c) => (
-          <option key={c} value={c} />
-        ))}
-      </datalist>
       {isPlanLimitError && errorCode ? (
         <PlanLimitAlert code={errorCode} businessPriceId={businessPriceId} />
       ) : (
         error && <InlineAlert>{error}</InlineAlert>
       )}
-      <Button type="submit" disabled={isPending} size="sm">
-        {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-        {t("dashboard.addPromptButton")}
-      </Button>
     </form>
   );
 }

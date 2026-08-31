@@ -70,12 +70,13 @@ export function EditPromptGroupButton({
           }}
           placeholder={t("dashboard.promptCategoryPlaceholder")}
           maxLength={50}
-          // min-w rather than a rigid w-40 (160px) - see PromptForm's
-          // category field for why that's not enough room for the JA
-          // placeholder. The table this sits in already scrolls
-          // horizontally (see Table in components/ui/table.tsx), so
-          // widening this is safe.
-          className="h-7 min-w-[13rem] text-xs"
+          // Deliberately compact (w-32, not a wide min-w) - this sits
+          // inline in a table row's action cell; letting it grow to fit
+          // the full placeholder text stretched the row and crowded the
+          // neighboring badges. The placeholder is allowed to truncate
+          // here - the field itself (and its saved value) still isn't
+          // length-limited beyond maxLength.
+          className="h-7 w-32 text-xs"
         />
         <datalist id={datalistId}>
           {existingCategories.map((c) => (
