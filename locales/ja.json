@@ -225,6 +225,7 @@
     "reportTitle": "GEOトラッキングレポート",
     "summary": "サマリー",
     "detailTable": "プロンプト × LLM別 詳細結果",
+    "detailTableTag": "タグ / カテゴリ",
     "generatedBy": "Zonostickにより自動生成",
     "noBrandsTitle": "計測対象がありません",
     "noBrandsDesc": "レポートを作成するには、まず計測対象を追加してください。",

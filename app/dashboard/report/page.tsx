@@ -14,6 +14,8 @@ import { ShareOfVoiceDonut } from "./share-of-voice-donut";
 import { LlmComparisonChart } from "./llm-comparison-chart";
 import { EvidenceSnippet } from "./evidence-snippet";
 import { AiGenerateNotes } from "./ai-generate-notes";
+import { CategoryExposureChart } from "./category-exposure-chart";
+import { Badge } from "@/components/ui/badge";
 import type { ReportInsightsInput } from "@/lib/report-insights";
 
 const PROVIDER_LABELS: Record<LlmProvider, string> = {
@@ -227,11 +229,41 @@ export default async function ReportPage({
     if (!promptGroups.has(key)) promptGroups.set(key, []);
     promptGroups.get(key)!.push(prompt);
   }
+
+  // One color per real category, assigned by first-appearance order
+  // (never sorted) so a category keeps its color across months as
+  // prompts get added/removed - same convention as the app's other
+  // categorical palettes (competitors, LLM providers). Reused for both
+  // the detail-table tag badges below and the category exposure chart
+  // on page 3, so a category reads as one consistent visual identity
+  // across the whole report rather than being re-colored per section.
+  // "Uncategorized" deliberately sits outside the rotation - it's a
+  // fallback bucket, not a real tag, so it always renders as neutral
+  // gray instead of visually competing with real category colors.
+  const CATEGORY_COLORS = ["#f59e0b", "#0ea5e9", "#a78bfa", "#fb7185", "#14b8a6", "#f43f5e"];
+  const UNCATEGORIZED_COLOR = "#94a3b8";
+  const categoryColorMap = new Map<string, string>();
+  let categoryColorIndex = 0;
+  for (const key of promptGroups.keys()) {
+    if (key === UNCATEGORIZED) continue;
+    categoryColorMap.set(key, CATEGORY_COLORS[categoryColorIndex % CATEGORY_COLORS.length]);
+    categoryColorIndex++;
+  }
+  function colorForCategory(category: string): string {
+    return category === UNCATEGORIZED ? UNCATEGORIZED_COLOR : categoryColorMap.get(category) ?? UNCATEGORIZED_COLOR;
+  }
+
   const categoryStats = Array.from(promptGroups.entries()).map(([category, groupPrompts]) => {
     const ids = new Set(groupPrompts.map((p) => p.id));
     const groupRankings = rankings.filter((r) => ids.has(r.prompt_id));
     const stats = computeKpis(groupRankings, []);
-    return { category, mentionRate: stats.mentionRate, promptCount: groupPrompts.length };
+    return {
+      category,
+      isUncategorized: category === UNCATEGORIZED,
+      mentionRate: stats.mentionRate,
+      promptCount: groupPrompts.length,
+      color: colorForCategory(category),
+    };
   });
 
   // Best evidence snippet: a mentioned response with actual text to
@@ -403,6 +435,72 @@ export default async function ReportPage({
           </div>
         </section>
 
+        {/* Moved up from what used to be page 2's tail: the reader
+            should see exactly which prompts this report is even
+            measuring right after the topline numbers and the written
+            take on them, not several pages of charts later. */}
+        <section className="mt-8 break-inside-avoid">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <T k="report.detailTable" />
+          </h2>
+          <table className="w-full table-fixed border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-border text-left text-muted-foreground">
+                {/* Fixed shares of the row (rather than a max-w-px cap)
+                    so the prompt column scales with however many
+                    provider columns sit beside it, and stays wide
+                    enough for a full-length Japanese prompt to wrap
+                    across 2-3 short lines instead of many narrow ones. */}
+                <th className="w-[28%] py-1.5 pr-2">
+                  <T k="dashboard.prompt" />
+                </th>
+                <th className="w-[14%] py-1.5 pr-2">
+                  <T k="report.detailTableTag" />
+                </th>
+                {LLM_PROVIDERS.map((p) => (
+                  <th key={p} className="py-1.5 px-1 text-center">
+                    {PROVIDER_LABELS[p]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(prompts ?? []).map((prompt) => {
+                const category = prompt.category?.trim() || null;
+                return (
+                  <tr key={prompt.id} className="border-b border-border">
+                    <td className="break-words py-2 pr-2 leading-relaxed">{prompt.text}</td>
+                    <td className="py-2 pr-2">
+                      {category ? (
+                        <Badge
+                          variant="outline"
+                          className="whitespace-nowrap border-transparent font-medium"
+                          style={{
+                            backgroundColor: `${colorForCategory(category)}1a`,
+                            color: colorForCategory(category),
+                          }}
+                        >
+                          {category}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    {LLM_PROVIDERS.map((provider) => {
+                      const r = latestByKey.get(`${prompt.id}-${provider}`);
+                      return (
+                        <td key={provider} className="py-1.5 px-1 text-center tabular-nums">
+                          {!r ? "—" : r.mentioned ? (r.rank_position ? `#${r.rank_position}` : "○") : "×"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
+
         <PageFooter n={1} />
       </section>
 
@@ -453,46 +551,6 @@ export default async function ReportPage({
           </table>
         </section>
 
-        <section className="mt-8 break-inside-avoid">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            <T k="report.detailTable" />
-          </h2>
-          <table className="w-full table-fixed border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-border text-left text-muted-foreground">
-                {/* A fixed share of the row (rather than a max-w-px cap)
-                    so the prompt column scales with however many
-                    provider columns sit beside it, and stays wide
-                    enough for a full-length Japanese prompt to wrap
-                    across 2-3 short lines instead of many narrow ones. */}
-                <th className="w-[34%] py-1.5 pr-2">
-                  <T k="dashboard.prompt" />
-                </th>
-                {LLM_PROVIDERS.map((p) => (
-                  <th key={p} className="py-1.5 px-1 text-center">
-                    {PROVIDER_LABELS[p]}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(prompts ?? []).map((prompt) => (
-                <tr key={prompt.id} className="border-b border-border">
-                  <td className="break-words py-2 pr-2 leading-relaxed">{prompt.text}</td>
-                  {LLM_PROVIDERS.map((provider) => {
-                    const r = latestByKey.get(`${prompt.id}-${provider}`);
-                    return (
-                      <td key={provider} className="py-1.5 px-1 text-center tabular-nums">
-                        {!r ? "—" : r.mentioned ? (r.rank_position ? `#${r.rank_position}` : "○") : "×"}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-
         <PageFooter n={2} />
       </section>
 
@@ -506,20 +564,7 @@ export default async function ReportPage({
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             <T k="report.categoryBreakdownTitle" />
           </h2>
-          <div className="flex flex-col gap-2.5">
-            {categoryStats.map(({ category, mentionRate, promptCount }) => (
-              <div key={category} className="flex items-center gap-3 text-sm">
-                <span className="w-32 shrink-0 truncate" title={category === UNCATEGORIZED ? undefined : category}>
-                  {category === UNCATEGORIZED ? <T k="dashboard.uncategorized" /> : category}
-                </span>
-                <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(mentionRate, mentionRate > 0 ? 3 : 0)}%` }} />
-                </div>
-                <span className="w-10 shrink-0 text-right tabular-nums text-muted-foreground">{mentionRate}%</span>
-                <span className="w-16 shrink-0 text-right text-xs text-muted-foreground">({promptCount})</span>
-              </div>
-            ))}
-          </div>
+          <CategoryExposureChart stats={categoryStats} />
         </section>
 
         <section className="mt-8 break-inside-avoid">
