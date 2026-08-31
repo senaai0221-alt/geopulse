@@ -3,6 +3,7 @@ import { Target, Bell, ShieldCheck, Palette, Mail, Settings2 } from "lucide-reac
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { T } from "@/components/t";
+import { cn } from "@/lib/utils";
 
 import { BrandForm } from "../brand-form";
 import { BrandListItem } from "../brand-list-item";
@@ -18,7 +19,16 @@ const PLAN_LABELS: Record<string, string | null> = {
   business: "Business",
 };
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  // Set by the onboarding guide's step-3 CTA (see dashboard/page.tsx) -
+  // "alerts" draws attention to the email-alerts card/test-send button
+  // below, since a first-time visitor landing on a page full of cards
+  // has no way to know which one the link was actually pointing at.
+  searchParams: { highlight?: string };
+}) {
+  const highlightAlerts = searchParams.highlight === "alerts";
   const supabase = createClient();
   const {
     data: { user },
@@ -82,7 +92,10 @@ export default async function SettingsPage() {
         </Card>
 
         {/* Email alerts - the default/primary notification channel */}
-        <Card>
+        <Card
+          id="email-alerts"
+          className={cn(highlightAlerts && "border-primary/40 bg-primary/[0.03] ring-1 ring-primary/20")}
+        >
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Mail className="h-4 w-4 text-primary" />
@@ -93,7 +106,11 @@ export default async function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <EmailAlertsForm email={profile?.email ?? user.email ?? ""} initialEnabled={profile?.email_alerts_enabled ?? true} />
+            <EmailAlertsForm
+              email={profile?.email ?? user.email ?? ""}
+              initialEnabled={profile?.email_alerts_enabled ?? true}
+              highlightTestButton={highlightAlerts}
+            />
           </CardContent>
         </Card>
 

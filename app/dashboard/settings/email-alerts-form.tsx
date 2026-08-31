@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Loader2, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 import { updateEmailAlertSettings, sendTestEmailAlert } from "../actions";
 
@@ -16,9 +17,15 @@ import { updateEmailAlertSettings, sendTestEmailAlert } from "../actions";
 export function EmailAlertsForm({
   email,
   initialEnabled,
+  highlightTestButton = false,
 }: {
   email: string;
   initialEnabled: boolean;
+  /** True when the visitor arrived via the onboarding guide's step-3
+   *  CTA (see dashboard/page.tsx + settings/page.tsx's `highlight`
+   *  query param) - draws the same pulsing blue ring used on the
+   *  dashboard's prompt input onto the test-send button here. */
+  highlightTestButton?: boolean;
 }) {
   const { t } = useI18n();
   const [isPending, startTransition] = useTransition();
@@ -70,7 +77,14 @@ export function EmailAlertsForm({
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {t("settings.slackSave")}
         </Button>
-        <Button type="button" variant="outline" size="sm" onClick={handleTest} disabled={isTesting}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleTest}
+          disabled={isTesting}
+          className={cn(highlightTestButton && "onboarding-glow ring-2 ring-primary/40")}
+        >
           {isTesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
           {t("settings.slackTestSend")}
         </Button>

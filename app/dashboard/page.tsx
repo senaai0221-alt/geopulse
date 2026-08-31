@@ -401,7 +401,7 @@ export default async function DashboardPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
               <div className="flex gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
                   1
@@ -435,6 +435,30 @@ export default async function DashboardPage({
                   <p className="text-sm text-muted-foreground">
                     <T k="dashboard.onboardingStep2Desc" />
                   </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                  3
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+                    <Bell className="h-4 w-4 text-primary" />
+                    <T k="dashboard.onboardingStep3Title" />
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    <T k="dashboard.onboardingStep3Desc" />
+                  </p>
+                  {/* #email-alerts positions the scroll, ?highlight=alerts
+                      drives the visual emphasis once there - see
+                      settings/page.tsx. */}
+                  <Link
+                    href="/dashboard/settings?highlight=alerts#email-alerts"
+                    className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit gap-1.5")}
+                  >
+                    <Bell className="h-3.5 w-3.5" />
+                    <T k="dashboard.onboardingStep3Cta" />
+                  </Link>
                 </div>
               </div>
             </div>
