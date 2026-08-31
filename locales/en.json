@@ -145,7 +145,7 @@
     "promptTextRequired": "Prompt text is required",
     "addPromptFailed": "Failed to save. Please try again.",
     "promptPlaceholder": "e.g. best CRM tools for small businesses?",
-    "promptCategoryPlaceholder": "Category/tag (optional, e.g. comparison, awareness)",
+    "promptCategoryPlaceholder": "Category/Tag (Optional)",
     "addPromptButton": "Add",
     "promptLimitReached": "Your current plan allows up to {max} prompts per brand. Upgrade your plan to add more (from the Settings page).",
     "deletePromptConfirm": "Delete this prompt?",

@@ -145,7 +145,7 @@
     "promptTextRequired": "プロンプト内容は必須です",
     "addPromptFailed": "登録に失敗しました",
     "promptPlaceholder": "例: 中小企業向けのおすすめCRMツールは？",
-    "promptCategoryPlaceholder": "カテゴリ・タグ(任意: 例: 比較系, 認知系)",
+    "promptCategoryPlaceholder": "カテゴリ・タグ(任意)",
     "addPromptButton": "追加",
     "promptLimitReached": "現在のプランでは、1ブランドあたりプロンプト{max}件までです。プランをアップグレードすると追加できます(設定ページから変更できます)。",
     "deletePromptConfirm": "このプロンプトを削除しますか？",

@@ -106,7 +106,7 @@ export function PromptForm({
             list="prompt-category-suggestions"
             placeholder={t("dashboard.promptCategoryPlaceholder")}
             maxLength={CATEGORY_MAX}
-            className="w-full shrink-0 sm:w-48"
+            className="w-full shrink-0 sm:w-52"
           />
           <InfoTooltip textKey="dashboard.categoryFieldTooltip" />
         </div>
