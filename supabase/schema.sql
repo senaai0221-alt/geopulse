@@ -304,3 +304,47 @@ create policy "rankings_select_own" on public.rankings
 drop policy if exists "alerts_select_own" on public.alerts;
 create policy "alerts_select_own" on public.alerts
   for select using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------
+-- Storage: white-label report logo uploads (Business plan -
+-- app/dashboard/settings/white-label-form.tsx). One public bucket;
+-- each user's file lives under their own uid-prefixed path
+-- (report-logos/<user_id>/logo.<ext>, uploaded with upsert so there's
+-- only ever one live object per user) so RLS can scope writes per user
+-- while reads stay public - the printed/PDF report (and eventually a
+-- server-side PDF renderer) needs a plain public URL an <img> tag can
+-- load with no auth at all.
+-- ---------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('report-logos', 'report-logos', true)
+on conflict (id) do nothing;
+
+drop policy if exists "report_logos_insert_own" on storage.objects;
+create policy "report_logos_insert_own" on storage.objects
+  for insert with check (
+    bucket_id = 'report-logos'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "report_logos_update_own" on storage.objects;
+create policy "report_logos_update_own" on storage.objects
+  for update using (
+    bucket_id = 'report-logos'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "report_logos_delete_own" on storage.objects;
+create policy "report_logos_delete_own" on storage.objects
+  for delete using (
+    bucket_id = 'report-logos'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- The bucket's own `public = true` flag already serves objects to
+-- anyone via their public URL regardless of RLS - this select policy
+-- is what lets an authenticated client (not just the public URL path)
+-- read/list via the normal Storage API, e.g. to confirm an overwrite
+-- succeeded before swapping the preview.
+drop policy if exists "report_logos_select_public" on storage.objects;
+create policy "report_logos_select_public" on storage.objects
+  for select using (bucket_id = 'report-logos');

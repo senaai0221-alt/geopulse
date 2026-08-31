@@ -186,20 +186,32 @@ export async function updatePromptCategory(formData: FormData) {
  * Business-gated (see settings/page.tsx), and report/page.tsx falls
  * back to Zonostick branding on its own if a non-Business profile
  * somehow has these set (e.g. after a downgrade) or if they're empty.
+ *
+ * Each field is only written if its key is actually present in
+ * `formData` - not merely non-empty. The company-name box still submits
+ * both fields together on its own "Save" button (unchanged), but the
+ * logo uploader (white-label-form.tsx) calls this on its own, right
+ * after a successful Storage upload, with only report_logo_url set -
+ * an empty-string company_name would otherwise silently null out
+ * whatever company name was already saved. Sending an explicit empty
+ * string for a field (e.g. the logo "Remove" button) still clears it,
+ * same as before - only a wholly *absent* key is left untouched.
  */
 export async function updateWhiteLabelSettings(formData: FormData) {
   const { supabase, user } = await requireUser();
 
-  const logoUrl = truncate(String(formData.get("report_logo_url") ?? "").trim(), 500);
-  const companyName = truncate(String(formData.get("report_company_name") ?? "").trim(), 100);
+  const update: { report_logo_url?: string | null; company_name?: string | null } = {};
+  if (formData.has("report_logo_url")) {
+    const logoUrl = truncate(String(formData.get("report_logo_url") ?? "").trim(), 500);
+    update.report_logo_url = logoUrl || null;
+  }
+  if (formData.has("report_company_name")) {
+    const companyName = truncate(String(formData.get("report_company_name") ?? "").trim(), 100);
+    update.company_name = companyName || null;
+  }
+  if (Object.keys(update).length === 0) return;
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      report_logo_url: logoUrl || null,
-      company_name: companyName || null,
-    })
-    .eq("id", user.id);
+  const { error } = await supabase.from("profiles").update(update).eq("id", user.id);
 
   if (error) throw new Error(error.message);
   revalidatePath("/dashboard/settings");
