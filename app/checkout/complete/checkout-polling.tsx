@@ -9,8 +9,13 @@ import { useI18n } from "@/lib/i18n/context";
 const POLL_INTERVAL_MS = 1500;
 // Webhooks normally land in well under this; past it we assume something
 // is unusually slow (or stuck) and stop auto-retrying so the tab doesn't
-// poll forever, offering a manual way forward instead.
-const TIMEOUT_MS = 30_000;
+// poll forever, offering a manual way forward instead. 30s was too
+// tight in practice - this endpoint fires rarely (one event per new
+// subscription), so it's routinely a cold start on top of whatever
+// delay Stripe's own webhook delivery adds, and a real live checkout
+// was observed tripping the old 30s timeout even though the webhook
+// and DB update both succeeded within roughly a minute.
+const TIMEOUT_MS = 60_000;
 
 type State = "polling" | "confirmed" | "timed_out";
 
