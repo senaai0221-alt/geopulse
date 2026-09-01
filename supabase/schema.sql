@@ -275,6 +275,29 @@ alter table public.cron_runs enable row level security;
 -- client, which bypasses RLS entirely.
 
 -- ---------------------------------------------------------------------
+-- trial_card_fingerprints: one row per physical card that has ever
+-- completed a free trial (see lib/stripe.ts's TRIAL_PERIOD_DAYS and
+-- app/api/webhooks/stripe/route.ts). isTrialEligible() only checks
+-- whether *this account* has ever had a Stripe customer - on its own
+-- that only blocks re-using the same account, not signing up again
+-- with a fresh email and the exact same card. Stripe's card fingerprint
+-- is stable for one physical card across every customer/account it's
+-- ever attached to, so this table is the record of "has this card
+-- already gotten its one trial" independent of which account used it.
+-- ---------------------------------------------------------------------
+create table if not exists public.trial_card_fingerprints (
+  fingerprint text primary key,
+  first_used_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.trial_card_fingerprints enable row level security;
+
+-- No policies: written and read only by the Stripe webhook's
+-- service-role admin client, same as cron_runs/feedback above - never
+-- exposed to any user's own session.
+
+-- ---------------------------------------------------------------------
 -- updated_at trigger for profiles
 -- ---------------------------------------------------------------------
 create or replace function public.set_updated_at()

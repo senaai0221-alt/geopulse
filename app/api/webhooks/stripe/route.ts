@@ -5,6 +5,7 @@ import { getStripe, planTierFromPriceId } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { reconcileUsageWithPlan } from "@/lib/plan-reconciliation";
 import { sendPlanUsageChangeEmail } from "@/lib/email";
+import { enforceOneTrialPerCard } from "@/lib/trial-fraud-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,19 @@ export async function POST(request: NextRequest) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
           priceId = subscription.items.data[0]?.price.id ?? null;
           status = subscription.status;
+
+          // A trial only ever legitimately happens once per physical
+          // card, not once per account - see lib/trial-fraud-guard.ts.
+          // A best-effort check: if it fails, the trial proceeds rather
+          // than the whole checkout webhook erroring out.
+          if (status === "trialing") {
+            try {
+              const result = await enforceOneTrialPerCard(stripe, supabase, { subscriptionId, userId });
+              status = result.subscriptionStatus;
+            } catch (err) {
+              console.error(`Trial fraud guard failed for subscription ${subscriptionId}:`, err);
+            }
+          }
         }
 
         await supabase
