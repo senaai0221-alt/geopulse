@@ -9,6 +9,7 @@ import { T } from "@/components/t";
 import { LangToggle } from "@/components/lang-toggle";
 import { UpgradeButtonLabel } from "@/app/dashboard/upgrade-button-label";
 import { SignOutButton } from "@/app/dashboard/sign-out-button";
+import { isTrialEligible, TRIAL_PERIOD_DAYS } from "@/lib/stripe";
 
 const PLANS = [
   {
@@ -24,6 +25,7 @@ const PLANS = [
     ],
     priceIdEnv: "STRIPE_PRICE_ID_PRO",
     ctaKey: "pricing.ctaPro",
+    ctaKeyTrial: "pricing.ctaProTrial",
     highlighted: true,
   },
   {
@@ -42,6 +44,7 @@ const PLANS = [
     ],
     priceIdEnv: "STRIPE_PRICE_ID_BUSINESS",
     ctaKey: "pricing.ctaBusiness",
+    ctaKeyTrial: "pricing.ctaBusinessTrial",
     highlighted: false,
   },
 ] as const;
@@ -63,13 +66,24 @@ export default async function PricingPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("plan")
+    .select("plan, stripe_customer_id")
     .eq("id", user.id)
     .single();
 
   if (profile?.plan === "pro" || profile?.plan === "business") {
     redirect("/dashboard");
   }
+
+  // Only ever shown to someone who has never had a Stripe customer
+  // record before (see lib/stripe.ts's isTrialEligible) - a returning/
+  // lapsed customer re-subscribing sees the plain "subscribe now"
+  // copy instead, since they would not actually get a second trial.
+  // Further restricted to Pro only (see app/api/checkout/route.ts's
+  // matching restriction) - Business's higher limits mean an
+  // unconverted trial can cost far more if maxed out, and someone who
+  // already knows they want Business is better served subscribing
+  // directly than through a generic self-serve trial.
+  const accountTrialEligible = isTrialEligible(profile);
 
   return (
     <main className="flex min-h-screen flex-col bg-muted/40">
@@ -92,12 +106,17 @@ export default async function PricingPage() {
             <T k="pricing.title" />
           </h1>
           <p className="mt-3 text-muted-foreground">
-            <T k="pricing.subtitle" />
+            <T
+              k={accountTrialEligible ? "pricing.subtitleTrial" : "pricing.subtitle"}
+              vars={{ days: TRIAL_PERIOD_DAYS }}
+            />
           </p>
         </div>
 
         <div className="grid w-full max-w-2xl grid-cols-1 gap-6 pt-3 sm:grid-cols-2">
-          {PLANS.map((plan) => (
+          {PLANS.map((plan) => {
+            const offerTrial = accountTrialEligible && plan.priceIdEnv === "STRIPE_PRICE_ID_PRO";
+            return (
             <Card
               key={plan.name}
               className={`relative flex h-full flex-col ${
@@ -117,6 +136,14 @@ export default async function PricingPage() {
                     <T k="pricing.perMonth" />
                   </span>
                 </div>
+                {/* Always rendered (just invisible when not applicable) so
+                    both cards reserve the same header height regardless of
+                    trial eligibility - otherwise the shorter (non-trial)
+                    card's button ends up sitting noticeably higher than
+                    the other card's, side by side. */}
+                <Badge variant="secondary" className={`w-fit ${offerTrial ? "" : "invisible"}`}>
+                  <T k="pricing.trialBadge" vars={{ days: TRIAL_PERIOD_DAYS }} />
+                </Badge>
                 <CardDescription>
                   <T k={plan.descKey} />
                 </CardDescription>
@@ -142,10 +169,23 @@ export default async function PricingPage() {
                     )
                   )}
                 </ul>
-                <UpgradeButtonLabel priceId={process.env[plan.priceIdEnv] ?? ""} labelKey={plan.ctaKey} />
+                <div className="flex flex-col gap-2">
+                  <UpgradeButtonLabel
+                    priceId={process.env[plan.priceIdEnv] ?? ""}
+                    labelKey={offerTrial ? plan.ctaKeyTrial : plan.ctaKey}
+                    labelVars={offerTrial ? { days: TRIAL_PERIOD_DAYS } : undefined}
+                  />
+                  {/* Same reasoning as the header badge above - always
+                      reserve the line's height so both buttons land at
+                      the same vertical position. */}
+                  <p className={`text-center text-xs text-muted-foreground ${offerTrial ? "" : "invisible"}`}>
+                    <T k="pricing.trialNote" />
+                  </p>
+                </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       </div>
     </main>

@@ -46,13 +46,13 @@
     "pricingTitle": "料金プラン",
     "pricingSubtitle": "チームの規模に合わせて選べる2つのプラン",
     "recommended": "おすすめ",
-    "proDesc": "インハウスマーケター・広報担当者向け",
+    "proDesc": "自社のブランド・商品を最大3つまで、AIにどう紹介されているか毎日チェックしたい方向け",
     "proFeature1": "計測対象(社名・製品・サービス) 最大3件",
     "proFeature2": "登録プロンプト 合計20件まで",
     "proFeature3": "6大LLM毎朝自動計測",
     "proFeature4": "異常検知アラート通知(メール / Slack)",
     "proFeature5": "CSVデータダウンロード",
-    "businessDesc": "広告代理店・Webコンサル・複数プロジェクト運用向け",
+    "businessDesc": "複数のクライアント・ブランドを担当し、レポートも納品したい代理店・コンサルの方向け",
     "businessFeature0": "Proプランの全機能を含む",
     "businessFeature1": "計測対象 最大10件",
     "businessFeature2": "登録プロンプト 合計80件まで(Proの4倍)",
@@ -265,9 +265,14 @@
   "pricing": {
     "title": "プランを選んで始めましょう",
     "subtitle": "Zonostickは有料プランでご利用いただけます。プランを選択すると、そのまま決済画面に進みます。決済完了後、すぐにダッシュボードでブランドの追跡を開始できます。",
+    "subtitleTrial": "初めてのご利用なら、Proプランを{days}日間無料でお試しいただけます。クレジットカードのご登録は必要ですが、期間中は一切課金されません。",
     "perMonth": "/月",
     "ctaPro": "Proを選択して決済する",
-    "ctaBusiness": "Businessを選択して決済する"
+    "ctaBusiness": "Businessを選択して決済する",
+    "ctaProTrial": "Proを{days}日間無料で試す",
+    "ctaBusinessTrial": "Businessを{days}日間無料で試す",
+    "trialBadge": "{days}日間無料トライアル",
+    "trialNote": "クレジットカードのご登録が必要です。期間内はいつでも無料でキャンセルできます。"
   },
   "settings": {
     "title": "設定・連携",

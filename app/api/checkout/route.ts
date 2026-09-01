@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
 
 import { createClient } from "@/lib/supabase/server";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, isTrialEligible, TRIAL_PERIOD_DAYS } from "@/lib/stripe";
 
 /**
  * Creates a Stripe Checkout Session for the authenticated user and
@@ -53,7 +53,11 @@ export async function POST(request: NextRequest) {
   // customer.subscription.updated webhook event is already handled
   // correctly (see app/api/webhooks/stripe/route.ts) - only this entry
   // point was wrong.
-  if (profile?.stripe_subscription_id && profile.subscription_status === "active") {
+  const hasActiveSubscription =
+    profile?.stripe_subscription_id &&
+    (profile.subscription_status === "active" || profile.subscription_status === "trialing");
+
+  if (hasActiveSubscription) {
     try {
       const subscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id);
       const currentItem = subscription.items.data[0];
@@ -76,6 +80,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Trial only on Pro, the entry tier - Business's ceiling (80 prompts
+    // vs Pro's 20) means an unconverted trial can cost ~8x as much if
+    // maxed out, and someone who already knows they want Business
+    // (agencies managing many clients) is better served subscribing
+    // directly or talking to us than a generic self-serve trial.
+    const offerTrial = isTrialEligible(profile) && priceId === process.env.STRIPE_PRICE_ID_PRO;
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
@@ -92,7 +103,15 @@ export async function POST(request: NextRequest) {
       metadata: { supabase_user_id: user.id },
       subscription_data: {
         metadata: { supabase_user_id: user.id },
+        ...(offerTrial ? { trial_period_days: TRIAL_PERIOD_DAYS } : {}),
       },
+      // A card must always be collected, trial or not - the whole point
+      // of gating the trial on isTrialEligible() is that it converts to
+      // a real charge automatically at trial end unless cancelled, which
+      // only works (and only discourages disposable-email abuse the way
+      // the old open free tier couldn't) if a real payment method is on
+      // file from the start.
+      payment_method_collection: "always",
       // Managed Payments requires a tax code on every Product; this app
       // handles tax/fraud itself, so opt out at the session level.
       managed_payments: { enabled: false },

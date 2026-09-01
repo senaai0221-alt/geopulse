@@ -48,9 +48,16 @@ export async function POST(request: NextRequest) {
           typeof session.customer === "string" ? session.customer : session.customer?.id;
 
         let priceId: string | null = null;
+        // Real status from the subscription object, not a hardcoded
+        // "active" - a card-required free trial (see lib/stripe.ts's
+        // TRIAL_PERIOD_DAYS) completes checkout immediately but the
+        // subscription itself is "trialing", not "active", until the
+        // trial period actually ends.
+        let status = "active";
         if (subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
           priceId = subscription.items.data[0]?.price.id ?? null;
+          status = subscription.status;
         }
 
         await supabase
@@ -60,7 +67,7 @@ export async function POST(request: NextRequest) {
             stripe_subscription_id: subscriptionId ?? null,
             stripe_price_id: priceId,
             plan: planTierFromPriceId(priceId),
-            subscription_status: "active",
+            subscription_status: status,
           })
           .eq("id", userId);
         break;

@@ -46,13 +46,13 @@
     "pricingTitle": "Pricing",
     "pricingSubtitle": "Two plans, sized for your team",
     "recommended": "Recommended",
-    "proDesc": "For in-house marketers and PR teams",
+    "proDesc": "For checking how up to 3 of your own brands/products show up in AI answers, every day",
     "proFeature1": "Up to 3 tracking targets (brands/products)",
     "proFeature2": "Up to 20 saved prompts in total",
     "proFeature3": "Automated daily checks across all 6 major LLMs",
     "proFeature4": "Anomaly alert notifications (email / Slack)",
     "proFeature5": "CSV data export",
-    "businessDesc": "For agencies, consultants, and multi-project teams",
+    "businessDesc": "For agencies and consultants tracking multiple clients/brands and delivering reports",
     "businessFeature0": "Includes all Pro features",
     "businessFeature1": "Up to 10 tracking targets",
     "businessFeature2": "Up to 80 saved prompts in total (4x Pro)",
@@ -265,9 +265,14 @@
   "pricing": {
     "title": "Choose a plan to get started",
     "subtitle": "Zonostick runs on paid plans. Pick one to go straight to checkout - once payment completes, you can start tracking brands right away on the dashboard.",
+    "subtitleTrial": "First time here? Try Pro free for {days} days. A card is required, but you won't be charged during the trial.",
     "perMonth": "/mo",
     "ctaPro": "Choose Pro & pay",
-    "ctaBusiness": "Choose Business & pay"
+    "ctaBusiness": "Choose Business & pay",
+    "ctaProTrial": "Try Pro free for {days} days",
+    "ctaBusinessTrial": "Try Business free for {days} days",
+    "trialBadge": "{days}-day free trial",
+    "trialNote": "A credit card is required. Cancel anytime during the trial at no charge."
   },
   "settings": {
     "title": "Settings",

@@ -12,14 +12,16 @@ import { useI18n } from "@/lib/i18n/context";
 export function UpgradeButtonLabel({
   priceId,
   labelKey,
+  labelVars,
   size = "lg",
   className = "w-full",
 }: {
   priceId: string;
   labelKey: string;
+  labelVars?: Record<string, string | number>;
   size?: "sm" | "lg";
   className?: string;
 }) {
   const { t } = useI18n();
-  return <UpgradeButton priceId={priceId} label={t(labelKey)} size={size} className={className} />;
+  return <UpgradeButton priceId={priceId} label={t(labelKey, labelVars)} size={size} className={className} />;
 }
