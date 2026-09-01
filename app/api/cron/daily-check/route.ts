@@ -6,11 +6,13 @@ import { sendDailySummary, type RankingChange } from "@/lib/slack";
 import { sendAlertEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
-// Vercel Hobby plan caps function duration at 60s; Pro/Enterprise allow more.
-// Raise this if you're on a paid plan and have many brands/prompts to check.
-// The time-budget guard in runDailyCheck() targets a safety margin under
-// this so we always return a clean response instead of being hard-killed.
-export const maxDuration = 60;
+// With Fluid compute (on by default for new projects, ours included),
+// even the free Hobby plan allows up to 300s - Pro/Enterprise raise
+// that further (800s, 1800s in beta). 280 leaves a small safety margin
+// under Hobby's 300s ceiling. The time-budget guard in runDailyCheck()
+// targets a safety margin under *this* value so we always return a
+// clean response instead of being hard-killed mid-request.
+export const maxDuration = 280;
 
 /**
  * Verifies the request came from Vercel Cron or Upstash QStash rather
@@ -283,12 +285,12 @@ export async function GET(request: NextRequest) {
 // providers' rate limits or the Supabase connection pool.
 const BRAND_CONCURRENCY = 4;
 
-// Vercel Hobby caps this function at 60s (see maxDuration above); stop
-// *starting* new brands once we're this far in, so whatever is already
-// in flight has room to finish cleanly and we always return a normal
-// response instead of being hard-killed mid-request. Anything not
-// started this run is picked up on tomorrow's cron automatically.
-const TIME_BUDGET_MS = 45_000;
+// See maxDuration above (280s); stop *starting* new brands once we're
+// this far in, so whatever is already in flight has room to finish
+// cleanly and we always return a normal response instead of being
+// hard-killed mid-request. Anything not started this run is picked up
+// on tomorrow's cron automatically.
+const TIME_BUDGET_MS = 220_000;
 
 async function runDailyCheck(supabase: ReturnType<typeof createAdminClient>) {
   const checkedAt = new Date();
