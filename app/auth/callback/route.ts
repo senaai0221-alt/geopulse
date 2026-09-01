@@ -18,6 +18,12 @@ export async function GET(request: NextRequest) {
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
+    // Was previously swallowed silently, which made a real failure (e.g.
+    // a PKCE code verifier cookie missing because the magic link was
+    // opened in a different browser/tab than the one that requested it)
+    // indistinguishable from a routine expired/reused token - logging it
+    // costs nothing and is the only way to tell the two apart later.
+    console.error("Auth callback code exchange failed:", error);
   }
 
   return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
