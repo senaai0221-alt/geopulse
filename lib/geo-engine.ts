@@ -59,7 +59,16 @@ interface ProviderResponse {
   citations?: string[];
 }
 
-const REQUEST_TIMEOUT_MS = 30_000;
+// Perplexity's Agent API (see callPerplexity) runs an actual multi-step
+// web-search-then-synthesize loop rather than a single completion call,
+// so it routinely needs more than the 30s that was plenty for every
+// provider's old single-shot chat/completions-style call - confirmed
+// empirically (a real call at the old 30s timeout aborted mid-request).
+// Applied to all providers uniformly since a higher ceiling is harmless
+// for the faster ones, and the overall run has ample headroom under
+// daily-check's own time budget (see maxDuration in
+// app/api/cron/daily-check/route.ts).
+const REQUEST_TIMEOUT_MS = 55_000;
 
 // runGeoQuery fires all 6 providers in parallel for every prompt, and
 // daily-check runs multiple brands concurrently on top of that (see
@@ -157,27 +166,69 @@ async function callClaude(prompt: string): Promise<ProviderResponse> {
   return { text };
 }
 
+/**
+ * Perplexity retired the Sonar Chat Completions API (`/chat/completions`,
+ * the `sonar-pro` model, `choices[0].message.content` + top-level
+ * `citations`) in favor of the Agent API (`/v1/agent`), effective
+ * 2026-09-27 - old integrations stop working outright after that date,
+ * not just get a deprecation warning. This calls the new endpoint via a
+ * preset rather than pinning a raw model id: presets bundle a model +
+ * search config + tool access tuned for a use case, and Perplexity
+ * updates the underlying configuration over time without changing the
+ * preset name - "low" (search-grounded, light multi-step research) is
+ * the closest match to what `sonar-pro` gave us here, and picking a
+ * preset over a pinned model avoids re-hitting this exact staleness
+ * problem down the line. See docs.perplexity.ai/docs/agent-api/migrate-from-sonar.
+ */
 async function callPerplexity(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) throw new Error("PERPLEXITY_API_KEY is not set");
 
-  const res = await fetchWithRateLimitRetry("https://api.perplexity.ai/chat/completions", {
+  const res = await fetchWithRateLimitRetry("https://api.perplexity.ai/v1/agent", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: process.env.PERPLEXITY_MODEL || "sonar-pro",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
+      preset: process.env.PERPLEXITY_PRESET || "low",
+      input: prompt,
     }),
   });
   await throwOnError(res, "Perplexity");
   const data = await res.json();
+
+  // Response shape: { output: [
+  //   { type: "search_results", results: [{ id, url, title, ... }] },  <- the web_search tool's own results
+  //   { type: "message", content: [{ type: "output_text", text, annotations: [{ url, ... }] }] },
+  // ], ... }
+  // The answer inline-cites sources as "[web:N]" markers referencing
+  // `search_results[].results[].id`, not (as observed empirically -
+  // annotations came back empty on every real call so far, despite the
+  // schema supporting them) via `annotations`. Collect both so a source
+  // is captured regardless of which path a given preset/model actually
+  // populates.
+  const output = Array.isArray(data.output) ? data.output : [];
+
+  const messageItems = output.filter((item: { type?: string }) => item.type === "message");
+  const textBlocks = messageItems.flatMap((item: { content?: unknown[] }) =>
+    Array.isArray(item.content) ? item.content : []
+  ) as { type?: string; text?: string; annotations?: { url?: string }[] }[];
+  const outputTextBlocks = textBlocks.filter((block) => block.type === "output_text");
+  const annotationUrls = outputTextBlocks.flatMap((block) => block.annotations ?? []).map((a) => a.url);
+
+  const searchResultItems = output.filter((item: { type?: string }) => item.type === "search_results");
+  const searchResultUrls = searchResultItems.flatMap((item: { results?: unknown[] }) =>
+    Array.isArray(item.results) ? item.results : []
+  ) as { url?: string }[];
+
+  const citations = [...annotationUrls, ...searchResultUrls.map((r) => r.url)].filter(
+    (url): url is string => Boolean(url)
+  );
+
   return {
-    text: data.choices?.[0]?.message?.content ?? "",
-    citations: Array.isArray(data.citations) ? data.citations : [],
+    text: outputTextBlocks.map((block) => block.text ?? "").join("\n"),
+    citations: [...new Set(citations)],
   };
 }
 
