@@ -152,6 +152,7 @@
     "firstBrandDesc": "Register your target (company, product, or service) and competitors to start tracking.",
     "upgradeToPro": "Upgrade to Pro",
     "upgradeToBusiness": "Upgrade to Business",
+    "planChangeConfirm": "Changing your plan will charge a prorated ¥{amount} right now. Continue?",
     "promptTextRequired": "Prompt text is required",
     "addPromptFailed": "Failed to save. Please try again.",
     "promptPlaceholder": "e.g. best CRM tools for small businesses?",

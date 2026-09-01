@@ -318,7 +318,18 @@ export default async function ReportPage({
           save state) out of the printed output. print-color-adjust
           keeps KPI card/badge backgrounds from silently turning white
           in the printed/PDF output, which most browsers do by default. */}
-      <style>{`
+      {/* dangerouslySetInnerHTML, not a plain template-literal child - a
+          <style> tag's content is a "raw text" element the browser never
+          HTML-entity-decodes, but a plain JSX string child still gets
+          entity-escaped by React's server renderer (the apostrophe/angle
+          brackets in the comment below became &#x27;/&lt;/&gt; in the
+          server HTML while the client's fresh re-render kept them literal),
+          which read as a real content mismatch and threw a hydration
+          error. __html is set verbatim on both server and client, so
+          there's nothing left to disagree about. */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         @media print {
           @page { size: A4; margin: 15mm; }
           body { background: #fff; }
@@ -336,7 +347,9 @@ export default async function ReportPage({
         }
         .report-page { page-break-after: always; break-after: page; }
         .report-page:last-child { page-break-after: auto; break-after: auto; }
-      `}</style>
+      `,
+        }}
+      />
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <ReportBrandSelector brands={brands} selectedBrandId={selectedBrand.id} month={month} />

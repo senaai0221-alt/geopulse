@@ -152,6 +152,7 @@
     "firstBrandDesc": "追跡したい対象(社名・製品・サービス名)と競合を登録すると、プロンプトの追加・毎朝の自動計測が始まります。",
     "upgradeToPro": "Proにアップグレード",
     "upgradeToBusiness": "Businessにアップグレード",
+    "planChangeConfirm": "プランを変更すると、日割り差額として今すぐ ¥{amount} が請求されます。よろしいですか？",
     "promptTextRequired": "プロンプト内容は必須です",
     "addPromptFailed": "登録に失敗しました",
     "promptPlaceholder": "例: 中小企業向けのおすすめCRMツールは？",

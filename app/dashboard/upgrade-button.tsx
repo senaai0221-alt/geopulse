@@ -29,13 +29,47 @@ export function UpgradeButton({
     setLoading(true);
     setHasError(false);
     try {
+      // A brand-new subscriber always lands on Stripe's own hosted
+      // Checkout page next, which is itself a confirmation step. An
+      // existing subscriber changing plans skips that page entirely
+      // (see app/api/checkout/route.ts) and would otherwise be charged
+      // the instant this button is clicked - so preview the exact
+      // amount first and make the user explicitly confirm it before
+      // anything is actually charged.
+      const previewRes = await fetch(`/api/checkout/preview?priceId=${encodeURIComponent(priceId)}`);
+      const preview = await previewRes.json();
+      if (!previewRes.ok) {
+        throw new Error("preview_failed");
+      }
+      if (preview.isPlanChange) {
+        const amount = new Intl.NumberFormat().format(preview.amountDue ?? 0);
+        const confirmed = window.confirm(t("dashboard.planChangeConfirm", { amount }));
+        if (!confirmed) {
+          setLoading(false);
+          return;
+        }
+      }
+
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ priceId }),
       });
       const data = await res.json();
-      if (!res.ok || !data.url) {
+      if (!res.ok) {
+        throw new Error("checkout_create_failed");
+      }
+      // Already had an active subscription - the API updated it in
+      // place (see app/api/checkout/route.ts) rather than starting a
+      // new Checkout Session, so there's no checkout URL to redirect
+      // to. The Stripe webhook updates profiles.plan asynchronously
+      // just like a fresh checkout does, so land on the same polling
+      // page rather than /dashboard directly.
+      if (data.updatedInPlace) {
+        window.location.href = "/checkout/complete";
+        return;
+      }
+      if (!data.url) {
         throw new Error("checkout_create_failed");
       }
       window.location.href = data.url;
