@@ -27,6 +27,7 @@ import { type TrendPoint } from "@/components/rank-trend-chart";
 import { type ExposureTrendPoint } from "@/components/exposure-trend-chart";
 import { type VoiceTrendPoint } from "@/components/voice-trend-chart";
 import { TrendExplorer } from "@/components/trend-explorer";
+import { getMarketingActions } from "@/lib/marketing-actions";
 import { ShareOfVoice, type ShareOfVoiceEntry } from "@/components/share-of-voice";
 import { T } from "@/components/t";
 import { InfoTooltip } from "@/components/info-tooltip";
@@ -112,8 +113,14 @@ export default async function DashboardPage({
   // row cap below is just a sane upper-bound safety net on top of that.
   const trendWindowStart = new Date();
   trendWindowStart.setDate(trendWindowStart.getDate() - 90);
+  // Exclusive end one day out, not "now" - a same-day action logged
+  // later today must still show up (getMarketingActions filters on the
+  // action_date column, not a timestamp, so "today" needs to be fully
+  // inside the range).
+  const trendWindowEnd = new Date();
+  trendWindowEnd.setDate(trendWindowEnd.getDate() + 1);
 
-  const [{ data: prompts }, { data: recentRankings }, { data: alerts }] = await Promise.all([
+  const [{ data: prompts }, { data: recentRankings }, { data: alerts }, marketingActions] = await Promise.all([
     supabase
       .from("prompts")
       .select("*")
@@ -132,6 +139,7 @@ export default async function DashboardPage({
       .eq("brand_id", selectedBrand.id)
       .order("created_at", { ascending: false })
       .limit(10),
+    getMarketingActions(supabase, selectedBrand.id, { start: trendWindowStart, end: trendWindowEnd }),
   ]);
 
   // Keep only the most recent ranking per (prompt_id, provider) pair.
@@ -635,10 +643,12 @@ export default async function DashboardPage({
           </CardHeader>
           <CardContent>
             <TrendExplorer
+              brandId={selectedBrand.id}
               rankData={trendData}
               exposureData={exposureTrendData}
               voiceData={voiceTrendData}
               voiceEntities={voiceEntities}
+              actions={marketingActions}
             />
           </CardContent>
         </Card>

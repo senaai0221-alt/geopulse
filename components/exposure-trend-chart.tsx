@@ -1,8 +1,9 @@
 "use client";
 
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { useI18n } from "@/lib/i18n/context";
+import { renderActionMarkers, type ActionMarker } from "@/components/action-markers";
 
 export type ExposureTrendPoint = {
   date: string;
@@ -33,7 +34,7 @@ function ExposureTooltip({
  *  a single line, since there's only one entity (the tracked brand) in
  *  this metric, unlike the per-provider rank chart or the per-
  *  competitor voice chart. */
-export function ExposureTrendChart({ data }: { data: ExposureTrendPoint[] }) {
+export function ExposureTrendChart({ data, actions = [] }: { data: ExposureTrendPoint[]; actions?: ActionMarker[] }) {
   const { t } = useI18n();
 
   if (data.length < 2) {
@@ -45,6 +46,7 @@ export function ExposureTrendChart({ data }: { data: ExposureTrendPoint[] }) {
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid vertical={false} stroke="hsl(214 32% 91%)" strokeWidth={1} />
+          {renderActionMarkers(actions)}
           <XAxis
             dataKey="date"
             tick={{ fontSize: 11, fill: "hsl(215 16% 47%)" }}

@@ -18,6 +18,7 @@ import { CategoryExposureChart } from "./category-exposure-chart";
 import { NextActionsTable } from "./next-actions-table";
 import { Badge } from "@/components/ui/badge";
 import type { ReportInsightsInput } from "@/lib/report-insights";
+import { getMarketingActions, MARKETING_ACTION_CATEGORY_LABELS_JA } from "@/lib/marketing-actions";
 
 const PROVIDER_LABELS: Record<LlmProvider, string> = {
   chatgpt: "ChatGPT",
@@ -162,27 +163,29 @@ export default async function ReportPage({
   const { start, end } = monthRange(month);
   const { start: prevStart, end: prevEnd } = monthRange(prevMonth);
 
-  const [{ data: prompts }, { data: monthRankings }, { data: prevMonthRankings }, { data: notes }] = await Promise.all([
-    supabase
-      .from("prompts")
-      .select("id, text, category")
-      .eq("brand_id", selectedBrand.id)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("rankings")
-      .select("prompt_id, provider, mentioned, rank_position, sentiment, competitors_mentioned, raw_response, checked_at")
-      .eq("brand_id", selectedBrand.id)
-      .gte("checked_at", start.toISOString())
-      .lt("checked_at", end.toISOString())
-      .order("checked_at", { ascending: false }),
-    supabase
-      .from("rankings")
-      .select("mentioned, rank_position, competitors_mentioned")
-      .eq("brand_id", selectedBrand.id)
-      .gte("checked_at", prevStart.toISOString())
-      .lt("checked_at", prevEnd.toISOString()),
-    supabase.from("report_notes").select("commentary, next_actions").eq("brand_id", selectedBrand.id).eq("month", month).maybeSingle(),
-  ]);
+  const [{ data: prompts }, { data: monthRankings }, { data: prevMonthRankings }, { data: notes }, monthActions] =
+    await Promise.all([
+      supabase
+        .from("prompts")
+        .select("id, text, category")
+        .eq("brand_id", selectedBrand.id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("rankings")
+        .select("prompt_id, provider, mentioned, rank_position, sentiment, competitors_mentioned, raw_response, checked_at")
+        .eq("brand_id", selectedBrand.id)
+        .gte("checked_at", start.toISOString())
+        .lt("checked_at", end.toISOString())
+        .order("checked_at", { ascending: false }),
+      supabase
+        .from("rankings")
+        .select("mentioned, rank_position, competitors_mentioned")
+        .eq("brand_id", selectedBrand.id)
+        .gte("checked_at", prevStart.toISOString())
+        .lt("checked_at", prevEnd.toISOString()),
+      supabase.from("report_notes").select("commentary, next_actions").eq("brand_id", selectedBrand.id).eq("month", month).maybeSingle(),
+      getMarketingActions(supabase, selectedBrand.id, { start, end }),
+    ]);
 
   const rankings = (monthRankings ?? []) as RankingRow[];
   const competitorNames: string[] = selectedBrand.competitors ?? [];
@@ -281,6 +284,31 @@ export default async function ReportPage({
   })[0];
   const snippetPrompt = snippet ? (prompts ?? []).find((p) => p.id === snippet.prompt_id) : null;
 
+  // For each logged GEO施策 this month, a real before/after exposure-
+  // rate split computed from this month's own rankings - never left for
+  // the AI to guess at. checked_at is compared against the action's own
+  // midnight (in the server's local time, same as monthRange/prevMonth
+  // above), so a check that ran later the same day the action was taken
+  // counts as "after". null/null (rather than 0/0) when either side has
+  // no data at all, so lib/report-insights.ts can tell "no measurable
+  // change" apart from "not enough data to say" and skip the claim
+  // entirely rather than asserting a number computed from zero checks.
+  const marketingActionsForInsights = monthActions.map((a) => {
+    const actionMidnight = new Date(`${a.action_date}T00:00:00`);
+    const beforeRankings = rankings.filter((r) => new Date(r.checked_at) < actionMidnight);
+    const afterRankings = rankings.filter((r) => new Date(r.checked_at) >= actionMidnight);
+    const rateOf = (rows: typeof rankings) =>
+      rows.length > 0 ? Math.round((rows.filter((r) => r.mentioned).length / rows.length) * 100) : null;
+
+    return {
+      date: format(new Date(actionMidnight), "M/d"),
+      category: MARKETING_ACTION_CATEGORY_LABELS_JA[a.category],
+      title: a.title,
+      mentionRateBefore: rateOf(beforeRankings),
+      mentionRateAfter: rateOf(afterRankings),
+    };
+  });
+
   const commentaryValue = notes?.commentary ?? "";
   const nextActionsValue = notes?.next_actions ?? "";
 
@@ -306,6 +334,7 @@ export default async function ReportPage({
       category: c.category === UNCATEGORIZED ? "未分類" : c.category,
       mentionRate: c.mentionRate,
     })),
+    marketingActions: marketingActionsForInsights,
   };
   const hasNotesRow = !!notes;
   const hasReportData = rankings.length > 0;
@@ -618,6 +647,47 @@ export default async function ReportPage({
           ) : (
             <p className="text-sm text-muted-foreground">
               <T k="report.snippetEmpty" />
+            </p>
+          )}
+        </section>
+
+        {/* What the AI commentary's own "施策との相関" remarks (see
+            lib/report-insights.ts) are actually pointing at - the raw
+            before/after numbers sit right here so a reader can check
+            the claim against real data instead of taking the generated
+            text on faith. */}
+        <section className="mt-8 break-inside-avoid">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <T k="marketingActions.reportSectionTitle" />
+          </h2>
+          {monthActions.length > 0 ? (
+            <ul className="flex flex-col gap-2">
+              {monthActions.map((a, i) => {
+                const insight = marketingActionsForInsights[i];
+                return (
+                  <li key={a.id} className="flex items-start gap-2 text-xs">
+                    <span className="mt-0.5 shrink-0 tabular-nums text-muted-foreground">{a.action_date}</span>
+                    <Badge variant="outline" className="mt-0 shrink-0 whitespace-nowrap">
+                      <T k={`marketingActions.category.${a.category}`} />
+                    </Badge>
+                    <span className="min-w-0 flex-1">
+                      {a.title}
+                      {insight && insight.mentionRateBefore !== null && insight.mentionRateAfter !== null && (
+                        <span className="ml-2 text-muted-foreground">
+                          <T
+                            k="marketingActions.reportBeforeAfter"
+                            vars={{ before: insight.mentionRateBefore, after: insight.mentionRateAfter }}
+                          />
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              <T k="marketingActions.reportSectionEmpty" />
             </p>
           )}
         </section>

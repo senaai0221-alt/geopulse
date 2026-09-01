@@ -3,6 +3,7 @@
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { useI18n } from "@/lib/i18n/context";
+import { renderActionMarkers, type ActionMarker } from "@/components/action-markers";
 
 export type VoiceTrendPoint = { date: string } & Record<string, number | null>;
 
@@ -48,7 +49,15 @@ function VoiceTooltip({
  *  snapshot bar comparison. `entities` is [brandName, ...competitorNames]
  *  in stable (never re-sorted) order, used both to pick each line's
  *  color and to know which keys in `data` to plot. */
-export function VoiceTrendChart({ data, entities }: { data: VoiceTrendPoint[]; entities: string[] }) {
+export function VoiceTrendChart({
+  data,
+  entities,
+  actions = [],
+}: {
+  data: VoiceTrendPoint[];
+  entities: string[];
+  actions?: ActionMarker[];
+}) {
   const { t } = useI18n();
 
   if (data.length < 2) {
@@ -60,6 +69,7 @@ export function VoiceTrendChart({ data, entities }: { data: VoiceTrendPoint[]; e
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid vertical={false} stroke="hsl(214 32% 91%)" strokeWidth={1} />
+          {renderActionMarkers(actions)}
           <XAxis
             dataKey="date"
             tick={{ fontSize: 11, fill: "hsl(215 16% 47%)" }}

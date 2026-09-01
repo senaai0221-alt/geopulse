@@ -348,5 +348,37 @@
     "slowLine1": "決済の反映にいつもより時間がかかっています。決済自体は完了している可能性が高いです。",
     "slowLine2": "少し時間を置いてから、もう一度お試しください。",
     "retryButton": "もう一度確認する"
+  },
+  "marketingActions": {
+    "addButton": "施策を記録する",
+    "dialogTitle": "GEO施策メモ",
+    "dialogDescription": "実施したWeb施策（プレスリリース、note執筆、構造化データ改修など）を記録すると、下のグラフにマーカーとして表示され、効果検証に使えます。",
+    "dateLabel": "実施日",
+    "categoryLabel": "カテゴリ",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "例: PR TIMESにて最新プレスリリース配信",
+    "notesLabel": "メモ（任意）",
+    "notesPlaceholder": "詳細や背景など",
+    "save": "保存",
+    "update": "更新",
+    "editing": "施策を編集",
+    "recentTitle": "記録済みの施策",
+    "empty": "まだ施策が記録されていません",
+    "deleteConfirm": "この施策を削除しますか？",
+    "edit": "編集",
+    "saveFailed": "保存に失敗しました。もう一度お試しください。",
+    "titleRequired": "タイトルは必須です",
+    "category": {
+      "press_release": "プレスリリース",
+      "blog_note": "ブログ/note執筆",
+      "sns": "SNS投稿",
+      "website_seo": "サイトSEO改修",
+      "faq_jsonld": "構造化データ(FAQ等)",
+      "other": "その他"
+    },
+    "markerTooltip": "[{category}] {title}",
+    "reportSectionTitle": "当月実施したGEO施策",
+    "reportSectionEmpty": "今月は施策の記録がありません。",
+    "reportBeforeAfter": "露出率 {before}% → {after}%"
   }
 }

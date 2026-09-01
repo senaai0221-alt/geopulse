@@ -8,6 +8,7 @@ import { sendSlackMessage, buildTestMessageBlocks, buildFeedbackBlocks, type Fee
 import { sendTestAlertEmail } from "@/lib/email";
 import { assertCanAddBrand, assertCanAddPrompt } from "@/lib/plan-limits";
 import { generateReportInsights, type ReportInsightsInput } from "@/lib/report-insights";
+import { isMarketingActionCategory } from "@/lib/marketing-actions";
 
 // Defense-in-depth against pathological input (a multi-thousand-character
 // name/prompt, hundreds of "competitors", etc.) that could otherwise
@@ -24,6 +25,8 @@ const LIMITS = {
   category: 50,
   feedbackMessage: 3000,
   notificationEmail: 254, // RFC 5321's own limit on a full email address
+  marketingActionTitle: 200,
+  marketingActionNotes: 2000,
 } as const;
 
 function truncate(value: string, max: number): string {
@@ -457,6 +460,82 @@ export async function submitFeedback(formData: FormData): Promise<{ ok: boolean;
     }
   }
 
+  return { ok: true };
+}
+
+/**
+ * GEO施策メモ ("marketing actions" - see lib/marketing-actions.ts and
+ * supabase/schema.sql). RLS (marketing_actions_crud_own) already scopes
+ * every one of these to brands the caller owns via that brand's
+ * user_id, same as prompts_crud_own - no separate ownership check
+ * needed here beyond validating the shape of the input itself.
+ *
+ * Both dashboard pages that read these back (the trend chart markers
+ * on /dashboard, the AI report context on /dashboard/report) are
+ * revalidated together on every write, since a single action can shift
+ * both at once.
+ */
+export async function createMarketingAction(formData: FormData): Promise<{ ok: boolean }> {
+  const { supabase } = await requireUser();
+
+  const brandId = String(formData.get("brand_id") ?? "");
+  const actionDate = String(formData.get("action_date") ?? "");
+  const category = String(formData.get("category") ?? "");
+  const title = truncate(String(formData.get("title") ?? "").trim(), LIMITS.marketingActionTitle);
+  const notes = truncate(String(formData.get("notes") ?? "").trim(), LIMITS.marketingActionNotes);
+
+  if (!brandId || !title || !isMarketingActionCategory(category) || !/^\d{4}-\d{2}-\d{2}$/.test(actionDate)) {
+    return { ok: false };
+  }
+
+  const { error } = await supabase.from("marketing_actions").insert({
+    brand_id: brandId,
+    action_date: actionDate,
+    category,
+    title,
+    notes: notes || null,
+  });
+  if (error) return { ok: false };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/report");
+  return { ok: true };
+}
+
+export async function updateMarketingAction(formData: FormData): Promise<{ ok: boolean }> {
+  const { supabase } = await requireUser();
+
+  const actionId = String(formData.get("action_id") ?? "");
+  const actionDate = String(formData.get("action_date") ?? "");
+  const category = String(formData.get("category") ?? "");
+  const title = truncate(String(formData.get("title") ?? "").trim(), LIMITS.marketingActionTitle);
+  const notes = truncate(String(formData.get("notes") ?? "").trim(), LIMITS.marketingActionNotes);
+
+  if (!actionId || !title || !isMarketingActionCategory(category) || !/^\d{4}-\d{2}-\d{2}$/.test(actionDate)) {
+    return { ok: false };
+  }
+
+  const { error } = await supabase
+    .from("marketing_actions")
+    .update({ action_date: actionDate, category, title, notes: notes || null })
+    .eq("id", actionId);
+  if (error) return { ok: false };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/report");
+  return { ok: true };
+}
+
+export async function deleteMarketingAction(formData: FormData): Promise<{ ok: boolean }> {
+  const { supabase } = await requireUser();
+  const actionId = String(formData.get("action_id") ?? "");
+  if (!actionId) return { ok: false };
+
+  const { error } = await supabase.from("marketing_actions").delete().eq("id", actionId);
+  if (error) return { ok: false };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/report");
   return { ok: true };
 }
 

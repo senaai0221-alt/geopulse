@@ -235,6 +235,43 @@ create policy "report_notes_crud_own" on public.report_notes
   );
 
 -- ---------------------------------------------------------------------
+-- marketing_actions: a user-logged record of an offline/external GEO
+-- action ("published a press release on PR TIMES", "added FAQ JSON-LD
+-- to the product page") - see app/dashboard/marketing-action-dialog.tsx.
+-- Purely a timeline of *what the user did*; it never affects
+-- measurement itself. Plotted as event markers on the dashboard's trend
+-- charts (components/*-trend-chart.tsx) and, for the report's AI
+-- commentary (lib/report-insights.ts), used to compute a before/after
+-- exposure-rate split around each action's date so the AI has real
+-- numbers to point at instead of guessing at a causal story.
+-- ---------------------------------------------------------------------
+create table if not exists public.marketing_actions (
+  id uuid primary key default uuid_generate_v4(),
+  brand_id uuid not null references public.brands (id) on delete cascade,
+  action_date date not null,
+  category text not null check (
+    category in ('press_release', 'blog_note', 'sns', 'website_seo', 'faq_jsonld', 'other')
+  ),
+  title text not null,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists marketing_actions_brand_date_idx on public.marketing_actions (brand_id, action_date);
+
+alter table public.marketing_actions enable row level security;
+
+-- marketing_actions: full CRUD restricted via the parent brand's owner,
+-- same pattern as report_notes_crud_own/prompts_crud_own.
+drop policy if exists "marketing_actions_crud_own" on public.marketing_actions;
+create policy "marketing_actions_crud_own" on public.marketing_actions
+  for all using (
+    exists (select 1 from public.brands b where b.id = marketing_actions.brand_id and b.user_id = auth.uid())
+  ) with check (
+    exists (select 1 from public.brands b where b.id = marketing_actions.brand_id and b.user_id = auth.uid())
+  );
+
+-- ---------------------------------------------------------------------
 -- cron_runs: one row per invocation of a scheduled job (currently just
 -- /api/cron/daily-check), written by the job itself so its outcome -
 -- did it finish, how long did it take, did every brand's Slack/email

@@ -42,6 +42,21 @@ export interface ReportInsightsInput {
   providerStats: { provider: LlmProvider; mentionRate: number; avgRank: number | null }[];
   competitorShare: { name: string; pct: number; isBrand: boolean }[];
   categoryStats: { category: string; mentionRate: number }[];
+  /**
+   * GEO施策メモ (marketing_actions - see lib/marketing-actions.ts)
+   * logged within this report's month, each with a real before/after
+   * mention-rate split computed from this same month's rankings (see
+   * app/dashboard/report/page.tsx) - never left for the model to
+   * estimate on its own. Optional/omittable: older report months (or
+   * a brand that hasn't logged anything) simply have none.
+   */
+  marketingActions?: {
+    date: string;
+    category: string;
+    title: string;
+    mentionRateBefore: number | null;
+    mentionRateAfter: number | null;
+  }[];
 }
 
 export interface ReportInsights {
@@ -80,6 +95,35 @@ function buildPrompt(input: ReportInsightsInput): string {
       }pt`
     : "前月データなし(今月が初回計測)";
 
+  const marketingActions = input.marketingActions ?? [];
+  const marketingActionLines =
+    marketingActions.length > 0
+      ? marketingActions
+          .map((a) => {
+            const beforeAfter =
+              a.mentionRateBefore !== null && a.mentionRateAfter !== null
+                ? ` (施策実施前の露出率${a.mentionRateBefore}% → 実施後${a.mentionRateAfter}%)`
+                : "";
+            return `- ${a.date} [${a.category}] ${a.title}${beforeAfter}`;
+          })
+          .join("\n")
+      : "(当月の施策記録なし)";
+
+  // Only asked for when there's actually something to correlate against -
+  // an empty/omitted section would otherwise leave the model free to
+  // invent a "施策との相関" paragraph out of nothing.
+  const marketingActionInstruction =
+    marketingActions.length > 0
+      ? `【施策との相関 - 客観的評価】\n` +
+        `「要因分析」の記述内で、上記の当月実施施策のうち施策実施前後の露出率データが提示されている` +
+        `ものについて、数値に変化が見られる場合はその施策名・日付・数値を具体的に挙げて言及すること` +
+        `(例:「9/5のプレスリリース配信後、露出率が32%→58%に上昇しており、施策の効果である可能性が` +
+        `示唆される」)。ただし相関を示すに留め、「〜のおかげで」「〜が原因で」のような因果関係を断定` +
+        `する表現は使わず、「可能性がある」「示唆される」等の慎重な表現にすること。施策前後の数値に` +
+        `目立った変化が無い場合は、その施策については無理に相関へ触れず、変化が無かった旨を客観的に` +
+        `記載すること。施策記録が無い場合はこの項目自体に触れないこと。\n\n`
+      : "";
+
   return (
     `あなたはGEO(Generative Engine Optimization)専門のシビアなコンサルタントです。` +
     `以下は「${input.brandName}」の${input.monthLabel}分のAI検索露出データです。` +
@@ -94,6 +138,7 @@ function buildPrompt(input: ReportInsightsInput): string {
     `【LLM別内訳】\n${providerLines}\n\n` +
     `【競合とのシェア比較】\n${competitorLines}\n\n` +
     `【カテゴリ別露出率】\n${categoryLines}\n\n` +
+    `【当月実施したGEO施策】\n${marketingActionLines}\n\n` +
     `以下のJSONのみを返答してください。他のテキストは一切含めないでください。\n` +
     `{"commentary": string, "next_actions_table": string}\n\n` +
     `- commentary: 必ず以下の見出しをそのまま使い、この構成・順序で出力すること(見出し文字列を変更しないこと):\n\n` +
@@ -111,6 +156,7 @@ function buildPrompt(input: ReportInsightsInput): string {
     `必ず「(LLM名)が0%である重大な課題がある」のように、対象LLM名と数値を名指しした` +
     `クリティカルな指摘を含めること。全LLMが高水準でない限り、無条件の高評価は許可しない\n` +
     `  * 平均的な結果を実態以上に前向きに書き換えないこと。悪い数値は悪いと明記すること\n\n` +
+    marketingActionInstruction +
     `- next_actions_table: 次月に向けた推奨アクションを、必ず以下の5列・区切り文字「|」の` +
     `Markdownテーブル形式のみで2〜4行(ヘッダー行・区切り行を除く)出力すること。テーブル以外の` +
     `文章やコメントは一切含めないこと:\n` +

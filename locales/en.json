@@ -348,5 +348,37 @@
     "slowLine1": "This is taking longer than usual to reflect. Your payment has most likely already gone through.",
     "slowLine2": "Please wait a moment, then try again.",
     "retryButton": "Check again"
+  },
+  "marketingActions": {
+    "addButton": "Log an action",
+    "dialogTitle": "GEO Action Log",
+    "dialogDescription": "Record a Web action you took (a press release, a blog/note post, a structured-data change, etc.) and it appears as a marker on the charts below, so you can see the effect over time.",
+    "dateLabel": "Date",
+    "categoryLabel": "Category",
+    "titleLabel": "Title",
+    "titlePlaceholder": "e.g. Published a press release on PR TIMES",
+    "notesLabel": "Notes (optional)",
+    "notesPlaceholder": "Details or background",
+    "save": "Save",
+    "update": "Update",
+    "editing": "Edit action",
+    "recentTitle": "Logged actions",
+    "empty": "No actions logged yet",
+    "deleteConfirm": "Delete this action?",
+    "edit": "Edit",
+    "saveFailed": "Failed to save. Please try again.",
+    "titleRequired": "Title is required",
+    "category": {
+      "press_release": "Press release",
+      "blog_note": "Blog / note article",
+      "sns": "Social media post",
+      "website_seo": "Website SEO change",
+      "faq_jsonld": "Structured data (FAQ, etc.)",
+      "other": "Other"
+    },
+    "markerTooltip": "[{category}] {title}",
+    "reportSectionTitle": "GEO actions this month",
+    "reportSectionEmpty": "No actions were logged this month.",
+    "reportBeforeAfter": "Exposure {before}% → {after}%"
   }
 }
