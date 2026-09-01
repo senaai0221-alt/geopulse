@@ -17,6 +17,11 @@ interface Brand {
   name: string;
   domain: string | null;
   competitors: string[] | null;
+  /** false when a plan downgrade pushed this brand past the new plan's
+   *  limit (see lib/plan-reconciliation.ts) - paused, not deleted, and
+   *  reactivated automatically on the next upgrade. Undefined for any
+   *  caller that hasn't selected the column (treated as active). */
+  is_active?: boolean;
 }
 
 // Server-side (updateBrand in actions.ts) truncates to the same caps
@@ -121,7 +126,14 @@ export function BrandListItem({ brand }: { brand: Brand }) {
   return (
     <div className="flex flex-col gap-1.5 rounded-md border border-border p-3">
       <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0 truncate font-medium">{brand.name}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate font-medium">{brand.name}</span>
+          {brand.is_active === false && (
+            <Badge variant="secondary" className="shrink-0 text-[11px]">
+              {t("settings.brandPaused")}
+            </Badge>
+          )}
+        </span>
         <div className="flex shrink-0 gap-1">
           <Button
             type="button"
@@ -148,6 +160,9 @@ export function BrandListItem({ brand }: { brand: Brand }) {
           </Button>
         </div>
       </div>
+      {brand.is_active === false && (
+        <span className="text-xs text-muted-foreground">{t("settings.brandPausedHint")}</span>
+      )}
       {brand.domain && (
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Globe className="h-3 w-3" />

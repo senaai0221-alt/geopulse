@@ -279,6 +279,8 @@
     "editBrand": "Edit",
     "deleteBrand": "Delete",
     "deleteBrandConfirm": "Delete this tracking target? All of its prompts and measurement data will be deleted too.",
+    "brandPaused": "Paused",
+    "brandPausedHint": "Paused because a plan downgrade put it over your new limit. Nothing was deleted - it resumes automatically if you upgrade again.",
     "saveBrand": "Save",
     "cancel": "Cancel",
     "brandName": "Name",

@@ -39,7 +39,7 @@ export default async function SettingsPage({
     supabase.from("profiles").select("*").eq("id", user.id).single(),
     supabase
       .from("brands")
-      .select("id, name, domain, competitors, created_at")
+      .select("id, name, domain, competitors, is_active, created_at")
       .order("created_at", { ascending: true }),
   ]);
 

@@ -129,6 +129,79 @@ export async function sendAlertEmail(to: string, input: AlertEmailInput): Promis
   await sendViaResend(to, alertEmailSubject(input.brandName), buildAlertEmailHtml(input));
 }
 
+export interface PlanUsageChangeInput {
+  newPlan: "pro" | "business" | "free";
+  deactivatedBrands: string[];
+  reactivatedBrands: string[];
+  deactivatedPrompts: string[];
+  reactivatedPrompts: string[];
+}
+
+const PLAN_LABELS: Record<PlanUsageChangeInput["newPlan"], string> = {
+  pro: "Pro",
+  business: "Business",
+  free: "無料",
+};
+
+function usageListHtml(label: string, items: string[]): string {
+  if (items.length === 0) return "";
+  const rows = items.map((name) => `<li style="margin-bottom:4px;">${escapeHtml(name)}</li>`).join("");
+  return `
+    <p style="font-size:13px;font-weight:600;color:#0f172a;margin:20px 0 6px;">${label}</p>
+    <ul style="margin:0;padding-left:20px;font-size:13px;color:#334155;">${rows}</ul>`;
+}
+
+/** Built by buildPlanUsageChangeEmailHtml so it can be unit-inspected
+ *  without sending real mail - same pattern as buildAlertEmailHtml. */
+export function buildPlanUsageChangeEmailHtml(input: PlanUsageChangeInput): string {
+  const hasDeactivations = input.deactivatedBrands.length > 0 || input.deactivatedPrompts.length > 0;
+  const hasReactivations = input.reactivatedBrands.length > 0 || input.reactivatedPrompts.length > 0;
+
+  const intro = hasDeactivations
+    ? `プランを${PLAN_LABELS[input.newPlan]}に変更したことに伴い、新しい上限を超えていた計測対象・プロンプトを一時停止しました。作成日が新しいものから順に停止しており、データは削除されていません。`
+    : `プランを${PLAN_LABELS[input.newPlan]}にアップグレードしたことに伴い、以前一時停止されていた計測対象・プロンプトを再開しました。`;
+
+  return `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a;">
+      <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:18px;margin-bottom:20px;">
+        ✨ Zonostick
+      </div>
+      <h1 style="font-size:18px;margin:0 0 8px;">プランの変更に伴うお知らせ</h1>
+      <p style="font-size:14px;color:#475569;margin:0 0 8px;">${intro}</p>
+      ${usageListHtml("⏸ 一時停止した計測対象", input.deactivatedBrands)}
+      ${usageListHtml("⏸ 一時停止したプロンプト", input.deactivatedPrompts)}
+      ${usageListHtml("▶ 再開した計測対象", input.reactivatedBrands)}
+      ${usageListHtml("▶ 再開したプロンプト", input.reactivatedPrompts)}
+      ${
+        hasDeactivations
+          ? `<p style="font-size:13px;color:#475569;margin:20px 0 0;">上位プランにアップグレードすると、一時停止した項目は<strong>自動的にすべて再開</strong>されます。手動での再設定は不要です。</p>`
+          : ""
+      }
+      <a href="${APP_URL}/dashboard/settings" style="display:inline-block;margin-top:20px;background:#4f46e5;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px;">
+        設定画面を開く
+      </a>
+      <p style="margin-top:28px;font-size:12px;color:#94a3b8;">
+        この通知はZonostickの設定画面でオフにできます。 · zonostick.com
+      </p>
+    </div>`;
+}
+
+export function planUsageChangeEmailSubject(input: PlanUsageChangeInput): string {
+  const hasDeactivations = input.deactivatedBrands.length > 0 || input.deactivatedPrompts.length > 0;
+  return hasDeactivations
+    ? "プラン変更に伴い一部の計測を一時停止しました - Zonostick"
+    : "プラン変更に伴い計測を再開しました - Zonostick";
+}
+
+/** Sent from the Stripe webhook (customer.subscription.updated) whenever
+ *  a plan change actually paused or resumed any brand/prompt - see
+ *  lib/plan-reconciliation.ts. Silently does nothing useful to call
+ *  with an all-empty input; the webhook only calls this when at least
+ *  one list is non-empty. */
+export async function sendPlanUsageChangeEmail(to: string, input: PlanUsageChangeInput): Promise<void> {
+  await sendViaResend(to, planUsageChangeEmailSubject(input), buildPlanUsageChangeEmailHtml(input));
+}
+
 /** Settings-page "send test email" button - confirms the address/API key
  *  actually work before the user relies on it. */
 export async function sendTestAlertEmail(to: string): Promise<void> {

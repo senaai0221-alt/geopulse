@@ -3,6 +3,8 @@ import type Stripe from "stripe";
 
 import { getStripe, planTierFromPriceId } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { reconcileUsageWithPlan } from "@/lib/plan-reconciliation";
+import { sendPlanUsageChangeEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -67,24 +69,64 @@ export async function POST(request: NextRequest) {
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        const userId = subscription.metadata?.supabase_user_id;
         const priceId = subscription.items.data[0]?.price.id ?? null;
         const isActive = subscription.status === "active" || subscription.status === "trialing";
+        const newPlan = isActive ? planTierFromPriceId(priceId) : "free";
 
-        const updatePayload = {
-          stripe_subscription_id: subscription.id,
-          stripe_price_id: priceId,
-          plan: isActive ? planTierFromPriceId(priceId) : ("free" as const),
-          subscription_status: subscription.status,
-        };
+        const metadataUserId = subscription.metadata?.supabase_user_id;
+        const customerId =
+          typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
 
-        if (userId) {
-          await supabase.from("profiles").update(updatePayload).eq("id", userId);
-        } else {
-          // Fallback lookup by customer id if metadata wasn't propagated.
-          const customerId =
-            typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
-          await supabase.from("profiles").update(updatePayload).eq("stripe_customer_id", customerId);
+        // Resolved up front (rather than a blind update-by-whichever-key-
+        // is-available) so the plan-limit reconciliation and
+        // notification email below both have the real user id/email to
+        // work with, regardless of which lookup path finds the row.
+        const { data: profile } = metadataUserId
+          ? await supabase
+              .from("profiles")
+              .select("id, email, notification_email, email_alerts_enabled")
+              .eq("id", metadataUserId)
+              .single()
+          : await supabase
+              .from("profiles")
+              .select("id, email, notification_email, email_alerts_enabled")
+              .eq("stripe_customer_id", customerId)
+              .single();
+
+        if (!profile) break;
+
+        await supabase
+          .from("profiles")
+          .update({
+            stripe_subscription_id: subscription.id,
+            stripe_price_id: priceId,
+            plan: newPlan,
+            subscription_status: subscription.status,
+          })
+          .eq("id", profile.id);
+
+        // Brings the account's active brand/prompt count in line with
+        // whatever plan it's on now - a downgrade must not leave
+        // everything from the old, larger plan still running against
+        // the operator's own LLM API accounts every morning with no
+        // matching revenue; an upgrade automatically restores exactly
+        // what a prior downgrade paused. See lib/plan-reconciliation.ts.
+        const usage = await reconcileUsageWithPlan(supabase, profile.id, newPlan);
+        const hasUsageChanges =
+          usage.deactivatedBrands.length > 0 ||
+          usage.deactivatedPrompts.length > 0 ||
+          usage.reactivatedBrands.length > 0 ||
+          usage.reactivatedPrompts.length > 0;
+
+        if (hasUsageChanges && profile.email_alerts_enabled !== false) {
+          const to = profile.notification_email || profile.email;
+          if (to) {
+            try {
+              await sendPlanUsageChangeEmail(to, { newPlan, ...usage });
+            } catch (err) {
+              console.error(`Failed to send plan usage change email for user ${profile.id}:`, err);
+            }
+          }
         }
         break;
       }

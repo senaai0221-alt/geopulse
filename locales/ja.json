@@ -279,6 +279,8 @@
     "editBrand": "編集",
     "deleteBrand": "削除",
     "deleteBrandConfirm": "この計測対象を削除しますか？関連するプロンプト・計測データもすべて削除されます。",
+    "brandPaused": "一時停止中",
+    "brandPausedHint": "プランのダウングレードにより上限を超えたため一時停止中です。データは削除されておらず、アップグレードすると自動的に再開されます。",
     "saveBrand": "保存",
     "cancel": "キャンセル",
     "brandName": "対象名",
