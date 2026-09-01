@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import type Stripe from "stripe";
 
 import { getStripe, planTierFromPriceId } from "@/lib/stripe";
@@ -35,6 +36,24 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+
+  // Idempotency guard: Stripe redelivers an event whenever this endpoint
+  // doesn't answer 200 in time, and can also deliver the same event
+  // twice anyway as part of its normal at-least-once guarantee. Without
+  // this check a replay re-runs the whole handler below - a hard error
+  // for enforceOneTrialPerCard's insert into trial_card_fingerprints
+  // (a duplicate primary key), and pointless duplicate work everywhere
+  // else. See supabase/schema.sql's processed_stripe_events table.
+  const { data: alreadyProcessed } = await supabase
+    .from("processed_stripe_events")
+    .select("id")
+    .eq("id", event.id)
+    .maybeSingle();
+
+  if (alreadyProcessed) {
+    console.log(`Stripe webhook event ${event.id} (${event.type}) already processed - skipping duplicate delivery`);
+    return NextResponse.json({ received: true });
+  }
 
   try {
     switch (event.type) {
@@ -157,7 +176,25 @@ export async function POST(request: NextRequest) {
     }
   } catch (err) {
     console.error(`Error handling Stripe webhook event ${event.type}:`, err);
+    Sentry.captureException(err, { tags: { stripeEventType: event.type, stripeEventId: event.id } });
+    // Deliberately NOT recorded in processed_stripe_events - a non-200
+    // here tells Stripe to redeliver, which is exactly what should
+    // happen when the handler actually failed (as opposed to the
+    // logged-and-continued best-effort failures inside individual
+    // branches above, e.g. enforceOneTrialPerCard or the notification
+    // email, which reach this point as a normal success).
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
+  }
+
+  // Recorded only once the handler above has fully succeeded, so a
+  // replay of this same event.id short-circuits at the guard above
+  // instead of re-running everything.
+  const { error: recordError } = await supabase.from("processed_stripe_events").insert({ id: event.id });
+  if (recordError) {
+    // Not fatal - worst case a legitimate retry (e.g. a near-simultaneous
+    // duplicate delivery racing this same insert) re-runs the handler
+    // once more, which the branches above already tolerate individually.
+    console.error(`Failed to record processed Stripe event ${event.id}:`, recordError);
   }
 
   return NextResponse.json({ received: true });

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runGeoQuery, type LlmProvider } from "@/lib/geo-engine";
@@ -271,6 +272,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(body);
   } catch (err) {
     console.error("daily-check crashed:", err);
+    Sentry.captureException(err, { tags: { job: "daily-check" } });
     const message = err instanceof Error ? err.message : String(err);
     await finishRun({ ok: false, error: message });
     return NextResponse.json(

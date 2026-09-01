@@ -298,6 +298,29 @@ alter table public.trial_card_fingerprints enable row level security;
 -- exposed to any user's own session.
 
 -- ---------------------------------------------------------------------
+-- processed_stripe_events: idempotency ledger for the Stripe webhook
+-- (app/api/webhooks/stripe/route.ts). Stripe redelivers an event any
+-- time the endpoint doesn't answer 200 in time, and can send the exact
+-- same event twice anyway as part of its normal at-least-once delivery
+-- guarantee. Re-running the handler on a replay is a hard failure for
+-- enforceOneTrialPerCard's insert into trial_card_fingerprints
+-- (fingerprint is a primary key, so a second insert of the same card
+-- errors) and, more generally, just duplicate work everywhere else -
+-- this table is checked at the very top of the handler so a replayed
+-- event.id short-circuits to 200 before any of that runs again.
+-- ---------------------------------------------------------------------
+create table if not exists public.processed_stripe_events (
+  id text primary key,
+  created_at timestamptz not null default now()
+);
+
+alter table public.processed_stripe_events enable row level security;
+
+-- No policies: written and read only by the Stripe webhook's
+-- service-role admin client, same as cron_runs/trial_card_fingerprints
+-- above - never exposed to any user's own session.
+
+-- ---------------------------------------------------------------------
 -- updated_at trigger for profiles
 -- ---------------------------------------------------------------------
 create or replace function public.set_updated_at()

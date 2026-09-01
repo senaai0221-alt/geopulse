@@ -26,6 +26,11 @@ yarn-error.log*
 .env
 .env*.local
 
+# Sentry build plugin (holds SENTRY_AUTH_TOKEN if set via `sentry-cli login`
+# locally instead of an env var)
+.sentryclirc
+.env.sentry-build-plugin
+
 # vercel
 .vercel
 

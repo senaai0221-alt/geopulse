@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 // Deliberately not the shared i18n dictionary: I18nProvider lives inside
 // app/layout.tsx, which this component replaces entirely (see below), so
@@ -27,12 +28,16 @@ const COPY = {
  * deliberately plain (no shared UI components, no i18n provider) so it
  * can't itself fail to render for the same reason the page did.
  */
-export default function GlobalError({ reset }: { reset: () => void }) {
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const [locale, setLocale] = useState<"en" | "ja">("en");
 
   useEffect(() => {
     setLocale(navigator.language.toLowerCase().startsWith("ja") ? "ja" : "en");
-  }, []);
+    // This boundary only fires when the root layout itself throws - the
+    // one render failure app/error.tsx structurally can't catch, so it's
+    // the last place worth reporting before the page just goes blank.
+    Sentry.captureException(error);
+  }, [error]);
 
   const copy = COPY[locale];
 

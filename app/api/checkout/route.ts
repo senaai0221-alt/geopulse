@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import type Stripe from "stripe";
 
 import { createClient } from "@/lib/supabase/server";
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, updatedInPlace: true });
     } catch (error) {
       console.error("Stripe subscription plan change failed:", error);
+      Sentry.captureException(error, { tags: { route: "checkout", kind: "plan-change" } });
       return NextResponse.json(
         { error: error instanceof Error ? error.message : "Plan change failed" },
         { status: 500 }
@@ -120,6 +122,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("Stripe checkout session creation failed:", error);
+    Sentry.captureException(error, { tags: { route: "checkout", kind: "session-create" } });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Checkout session creation failed" },
       { status: 500 }
