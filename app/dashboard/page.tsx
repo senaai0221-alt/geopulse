@@ -36,7 +36,7 @@ import { PromptForm } from "./prompt-form";
 import { DeletePromptButton } from "./delete-prompt-button";
 import { EditPromptGroupButton } from "./edit-prompt-group-button";
 import { UpgradePrompt } from "./upgrade-button";
-import { RankBadge, SentimentDot, RawResponseButton, CheckErrorBadge } from "./result-cell";
+import { RankBadge, SentimentDot, RawResponseButton, CheckErrorBadge, PromptPausedBadge } from "./result-cell";
 import { AlertLink } from "./alert-link";
 
 const PROVIDERS = LLM_PROVIDERS;
@@ -180,6 +180,7 @@ export default async function DashboardPage({
     id: string;
     text: string;
     category: string | null;
+    is_active: boolean;
   }
   const promptGroups = new Map<string, PromptRecord[]>();
   for (const prompt of (prompts ?? []) as PromptRecord[]) {
@@ -541,8 +542,11 @@ export default async function DashboardPage({
                               wrapper (see ui/table.tsx) is what handles
                               the rest of the row not fitting, not this
                               cell wrapping internally. */}
-                          <TableCell className="max-w-xs truncate" title={prompt.text}>
-                            {prompt.text}
+                          <TableCell className="max-w-xs" title={prompt.text}>
+                            <span className="flex items-center gap-1.5">
+                              <span className="truncate">{prompt.text}</span>
+                              {prompt.is_active === false && <PromptPausedBadge />}
+                            </span>
                           </TableCell>
                           {PROVIDERS.map((provider) => {
                             const r = latestByKey.get(`${prompt.id}-${provider}`);

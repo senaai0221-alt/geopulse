@@ -52,6 +52,31 @@ export function CheckErrorBadge() {
   );
 }
 
+/**
+ * Badge shown next to a prompt's text when a plan downgrade paused it
+ * (is_active=false, see lib/plan-reconciliation.ts) - the brand list
+ * already shows the same state (brand-list-item.tsx's own badge); this
+ * is the ranking table's counterpart so a paused prompt doesn't just
+ * silently sit there looking like every other row that's still being
+ * measured every morning. Reuses the brand list's copy (both say
+ * "paused because of a plan downgrade, resumes automatically on
+ * upgrade") rather than a prompt-specific duplicate - the mechanism and
+ * the fix are identical either way.
+ */
+export function PromptPausedBadge() {
+  const { t } = useI18n();
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant="secondary" tabIndex={0} className="shrink-0 cursor-help text-[11px] outline-none">
+          {t("settings.brandPaused")}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent>{t("settings.brandPausedHint")}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 const SENTIMENT_DOT: Record<string, string> = {
   positive: "bg-emerald-500",
   neutral: "bg-slate-400",
