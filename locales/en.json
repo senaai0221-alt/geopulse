@@ -107,7 +107,7 @@
     "outOfRange": "Not ranked",
     "mentionedNoRank": "Featured",
     "sentimentTitle": "Sentiment",
-    "checkErrorTooltip": "This check failed (API error) - showing the last known value instead.",
+    "checkErrorTooltip": "A temporary connection error on the AI provider's side caused this one check to fail. What's shown is still your last successful measurement. This usually clears up on its own by tomorrow's automatic check. If it keeps happening for several days, please reach out to support.",
     "sentimentPositive": "Positive",
     "sentimentNeutral": "Neutral",
     "sentimentNegative": "Negative",

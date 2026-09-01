@@ -88,7 +88,7 @@ export function LlmComparisonChart({ stats }: { stats: ProviderStat[] }) {
         <p className="mb-1.5 text-xs font-medium text-muted-foreground">{t("dashboard.mentionRate")}</p>
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats} margin={{ top: 16, right: 8, left: -12, bottom: 0 }}>
+            <BarChart data={stats} margin={{ top: 16, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="hsl(214 32% 91%)" strokeWidth={1} />
               <XAxis
                 dataKey="provider"
@@ -132,7 +132,7 @@ export function LlmComparisonChart({ stats }: { stats: ProviderStat[] }) {
         ) : (
           <div className="h-48 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={rankStats} margin={{ top: 16, right: 8, left: -12, bottom: 0 }}>
+              <BarChart data={rankStats} margin={{ top: 16, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke="hsl(214 32% 91%)" strokeWidth={1} />
                 <XAxis
                   dataKey="provider"

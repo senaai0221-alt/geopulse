@@ -43,7 +43,7 @@ export function ExposureTrendChart({ data }: { data: ExposureTrendPoint[] }) {
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+        <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid vertical={false} stroke="hsl(214 32% 91%)" strokeWidth={1} />
           <XAxis
             dataKey="date"

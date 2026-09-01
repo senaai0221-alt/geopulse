@@ -37,6 +37,7 @@ import { DeletePromptButton } from "./delete-prompt-button";
 import { EditPromptGroupButton } from "./edit-prompt-group-button";
 import { UpgradePrompt } from "./upgrade-button";
 import { RankBadge, SentimentDot, RawResponseButton, CheckErrorBadge } from "./result-cell";
+import { AlertLink } from "./alert-link";
 
 const PROVIDERS = LLM_PROVIDERS;
 const PROVIDER_LABELS: Record<LlmProvider, string> = {
@@ -546,7 +547,18 @@ export default async function DashboardPage({
                           {PROVIDERS.map((provider) => {
                             const r = latestByKey.get(`${prompt.id}-${provider}`);
                             return (
-                              <TableCell key={provider} className="whitespace-nowrap">
+                              <TableCell
+                                key={provider}
+                                // Jump target for the "最近のアラート"
+                                // card below (see AlertLink) - pinpoints
+                                // the one LLM cell an alert is actually
+                                // about, not the whole row, so landing
+                                // here reads as "this is what changed,
+                                // click the raw-answer icon next to it,"
+                                // not just "you scrolled somewhere."
+                                id={`result-${prompt.id}-${provider}`}
+                                className="whitespace-nowrap"
+                              >
                                 {r ? (
                                   <div className="flex flex-nowrap items-center gap-1.5">
                                     <RankBadge mentioned={r.mentioned} rank={r.rank_position} />
@@ -675,7 +687,17 @@ export default async function DashboardPage({
                     )}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate">{alert.message}</p>
+                    {/* Wraps instead of truncating - an alert that cuts
+                        itself off mid-sentence reads as "so what am I
+                        supposed to do about this?", not just illegible.
+                        Jumps to (and spotlights) the exact LLM cell this
+                        alert is about in the prompt table below (see
+                        AlertLink) - a concrete next step: see the actual
+                        AI answer behind this alert, not just the
+                        one-line summary. */}
+                    <AlertLink promptId={alert.prompt_id} provider={alert.provider}>
+                      {alert.message}
+                    </AlertLink>
                     <p className="text-xs text-muted-foreground">{formatDate(alert.created_at)}</p>
                   </div>
                 </li>

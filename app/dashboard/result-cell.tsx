@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FileText, X, AlertTriangle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 
@@ -26,12 +27,28 @@ export function RankBadge({ mentioned, rank }: { mentioned: boolean; rank: numbe
  *  routes), so the badge itself still reads normally; this icon is the
  *  only visible sign that today's measurement didn't actually succeed
  *  and what's shown is carried forward from the last good check. */
+/**
+ * Warning icon shown when a check failed (a provider API error) and
+ * the cell is carrying forward the last known-good value instead of a
+ * false "圏外" (see app/api/cron/daily-check/route.ts). Uses the same
+ * rich Tooltip as InfoTooltip rather than a native `title` attribute -
+ * a one-line browser tooltip isn't enough room to explain that this is
+ * normally transient and when it's actually worth worrying about,
+ * which matters here specifically: a customer seeing this icon several
+ * mornings in a row with no explanation reads it as "the product is
+ * broken," not "an AI provider had a bad moment."
+ */
 export function CheckErrorBadge() {
   const { t } = useI18n();
   return (
-    <span title={t("dashboard.checkErrorTooltip")} className="inline-flex cursor-help items-center text-amber-500">
-      <AlertTriangle className="h-3.5 w-3.5" />
-    </span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0} className="inline-flex cursor-help items-center text-amber-500 outline-none">
+          <AlertTriangle className="h-3.5 w-3.5" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{t("dashboard.checkErrorTooltip")}</TooltipContent>
+    </Tooltip>
   );
 }
 

@@ -104,7 +104,15 @@ export function BrandForm({ businessPriceId }: { businessPriceId: string }) {
       ) : (
         error && <InlineAlert>{error}</InlineAlert>
       )}
-      <Button type="submit" disabled={isPending} className="w-fit">
+      {/* Outline, not the default filled/primary style, once the plan
+          limit has actually been hit: with PlanLimitAlert's own
+          "Businessにアップグレード" button sitting right above it in
+          the exact same primary blue, two same-weight CTAs side by
+          side read as two equally valid options - when only one of
+          them (upgrading) can actually succeed right now. This one
+          stays clickable (retrying after upgrading elsewhere still
+          works without a page reload), just visually secondary. */}
+      <Button type="submit" disabled={isPending} variant={isPlanLimitError ? "outline" : "default"} className="w-fit">
         {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
         {t("settings.addBrandButton")}
       </Button>

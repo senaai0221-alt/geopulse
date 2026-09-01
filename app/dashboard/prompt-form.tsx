@@ -123,7 +123,18 @@ export function PromptForm({
             <option key={c} value={c} />
           ))}
         </datalist>
-        <Button type="submit" disabled={isPending} size="sm" className="shrink-0">
+        {/* Outline, not filled, once the plan limit has actually been
+            hit - same reasoning as brand-form.tsx's submit button: it
+            shouldn't carry the same visual weight as the
+            PlanLimitAlert's upgrade button sitting right below it when
+            only upgrading can actually succeed right now. */}
+        <Button
+          type="submit"
+          disabled={isPending}
+          variant={isPlanLimitError ? "outline" : "default"}
+          size="sm"
+          className="shrink-0"
+        >
           {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
           {t("dashboard.addPromptButton")}
         </Button>

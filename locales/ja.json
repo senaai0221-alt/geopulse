@@ -107,7 +107,7 @@
     "outOfRange": "圏外",
     "mentionedNoRank": "掲載あり",
     "sentimentTitle": "論調",
-    "checkErrorTooltip": "この回はAPIエラーのため計測に失敗し、前回の値を表示しています",
+    "checkErrorTooltip": "AI側の一時的な通信エラーで、この回だけ計測に失敗しました。表示は前回の正常な計測値のままです。多くの場合、翌朝の自動チェックで自然に復帰します。数日続くようであればお手数ですがサポートまでご連絡ください。",
     "sentimentPositive": "好意的",
     "sentimentNeutral": "中立的",
     "sentimentNegative": "否定的",
