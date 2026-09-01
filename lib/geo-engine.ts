@@ -61,6 +61,21 @@ interface ProviderResponse {
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
+// runGeoQuery fires all 6 providers in parallel for every prompt, and
+// daily-check runs multiple brands concurrently on top of that (see
+// BRAND_CONCURRENCY in app/api/cron/daily-check/route.ts) - so a single
+// check can easily burst a dozen+ simultaneous requests at one provider.
+// That's well within any real daily/monthly quota but can still trip a
+// short-window rate limit, which reads identically to a real outage
+// (429) unless retried. One short delayed retry absorbs a
+// self-inflicted burst like that without meaningfully extending how
+// long a single provider call can take.
+const RATE_LIMIT_RETRY_DELAY_MS = 1_500;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -69,6 +84,14 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/** fetchWithTimeout, plus a single delayed retry on a 429 response. */
+async function fetchWithRateLimitRetry(url: string, init: RequestInit): Promise<Response> {
+  const res = await fetchWithTimeout(url, init);
+  if (res.status !== 429) return res;
+  await sleep(RATE_LIMIT_RETRY_DELAY_MS + Math.random() * 500);
+  return fetchWithTimeout(url, init);
 }
 
 async function throwOnError(res: Response, provider: string) {
@@ -86,7 +109,7 @@ async function callChatGPT(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
 
-  const res = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
+  const res = await fetchWithRateLimitRetry("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -112,7 +135,7 @@ async function callClaude(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set");
 
-  const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
+  const res = await fetchWithRateLimitRetry("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -138,7 +161,7 @@ async function callPerplexity(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) throw new Error("PERPLEXITY_API_KEY is not set");
 
-  const res = await fetchWithTimeout("https://api.perplexity.ai/chat/completions", {
+  const res = await fetchWithRateLimitRetry("https://api.perplexity.ai/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -163,7 +186,7 @@ async function callGemini(prompt: string): Promise<ProviderResponse> {
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
 
   const model = process.env.GEMINI_MODEL || "gemini-3.6-flash";
-  const res = await fetchWithTimeout(
+  const res = await fetchWithRateLimitRetry(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
       method: "POST",
@@ -184,7 +207,7 @@ async function callGrok(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.XAI_API_KEY;
   if (!apiKey) throw new Error("XAI_API_KEY is not set");
 
-  const res = await fetchWithTimeout("https://api.x.ai/v1/chat/completions", {
+  const res = await fetchWithRateLimitRetry("https://api.x.ai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -205,7 +228,7 @@ async function callDeepSeek(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) throw new Error("DEEPSEEK_API_KEY is not set");
 
-  const res = await fetchWithTimeout("https://api.deepseek.com/chat/completions", {
+  const res = await fetchWithRateLimitRetry("https://api.deepseek.com/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
