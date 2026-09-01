@@ -235,6 +235,46 @@ create policy "report_notes_crud_own" on public.report_notes
   );
 
 -- ---------------------------------------------------------------------
+-- cron_runs: one row per invocation of a scheduled job (currently just
+-- /api/cron/daily-check), written by the job itself so its outcome -
+-- did it finish, how long did it take, did every brand's Slack/email
+-- notification actually go out - is queryable straight from Supabase
+-- instead of depending on the hosting platform's own log retention
+-- (which on a Hobby-tier Vercel plan only keeps the last ~30 minutes,
+-- long gone by the time anyone notices a report never arrived).
+--
+-- A row is inserted the moment the job *starts*, then updated once it
+-- finishes (successfully or via the route's own crash handler). A row
+-- that stays with finished_at/ok still null is itself the signal: the
+-- process was hard-killed (e.g. the platform's execution time limit)
+-- before it ever got a chance to run its own completion/error path.
+-- ---------------------------------------------------------------------
+create table if not exists public.cron_runs (
+  id uuid primary key default uuid_generate_v4(),
+  job_name text not null,
+  started_at timestamptz not null,
+  finished_at timestamptz,
+  duration_ms integer,
+  ok boolean,
+  error text,
+  -- Per-brand outcome (rankings written, anomaly count, and whether
+  -- each notification channel actually sent) - shaped like the
+  -- existing `summary`/`skipped` arrays the route already builds, see
+  -- app/api/cron/daily-check/route.ts.
+  summary jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists cron_runs_job_started_idx on public.cron_runs (job_name, started_at desc);
+
+alter table public.cron_runs enable row level security;
+
+-- No policies: this is operational data, not user data - readable only
+-- via the Supabase dashboard / service role (the operator), same as
+-- feedback. The cron route itself writes with the service-role admin
+-- client, which bypasses RLS entirely.
+
+-- ---------------------------------------------------------------------
 -- updated_at trigger for profiles
 -- ---------------------------------------------------------------------
 create or replace function public.set_updated_at()

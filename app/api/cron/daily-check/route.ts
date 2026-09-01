@@ -234,15 +234,45 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const supabase = createAdminClient();
+  const runStartedAt = new Date();
+
+  // Inserted before any real work starts, so a run that never reaches
+  // either completion path below (the process was hard-killed by the
+  // platform's execution time limit, for example) still leaves this row
+  // behind with finished_at/ok left null - that absence-of-completion is
+  // itself the diagnostic signal, see supabase/schema.sql.
+  const { data: runRow } = await supabase
+    .from("cron_runs")
+    .insert({ job_name: "daily-check", started_at: runStartedAt.toISOString() })
+    .select("id")
+    .single();
+
+  async function finishRun(fields: { ok: boolean; error?: string; summary?: unknown }) {
+    if (!runRow) return; // insert itself failed - don't let that block the actual job
+    const finishedAt = new Date();
+    await supabase
+      .from("cron_runs")
+      .update({
+        finished_at: finishedAt.toISOString(),
+        duration_ms: finishedAt.getTime() - runStartedAt.getTime(),
+        ok: fields.ok,
+        error: fields.error ?? null,
+        summary: fields.summary ?? null,
+      })
+      .eq("id", runRow.id);
+  }
+
   try {
-    return await runDailyCheck();
+    const body = await runDailyCheck(supabase);
+    await finishRun({ ok: true, summary: body });
+    return NextResponse.json(body);
   } catch (err) {
     console.error("daily-check crashed:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    await finishRun({ ok: false, error: message });
     return NextResponse.json(
-      {
-        error: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
-      },
+      { error: message, stack: err instanceof Error ? err.stack : undefined },
       { status: 500 }
     );
   }
@@ -260,8 +290,7 @@ const BRAND_CONCURRENCY = 4;
 // started this run is picked up on tomorrow's cron automatically.
 const TIME_BUDGET_MS = 45_000;
 
-async function runDailyCheck() {
-  const supabase = createAdminClient();
+async function runDailyCheck(supabase: ReturnType<typeof createAdminClient>) {
   const checkedAt = new Date();
   const startedAt = Date.now();
 
@@ -275,7 +304,7 @@ async function runDailyCheck() {
     .in("profiles.plan", ["pro", "business"]);
 
   if (brandsError) {
-    return NextResponse.json({ error: brandsError.message }, { status: 500 });
+    throw new Error(brandsError.message);
   }
 
   const summary: Record<string, unknown>[] = [];
@@ -305,19 +334,21 @@ async function runDailyCheck() {
         checkedAt
       );
 
-      summary.push({
-        brandId: brand.id,
-        brandName: brand.name,
-        totalChecks,
-        anomalies: anomalies.length,
-      });
-
       // Notify this brand's owner, if configured. Email is the default
       // channel (email_alerts_enabled defaults true - see
       // supabase/schema.sql); Slack is the optional, additional one
       // (settings/page.tsx's "advanced" section). Each fires
       // independently in its own try/catch - one failing (a missing
       // RESEND_API_KEY, a bad webhook URL) must never block the other.
+      // The outcome of each ("sent" / "skipped" / "error") is recorded
+      // into this brand's summary entry below (see cron_runs in
+      // supabase/schema.sql) - rankings being written successfully does
+      // NOT imply the notification after it also went out, and without
+      // this a silently-failed send is invisible until a user notices
+      // their report never arrived.
+      let slackStatus: "sent" | "skipped" | "error" = "skipped";
+      let emailStatus: "sent" | "skipped" | "error" = "skipped";
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("email, notification_email, email_alerts_enabled, slack_webhook_url, slack_enabled")
@@ -334,7 +365,9 @@ async function runDailyCheck() {
             mentionRate: totalChecks > 0 ? mentionedCount / totalChecks : 0,
             anomalies,
           });
+          slackStatus = "sent";
         } catch (err) {
+          slackStatus = "error";
           console.error(`Failed to send Slack summary for brand ${brand.id}:`, err);
         }
       }
@@ -349,10 +382,21 @@ async function runDailyCheck() {
       if (anomalies.length > 0 && profile?.email_alerts_enabled !== false && alertTo) {
         try {
           await sendAlertEmail(alertTo, { brandName: brand.name, anomalies });
+          emailStatus = "sent";
         } catch (err) {
+          emailStatus = "error";
           console.error(`Failed to send alert email for brand ${brand.id}:`, err);
         }
       }
+
+      summary.push({
+        brandId: brand.id,
+        brandName: brand.name,
+        totalChecks,
+        anomalies: anomalies.length,
+        slack: slackStatus,
+        email: emailStatus,
+      });
     } catch (err) {
       console.error(`daily-check: brand ${brand.id} (${brand.name}) failed:`, err);
       summary.push({
@@ -369,12 +413,12 @@ async function runDailyCheck() {
     console.warn(`daily-check: ${skipped.length} brand(s) skipped this run (time budget):`, skipped);
   }
 
-  return NextResponse.json({
+  return {
     ok: true,
     checkedAt: checkedAt.toISOString(),
     durationMs: Date.now() - startedAt,
     brandsProcessed: summary.length,
     summary,
     skipped,
-  });
+  };
 }
