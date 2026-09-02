@@ -391,5 +391,24 @@
     "reportSectionTitle": "当月実施したGEO施策",
     "reportSectionEmpty": "今月は施策の記録がありません。",
     "reportBeforeAfter": "露出率 {before}% → {after}%"
+  },
+  "onboarding": {
+    "title": "はじめに、初期設定をしましょう",
+    "subtitle": "ブランドと最初の質問を登録すると、AI検索での見え方をすぐに確認できます。ここで入力した内容は後からいつでも変更できます。",
+    "step1Title": "Step 1. 自社ブランドを登録",
+    "step1Desc": "AI検索での見え方を追跡したい、あなた自身のブランド・商品・サービスです。",
+    "brandNameLabel": "ブランド名",
+    "domainLabel": "公式WebサイトURL（任意）",
+    "step2Title": "Step 2. 比較するライバル商品",
+    "step2Desc": "入力すると、AIがどちらを優先しておすすめしているか（AI露出比較グラフ）が利用できます。空欄のままでも進められます。",
+    "competitorPlaceholder": "例: A社の商品",
+    "competitorLabel": "ライバル商品 {n}",
+    "step3Title": "Step 3. 最初の質問を登録（最大3個）",
+    "step3Desc": "実際にAIへ聞いてみたい質問です。空欄のままでも進められ、あとから追加できます。",
+    "promptPlaceholder": "例: 0歳の子どもにおすすめのメリーは？",
+    "promptLabel": "質問 {n}",
+    "submitButton": "設定を完了して自動計測を開始する",
+    "submitting": "設定を保存し、初回の計測を実行しています…",
+    "saveFailed": "保存に失敗しました。もう一度お試しください。"
   }
 }

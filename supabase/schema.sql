@@ -69,6 +69,7 @@ create table if not exists public.profiles (
 alter table public.profiles add column if not exists report_logo_url text;
 alter table public.profiles add column if not exists email_alerts_enabled boolean not null default true;
 alter table public.profiles add column if not exists notification_email text;
+alter table public.profiles add column if not exists onboarding_completed boolean not null default false;
 
 -- ---------------------------------------------------------------------
 -- brands: a tracked brand / product owned by a user
@@ -87,6 +88,24 @@ create table if not exists public.brands (
 );
 
 create index if not exists brands_user_idx on public.brands (user_id);
+
+-- Has this account been through the one-page setup wizard yet (see
+-- app/onboarding/page.tsx)? middleware.ts sends any paid account with
+-- profiles.onboarding_completed still false to /onboarding instead of
+-- /dashboard. That column defaults to false (see its own ADD COLUMN
+-- above) so a brand-new signup always sees the wizard once, right
+-- after subscribing - but the same default would incorrectly re-send
+-- every EXISTING paid account through it too the moment the column
+-- first appears, since none of them have ever had a chance to set it.
+-- This backfill (placed here, after `brands` exists, rather than next
+-- to the column's own ADD COLUMN above) marks anyone who already has
+-- at least one brand - i.e. has plainly already been through some form
+-- of setup, wizard or not - as complete, so this rollout only ever
+-- affects genuinely new signups going forward. Safe to re-run.
+update public.profiles p
+set onboarding_completed = true
+where onboarding_completed = false
+  and exists (select 1 from public.brands b where b.user_id = p.id);
 
 -- ---------------------------------------------------------------------
 -- prompts: natural-language queries sent to each LLM on behalf of a brand

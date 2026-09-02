@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { CategoryChipGroup } from "@/components/category-chip-group";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 import { translateActionError } from "@/lib/i18n/action-error";
@@ -17,26 +18,6 @@ import { PlanLimitAlert } from "./plan-limit-alert";
 // Server-side (createPrompt in actions.ts) truncates to the same caps
 // regardless - see BrandForm for why these exist too.
 const TEXT_MAX = 300;
-
-// Fixed choices, not free text - a beginner staring at a blank
-// "カテゴリ・タグ" text box had no idea what to type (or why they'd
-// bother); four concrete, one-tap question types both lower that
-// barrier and double as a hint about what this whole feature is for
-// ("選択するとAIの得意・非得意が分かります" - see the label below).
-// Deliberately plain Japanese strings, not routed through the i18n
-// dictionary at the VALUE level (only the chip's displayed label is
-// translated) - `category` has never been a translated UI string
-// anywhere else in this app, just free text the creator typed, and a
-// chip's value is exactly the same kind of user data, only tap-entered
-// instead of typed. Two people (or the same person switching the EN/JA
-// toggle) clicking "different-language" chips already wouldn't group
-// together under the old free-text system either.
-const CATEGORY_CHIPS: { value: string; labelKey: string }[] = [
-  { value: "選び方・おすすめ", labelKey: "dashboard.categoryChipRecommend" },
-  { value: "評判・口コミ", labelKey: "dashboard.categoryChipReviews" },
-  { value: "他社との比較", labelKey: "dashboard.categoryChipComparison" },
-  { value: "価格・機能", labelKey: "dashboard.categoryChipPriceFeatures" },
-];
 
 export function PromptForm({
   brandId,
@@ -152,29 +133,7 @@ export function PromptForm({
           {t("dashboard.categoryQuestionTypeLabel")}
           <InfoTooltip textKey="dashboard.categoryFieldTooltip" />
         </span>
-        {CATEGORY_CHIPS.map((chip) => {
-          const selected = category === chip.value;
-          return (
-            <button
-              key={chip.value}
-              type="button"
-              // Click again to deselect (back to no category, same
-              // optional-by-default behavior the old free-text field
-              // had) rather than being forced to always pick exactly
-              // one of the four.
-              onClick={() => setCategory(selected ? "" : chip.value)}
-              aria-pressed={selected}
-              className={cn(
-                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                selected
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}
-            >
-              {t(chip.labelKey)}
-            </button>
-          );
-        })}
+        <CategoryChipGroup value={category} onChange={setCategory} />
       </div>
 
       {isPlanLimitError && errorCode ? (

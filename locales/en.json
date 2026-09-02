@@ -391,5 +391,24 @@
     "reportSectionTitle": "GEO actions this month",
     "reportSectionEmpty": "No actions were logged this month.",
     "reportBeforeAfter": "Exposure {before}% → {after}%"
+  },
+  "onboarding": {
+    "title": "Let's get you set up",
+    "subtitle": "Register your brand and your first question to see how AI search treats you right away. Everything here can be changed later.",
+    "step1Title": "Step 1. Register your brand",
+    "step1Desc": "The brand, product, or service you want to track in AI search results.",
+    "brandNameLabel": "Brand name",
+    "domainLabel": "Official website URL (optional)",
+    "step2Title": "Step 2. Rivals to compare against",
+    "step2Desc": "Add one and you'll be able to see at a glance which one AI recommends more (the AI exposure comparison chart). You can leave this blank and continue.",
+    "competitorPlaceholder": "e.g. Brand A's product",
+    "competitorLabel": "Rival product {n}",
+    "step3Title": "Step 3. Your first questions (up to 3)",
+    "step3Desc": "Questions you'd actually ask an AI. You can leave these blank and continue - more can be added later.",
+    "promptPlaceholder": "e.g. What's a good baby mobile for a newborn?",
+    "promptLabel": "Question {n}",
+    "submitButton": "Finish setup and start tracking",
+    "submitting": "Saving your setup and running the first check…",
+    "saveFailed": "Failed to save. Please try again."
   }
 }

@@ -3,10 +3,15 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /**
  * Refreshes the Supabase auth session on every request, protects
- * /dashboard routes by redirecting unauthenticated visitors to /login,
- * and - since there is no free tier (see lib/plan-limits.ts) - sends
- * any logged-in user without an active pro/business plan to /pricing
- * instead of letting them into the dashboard at all.
+ * /dashboard (and /onboarding) routes by redirecting unauthenticated
+ * visitors to /login, and - since there is no free tier (see
+ * lib/plan-limits.ts) - sends any logged-in user without an active
+ * pro/business plan to /pricing instead of letting them into either.
+ * A paid account that hasn't finished the one-page setup wizard yet
+ * (profiles.onboarding_completed) is sent to /onboarding instead of
+ * /dashboard; the reverse redirect (a completed account trying to
+ * revisit /onboarding) happens in app/onboarding/page.tsx itself, same
+ * pattern as /pricing's own already-paid redirect.
  */
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -42,8 +47,10 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const onDashboard = request.nextUrl.pathname.startsWith("/dashboard");
+  const onOnboarding = request.nextUrl.pathname.startsWith("/onboarding");
+  const onProtected = onDashboard || onOnboarding;
 
-  if (!user && onDashboard) {
+  if (!user && onProtected) {
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("next", request.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
@@ -57,15 +64,29 @@ export async function middleware(request: NextRequest) {
   // navigation regardless.
   const justPaid = request.nextUrl.searchParams.get("checkout") === "success";
 
-  if (user && onDashboard && !justPaid) {
+  if (user && onProtected && !justPaid) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("plan")
+      .select("plan, onboarding_completed")
       .eq("id", user.id)
       .single();
 
     if (profile?.plan !== "pro" && profile?.plan !== "business") {
       return NextResponse.redirect(new URL("/pricing", request.url));
+    }
+
+    // Paid, but hasn't finished the setup wizard yet - every /dashboard
+    // route sends them there first (see app/onboarding/page.tsx). A
+    // brand/prompt-less dashboard is a worse first five minutes than
+    // being walked through setup once, up front.
+    if (onDashboard && profile?.onboarding_completed !== true) {
+      return NextResponse.redirect(new URL("/onboarding", request.url));
+    }
+
+    // Already set up - nothing left for the wizard to do, so send a
+    // direct revisit of /onboarding on to the dashboard instead.
+    if (onOnboarding && profile?.onboarding_completed === true) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }
 
