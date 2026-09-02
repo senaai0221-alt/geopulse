@@ -17,21 +17,34 @@ import { PlanLimitAlert } from "./plan-limit-alert";
 // Server-side (createPrompt in actions.ts) truncates to the same caps
 // regardless - see BrandForm for why these exist too.
 const TEXT_MAX = 300;
-const CATEGORY_MAX = 50;
+
+// Fixed choices, not free text - a beginner staring at a blank
+// "カテゴリ・タグ" text box had no idea what to type (or why they'd
+// bother); four concrete, one-tap question types both lower that
+// barrier and double as a hint about what this whole feature is for
+// ("選択するとAIの得意・非得意が分かります" - see the label below).
+// Deliberately plain Japanese strings, not routed through the i18n
+// dictionary at the VALUE level (only the chip's displayed label is
+// translated) - `category` has never been a translated UI string
+// anywhere else in this app, just free text the creator typed, and a
+// chip's value is exactly the same kind of user data, only tap-entered
+// instead of typed. Two people (or the same person switching the EN/JA
+// toggle) clicking "different-language" chips already wouldn't group
+// together under the old free-text system either.
+const CATEGORY_CHIPS: { value: string; labelKey: string }[] = [
+  { value: "選び方・おすすめ", labelKey: "dashboard.categoryChipRecommend" },
+  { value: "評判・口コミ", labelKey: "dashboard.categoryChipReviews" },
+  { value: "他社との比較", labelKey: "dashboard.categoryChipComparison" },
+  { value: "価格・機能", labelKey: "dashboard.categoryChipPriceFeatures" },
+];
 
 export function PromptForm({
   brandId,
   businessPriceId,
-  existingCategories,
   highlight = false,
 }: {
   brandId: string;
   businessPriceId: string;
-  /** Categories already in use on this brand's other prompts, offered
-   *  as autocomplete suggestions (native <datalist>) - reusing "比較系"
-   *  instead of retyping a near-duplicate like "比較" is what actually
-   *  keeps a large prompt set tidy at scale. */
-  existingCategories: string[];
   /** True while the account has zero prompts - draws a pulsing blue
    *  ring around the text field so a first-time user's eye lands on
    *  exactly the control the onboarding guide just told them to use.
@@ -43,6 +56,10 @@ export function PromptForm({
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
+  // The chip group's selection - a hidden input (not a native radio
+  // group's own value) carries it into FormData, since the chips
+  // themselves are plain buttons, not form controls of their own.
+  const [category, setCategory] = useState("");
   // Stored as a code and translated at render time (see `error` below) -
   // see BrandForm for why.
   const [errorCode, setErrorCode] = useState<string | null>(null);
@@ -67,6 +84,10 @@ export function PromptForm({
       try {
         const newPrompt = await createPrompt(formData);
         formRef.current?.reset();
+        // The chip selection lives in React state, not a native form
+        // field - formRef.current.reset() above only clears the
+        // uncontrolled text input, not this.
+        setCategory("");
 
         // Kick off one immediate measurement for the new prompt so it
         // shows real data right away instead of an empty row until
@@ -94,8 +115,9 @@ export function PromptForm({
     // Splitting the controls into their own row and letting the alert
     // render as a full-width block below it means the two can never
     // compete for the same horizontal space.
-    <form ref={formRef} action={handleSubmit} noValidate className="flex flex-col gap-2">
+    <form ref={formRef} action={handleSubmit} noValidate className="flex flex-col gap-3">
       <input type="hidden" name="brand_id" value={brandId} />
+      <input type="hidden" name="category" value={category} />
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Input
           name="text"
@@ -108,21 +130,6 @@ export function PromptForm({
           // past the row's available width instead of shrinking to fit.
           className={cn("min-w-0 flex-1", highlight && "onboarding-glow ring-2 ring-primary/40")}
         />
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Input
-            name="category"
-            list="prompt-category-suggestions"
-            placeholder={t("dashboard.promptCategoryPlaceholder")}
-            maxLength={CATEGORY_MAX}
-            className="w-full shrink-0 sm:w-52"
-          />
-          <InfoTooltip textKey="dashboard.categoryFieldTooltip" />
-        </div>
-        <datalist id="prompt-category-suggestions">
-          {existingCategories.map((c) => (
-            <option key={c} value={c} />
-          ))}
-        </datalist>
         {/* Outline, not filled, once the plan limit has actually been
             hit - same reasoning as brand-form.tsx's submit button: it
             shouldn't carry the same visual weight as the
@@ -139,6 +146,37 @@ export function PromptForm({
           {t("dashboard.addPromptButton")}
         </Button>
       </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          {t("dashboard.categoryQuestionTypeLabel")}
+          <InfoTooltip textKey="dashboard.categoryFieldTooltip" />
+        </span>
+        {CATEGORY_CHIPS.map((chip) => {
+          const selected = category === chip.value;
+          return (
+            <button
+              key={chip.value}
+              type="button"
+              // Click again to deselect (back to no category, same
+              // optional-by-default behavior the old free-text field
+              // had) rather than being forced to always pick exactly
+              // one of the four.
+              onClick={() => setCategory(selected ? "" : chip.value)}
+              aria-pressed={selected}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                selected
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+            >
+              {t(chip.labelKey)}
+            </button>
+          );
+        })}
+      </div>
+
       {isPlanLimitError && errorCode ? (
         <PlanLimitAlert code={errorCode} businessPriceId={businessPriceId} />
       ) : (

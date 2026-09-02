@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Globe, Tag, Pencil, Trash2, Loader2, Target, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -34,16 +34,43 @@ const COMPETITORS_MAX = 300;
  *  inline edit form for renaming/updating domain & competitors, and a
  *  delete action - none of which existed before (only adding a brand
  *  was possible). */
-export function BrandListItem({ brand }: { brand: Brand }) {
+export function BrandListItem({
+  brand,
+  autoFocus = false,
+}: {
+  brand: Brand;
+  /** True when this brand was linked to directly (see settings/page.tsx's
+   *  `?brand=` param) - e.g. the dashboard's Share of Voice card's "＋
+   *  ライバルを追加" CTA when this brand has no rivals registered yet.
+   *  Opens straight into the edit form (rather than making the reader
+   *  find and click the pencil icon themselves) and scrolls it into
+   *  view with the same highlight styling settings/page.tsx already
+   *  uses for its `?highlight=alerts` link. */
+  autoFocus?: boolean;
+}) {
   const { t } = useI18n();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(autoFocus);
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
   // Stored as a code and translated at render time (see `error` below) -
   // see BrandForm for why.
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const error = errorCode === "validation.required" ? t(errorCode) : errorCode ? translateActionError(t, errorCode, "settings.addBrandFailed") : null;
-  const formRef = useRef<HTMLFormElement>(null);
+  // Holds whichever root element (the edit <form> or the view-mode
+  // <div>) is currently mounted - set via a plain callback in each
+  // branch's own `ref` below rather than one shared RefObject, since
+  // React's ref typing for a specific host element (LegacyRef<
+  // HTMLFormElement>) doesn't accept a RefObject typed any broader
+  // than exactly that element.
+  const containerRef = useRef<HTMLFormElement | HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (autoFocus) containerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Intentionally once, on mount only - re-scrolling every time
+    // `editing` toggles (e.g. the reader cancels and re-opens it
+    // manually) would fight their own scroll position.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleSave(formData: FormData) {
     setErrorCode(null);
@@ -75,7 +102,9 @@ export function BrandListItem({ brand }: { brand: Brand }) {
   if (editing) {
     return (
       <form
-        ref={formRef}
+        ref={(el) => {
+          containerRef.current = el;
+        }}
         action={handleSave}
         noValidate
         className="flex flex-col gap-3 rounded-md border border-primary/40 bg-primary/5 p-3"
@@ -106,6 +135,11 @@ export function BrandListItem({ brand }: { brand: Brand }) {
             name="competitors"
             defaultValue={(brand.competitors ?? []).join(", ")}
             maxLength={COMPETITORS_MAX}
+            placeholder={t("settings.brandCompetitorsPlaceholder")}
+            // Puts the cursor exactly where the deep-link (Share of
+            // Voice's "＋ライバルを追加" CTA) promised to take the
+            // reader, not just the form in general.
+            autoFocus={autoFocus}
           />
           <p className="text-xs text-slate-400">{t("settings.brandCompetitorsHint")}</p>
         </div>

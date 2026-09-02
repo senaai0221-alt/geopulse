@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
+
 import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/context";
 
 export interface ShareOfVoiceEntry {
@@ -24,12 +27,45 @@ const COMPETITOR_COLORS = ["#f59e0b", "#0ea5e9", "#a78bfa", "#fb7185", "#14b8a6"
  * competitor was mentioned across the latest measurement round. `total` is
  * the number of (prompt x provider) checks the counts are a share of.
  */
-export function ShareOfVoice({ entries, total }: { entries: ShareOfVoiceEntry[]; total: number }) {
+export function ShareOfVoice({
+  entries,
+  total,
+  brandId,
+}: {
+  entries: ShareOfVoiceEntry[];
+  total: number;
+  /** Used only for the "no rivals registered yet" CTA below, to route
+   *  back to this exact brand's edit form (see settings/page.tsx +
+   *  brand-list-item.tsx's own `?brand=` handling) rather than a bare
+   *  link to Settings that leaves the reader to find it themselves. */
+  brandId: string;
+}) {
   const { t } = useI18n();
 
   if (total === 0) {
     return (
       <p className="text-sm text-muted-foreground">{t("dashboard.shareOfVoiceEmpty")}</p>
+    );
+  }
+
+  // A brand with zero registered rivals only ever has itself in
+  // `entries` - a lone 100% bar comparing the brand to nothing isn't a
+  // "share" of anything, so this reads better as a plain nudge toward
+  // the one setup step that actually makes the chart meaningful, rather
+  // than a chart with a single foregone-conclusion bar.
+  if (!entries.some((e) => !e.isBrand)) {
+    return (
+      <div className="flex flex-col items-start gap-3 rounded-md border border-dashed border-border p-4">
+        <p className="text-sm text-muted-foreground">{t("dashboard.shareOfVoiceNoCompetitors")}</p>
+        {/* Label already carries its own "+"/"＋" (see the ja/en
+            strings) - no separate icon, so it doesn't double up. */}
+        <Link
+          href={`/dashboard/settings?brand=${brandId}`}
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+        >
+          {t("dashboard.shareOfVoiceAddCompetitor")}
+        </Link>
+      </div>
     );
   }
 

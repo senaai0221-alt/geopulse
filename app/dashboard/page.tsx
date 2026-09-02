@@ -21,6 +21,7 @@ import { LLM_PROVIDERS, type LlmProvider } from "@/lib/geo-engine";
 import { cn, formatDate } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { type TrendPoint } from "@/components/rank-trend-chart";
 import { type ExposureTrendPoint } from "@/components/exposure-trend-chart";
@@ -505,7 +506,6 @@ export default async function DashboardPage({
           <PromptForm
             brandId={selectedBrand.id}
             businessPriceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""}
-            existingCategories={existingCategories}
             highlight={showOnboarding}
           />
 
@@ -550,6 +550,17 @@ export default async function DashboardPage({
                             <span className="flex items-center gap-1.5">
                               <span className="truncate">{prompt.text}</span>
                               {prompt.is_active === false && <PromptPausedBadge />}
+                              {/* Only when there's no group heading
+                                  already saying the same thing (see
+                                  showGroupHeadings above) - repeating
+                                  "選び方・おすすめ" as a badge on every
+                                  row already sitting under that exact
+                                  heading would just be noise. */}
+                              {!showGroupHeadings && prompt.category && (
+                                <Badge variant="outline" className="shrink-0 text-[11px]">
+                                  {prompt.category}
+                                </Badge>
+                              )}
                             </span>
                           </TableCell>
                           {PROVIDERS.map((provider) => {
@@ -663,7 +674,7 @@ export default async function DashboardPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ShareOfVoice entries={shareOfVoiceEntries} total={latestList.length} />
+            <ShareOfVoice entries={shareOfVoiceEntries} total={latestList.length} brandId={selectedBrand.id} />
           </CardContent>
         </Card>
 

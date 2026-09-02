@@ -26,9 +26,16 @@ export default async function SettingsPage({
   // "alerts" draws attention to the email-alerts card/test-send button
   // below, since a first-time visitor landing on a page full of cards
   // has no way to know which one the link was actually pointing at.
-  searchParams: { highlight?: string };
+  // `brand` is the same idea for one specific brand's edit form - set by
+  // the Share of Voice card's "＋ライバルを追加" link (components/
+  // share-of-voice.tsx) when a brand has no rivals registered yet, so
+  // that CTA lands the reader directly in the right open, highlighted
+  // form instead of a settings page full of cards they'd have to
+  // search themselves.
+  searchParams: { highlight?: string; brand?: string };
 }) {
   const highlightAlerts = searchParams.highlight === "alerts";
+  const focusBrandId = searchParams.brand;
   const supabase = createClient();
   const {
     data: { user },
@@ -71,7 +78,7 @@ export default async function SettingsPage({
               <ul className="flex flex-col gap-3">
                 {brands.map((brand) => (
                   <li key={brand.id}>
-                    <BrandListItem brand={brand} />
+                    <BrandListItem brand={brand} autoFocus={brand.id === focusBrandId} />
                   </li>
                 ))}
               </ul>
