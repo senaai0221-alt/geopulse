@@ -135,8 +135,10 @@ export default async function SettingsPage({
           </Card>
         )}
 
-        {/* Plan / upgrade */}
-        <Card>
+        {/* Plan / upgrade - id targeted by the mobile drawer's "プラン・
+            お支払い" link (see app/dashboard/nav-items.ts), same anchor
+            pattern as id="email-alerts" above. */}
+        <Card id="billing">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-primary" />

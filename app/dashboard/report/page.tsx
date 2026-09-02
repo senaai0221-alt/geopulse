@@ -1,8 +1,11 @@
 import { format } from "date-fns";
+import { Download } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import { LLM_PROVIDERS, type LlmProvider } from "@/lib/geo-engine";
 import { T } from "@/components/t";
+import { buttonVariants } from "@/components/ui/button";
 import { PrintButton } from "../print-button";
 import { UpgradePrompt } from "../upgrade-button";
 import { MonthSelector, MonthLabel } from "./month-selector";
@@ -384,6 +387,17 @@ export default async function ReportPage({
         <ReportBrandSelector brands={brands} selectedBrandId={selectedBrand.id} month={month} />
         <div className="flex items-center gap-2">
           <MonthSelector brandId={selectedBrand.id} month={month} />
+          {/* The dashboard's own CSV button (app/dashboard/page.tsx) was
+              removed in favor of this one place - export lives on the
+              report page alongside PDF (PrintButton), not scattered
+              across both. */}
+          <a
+            href={`/api/export/csv?brand=${selectedBrand.id}`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+          >
+            <Download className="h-3.5 w-3.5" />
+            <T k="dashboard.downloadCsv" />
+          </a>
           <PrintButton />
         </div>
       </div>

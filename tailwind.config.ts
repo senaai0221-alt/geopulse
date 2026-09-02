@@ -9,11 +9,20 @@ const config: Config = {
     "./lib/**/*.{ts,tsx}",
   ],
   theme: {
+    // `.container` (used by the dashboard/report header + main-content
+    // row - see app/dashboard/layout.tsx) is fluid (100% width, just
+    // centered + padded) below the '2xl' breakpoint either way; only
+    // the max-width AT 2xl and up matters here. 1280px left a wide,
+    // increasingly common desktop monitor (>=1536px, where '2xl'
+    // actually kicks in) with several hundred px of dead margin on
+    // each side while tables/charts stayed cramped - 1600px keeps a
+    // hard ceiling (unbounded content on an ultrawide would just be
+    // hard to read) but uses far more of a normal wide monitor.
     container: {
       center: true,
       padding: "1.5rem",
       screens: {
-        "2xl": "1280px",
+        "2xl": "1600px",
       },
     },
     extend: {

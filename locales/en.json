@@ -4,7 +4,10 @@
     "getStarted": "Get Started",
     "logout": "Log out",
     "pricingPlan": "Pricing",
-    "backToDashboard": "Back to Dashboard"
+    "backToDashboard": "Back to Dashboard",
+    "menu": "Menu",
+    "collapseSidebar": "Collapse",
+    "expandSidebar": "Expand"
   },
   "landing": {
     "badge": "GEO (Generative Engine Optimization) Ready",
@@ -85,6 +88,7 @@
     "dashboard": "Dashboard",
     "reportNav": "Report",
     "helpNav": "Guide & FAQ",
+    "billingNav": "Plan & Billing",
     "mentionRate": "AI Exposure Rate",
     "mentionRateHint": "% of AI responses mentioning your brand",
     "mentionRateTooltip": "The share of your saved questions where AI (like ChatGPT) recommended or mentioned your brand or product. (e.g. 58% = recommended in about 6 out of 10 questions)",

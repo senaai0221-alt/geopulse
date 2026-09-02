@@ -4,7 +4,10 @@
     "getStarted": "今すぐ始める",
     "logout": "ログアウト",
     "pricingPlan": "料金プラン",
-    "backToDashboard": "ダッシュボードへ戻る"
+    "backToDashboard": "ダッシュボードへ戻る",
+    "menu": "メニュー",
+    "collapseSidebar": "折りたたむ",
+    "expandSidebar": "展開する"
   },
   "landing": {
     "badge": "GEO (Generative Engine Optimization) 対応",
@@ -85,6 +88,7 @@
     "dashboard": "ダッシュボード",
     "reportNav": "レポート",
     "helpNav": "ガイド・Q&A",
+    "billingNav": "プラン・お支払い",
     "mentionRate": "AI露出率",
     "mentionRateHint": "AI回答内で自社が紹介された割合",
     "mentionRateTooltip": "登録した質問に対して、AI(ChatGPTなど)があなたのブランドや商品をオススメ・紹介してくれた割合です。(例: 58%=10回の質問中約6回紹介された)",

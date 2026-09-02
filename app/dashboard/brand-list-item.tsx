@@ -164,9 +164,16 @@ export function BrandListItem({ brand }: { brand: Brand }) {
         <span className="text-xs text-muted-foreground">{t("settings.brandPausedHint")}</span>
       )}
       {brand.domain && (
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Globe className="h-3 w-3" />
-          {brand.domain}
+        // min-w-0 on the flex row + truncate on the text itself - a
+        // long domain with no spaces (nothing for the browser to wrap
+        // on) otherwise just pushes straight past this card's right
+        // edge instead of clipping to it, since a flex item's default
+        // min-width is its content's own width, not 0.
+        <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          <Globe className="h-3 w-3 shrink-0" />
+          <span className="truncate" title={brand.domain}>
+            {brand.domain}
+          </span>
         </span>
       )}
       {brand.competitors && brand.competitors.length > 0 && (

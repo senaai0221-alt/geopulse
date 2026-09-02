@@ -6,6 +6,7 @@ import { LangToggle } from "@/components/lang-toggle";
 import { SignOutButton } from "./sign-out-button";
 import { SidebarNav } from "./sidebar-nav";
 import { DashboardLogoLink } from "./logo-link";
+import { MobileNav } from "./mobile-nav";
 
 const PLAN_LABELS: Record<string, string | null> = {
   free: null, // rendered via <T k="dashboard.notSubscribed" /> instead
@@ -42,25 +43,27 @@ export default async function DashboardLayout({
               that read as a sign-out even though the session is still
               live. */}
           <DashboardLogoLink />
-          <div className="flex min-w-0 items-center gap-3">
+          {/* md+ only: below that, every one of these controls (lang
+              toggle, email/plan text, sign-out) moves into MobileNav's
+              drawer instead - packed into this same row on a narrow
+              viewport, the sign-out button could get squeezed off-
+              screen entirely (see MobileNav's own comment). */}
+          <div className="hidden min-w-0 items-center gap-3 md:flex">
             <LangToggle />
-            <span className="hidden max-w-[16rem] truncate text-sm text-muted-foreground sm:inline">
+            <span className="max-w-[16rem] truncate text-sm text-muted-foreground">
               {profile?.email} · <T k="dashboard.plan" />: {planLabel ?? <T k="dashboard.notSubscribed" />}
-            </span>
-            <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium uppercase text-muted-foreground sm:hidden">
-              {planLabel ?? <T k="dashboard.notSubscribed" />}
             </span>
             <SignOutButton />
           </div>
+          <MobileNav email={profile?.email} planLabel={planLabel ?? <T k="dashboard.notSubscribed" />} />
         </div>
       </header>
 
+      {/* SidebarNav renders its own <aside> (width now varies with its
+          collapsed/expanded state, so that couldn't stay a static
+          wrapper owned here) - see sidebar-nav.tsx. */}
       <div className="container flex gap-8 py-8 print:p-0">
-        <aside className="hidden w-52 shrink-0 md:block print:hidden">
-          <div className="sticky top-8">
-            <SidebarNav />
-          </div>
-        </aside>
+        <SidebarNav />
         <main className="min-w-0 flex-1 print:w-full">{children}</main>
       </div>
     </div>
