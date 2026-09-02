@@ -15,9 +15,11 @@
 import {
   PROVIDER_LABELS as CSV_PROVIDER_LABELS,
   SENTIMENT_LABELS,
+  FLAT_CSV_HEADERS,
   csvCell,
   csvRow,
   CSV_BOM,
+  extractMentionSnippet,
 } from "../lib/csv-export";
 import { alertEmailSubject, buildAlertEmailHtml, FROM_ADDRESS } from "../lib/email";
 import { buildDailySummaryBlocks, buildTestMessageBlocks } from "../lib/slack";
@@ -34,33 +36,50 @@ section("1. CSV EXPORT");
 
 console.log(`BOM present: ${CSV_BOM.charCodeAt(0) === 0xfeff} (U+${CSV_BOM.charCodeAt(0).toString(16).toUpperCase()})`);
 console.log(`Content-Type header used by the route: text/csv; charset=utf-8`);
+console.log(`Gate: Pro/Business only (see app/api/export/csv/route.ts's plan check) - 403 for a Free account.`);
+
+// Flat, 1-row-per-measurement-event log (replaced the old two-section
+// human-readable summary - see app/api/export/csv/route.ts) - built for
+// pasting straight into Excel/Looker Studio/Sheets to pivot, not for
+// reading top-to-bottom.
+const longRawResponse =
+  "国内で人気のワイヤレスイヤホンをいくつか紹介します。".repeat(6) +
+  "特にZonostickは装着感とノイズキャンセリング性能のバランスが良く、通勤時の利用にもおすすめです。" +
+  "そのほかにも様々な選択肢があります。".repeat(6);
+
+const sampleSnippet = extractMentionSnippet(longRawResponse, "Zonostick");
 
 const sampleCsv =
   CSV_BOM +
-  "Zonostick レポート - Zonostick\r\n" +
-  "出力日時,2026/8/30 10:00:00\r\n" +
-  "言及率,67%\r\n" +
-  "\r\n" +
-  "■ プロンプト × LLM別 最新結果\r\n" +
-  csvRow(["プロンプト", "LLM", "言及", "推奨順位", "論調", "計測日時"]) +
+  csvRow(FLAT_CSV_HEADERS) +
   csvRow([
+    "2026/8/30 6:03:11",
+    "Zonostick",
     "おすすめのイヤホンは？",
+    "比較系",
     CSV_PROVIDER_LABELS.chatgpt,
-    "あり",
+    1,
     1,
     SENTIMENT_LABELS.positive,
-    "2026/8/30 6:03:11",
+    sampleSnippet,
+    "",
   ]) +
-  csvRow(["おすすめのイヤホンは？", CSV_PROVIDER_LABELS.claude, "なし", "", "", "2026/8/30 6:03:14"]) +
-  csvRow([`"競合" 入りテキスト`, CSV_PROVIDER_LABELS.perplexity, "あり", "", SENTIMENT_LABELS.neutral, "2026/8/30 6:03:20"]) +
-  "\r\n" +
-  "■ 競合との言及シェア(直近の計測結果ベース)\r\n" +
-  csvRow(["名前", "言及回数", "シェア"]) +
-  csvRow(["Zonostick", 4, "67%"]) +
-  csvRow(["競合A", 2, "33%"]);
+  csvRow(["2026/8/30 6:03:14", "Zonostick", "おすすめのイヤホンは？", "比較系", CSV_PROVIDER_LABELS.claude, 0, "", "", "", ""]) +
+  csvRow([
+    "2026/8/30 6:03:20",
+    "Zonostick",
+    `"競合" 入りテキスト`,
+    "",
+    CSV_PROVIDER_LABELS.perplexity,
+    1,
+    "",
+    SENTIMENT_LABELS.neutral,
+    "…Zonostickは総合力で選ばれることが多い製品です…",
+    "https://example.com/review-a; https://example.com/review-b",
+  ]);
 
 console.log("\n--- Header row (exact bytes, quoted) ---");
-console.log(csvRow(["プロンプト", "LLM", "言及", "推奨順位", "論調", "計測日時"]).trimEnd());
+console.log(csvRow(FLAT_CSV_HEADERS).trimEnd());
 
 console.log("\n--- Full sample body (as Excel would receive it) ---");
 console.log(sampleCsv);
@@ -68,6 +87,11 @@ console.log(sampleCsv);
 console.log(
   `Escaping check: a value containing a literal double-quote -> ${csvCell(`"競合" 入りテキスト`)} ` +
     `(quotes doubled per RFC 4180, so Excel reads it as one embedded ")`
+);
+
+console.log(
+  `\nmention_snippet check: a ${longRawResponse.length}-char raw response clips to ${sampleSnippet.length} chars ` +
+    `around the brand mention:\n  ${sampleSnippet}`
 );
 
 // ---------------------------------------------------------------------

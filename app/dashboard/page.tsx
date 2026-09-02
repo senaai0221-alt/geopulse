@@ -7,6 +7,7 @@ import {
   Target,
   Link2,
   Loader2,
+  Download,
   Megaphone,
   ListChecks,
   LineChart,
@@ -476,17 +477,29 @@ export default async function DashboardPage({
 
       {/* Main table - prompt form compact on top */}
       <Card>
-        {/* Report/CSV export used to live here as two buttons next to the
-            title - moved to /dashboard/report itself (PrintButton + the
-            CSV link below, see that page) so this card's header is just
-            the title again, not a second home for export controls that
-            already belong on the dedicated report page. */}
-        <CardHeader>
+        {/* The "A4レポートを開く" button that used to sit here moved to
+            /dashboard/report itself (this card's header is just the
+            title again, not a second home for a link to a page that
+            already has its own nav entry). CSV stays reachable from
+            both places, though, for a different reason: /dashboard/
+            report is Business-only, but the CSV export itself is
+            Pro+Business (see app/api/export/csv/route.ts) - a Pro
+            account has no other page this link could live on. */}
+        <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2">
             <ListChecks className="h-4 w-4 text-primary" />
             <T k="dashboard.latestRankings" />
             <InfoTooltip textKey="dashboard.latestRankingsTooltip" />
           </CardTitle>
+          {(plan === "pro" || plan === "business") && (
+            <a
+              href={`/api/export/csv?brand=${selectedBrand.id}`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 gap-1.5")}
+            >
+              <Download className="h-3.5 w-3.5" />
+              <T k="dashboard.downloadCsv" />
+            </a>
+          )}
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <PromptForm
