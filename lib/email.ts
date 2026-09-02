@@ -13,17 +13,7 @@
  * blocks the other.
  */
 
-import type { LlmProvider } from "./geo-engine";
-import type { RankingChange } from "./slack";
-
-const PROVIDER_LABELS: Record<LlmProvider, string> = {
-  chatgpt: "ChatGPT",
-  claude: "Claude",
-  perplexity: "Perplexity",
-  gemini: "Gemini",
-  grok: "Grok",
-  deepseek: "DeepSeek",
-};
+import { PROVIDER_LABELS, rankLabel, type RankingChange } from "./alert-message";
 
 // Exported (only) so the exact sender/body can be inspected directly by
 // scripts/verify-notifications-and-exports.ts without sending a real
@@ -34,12 +24,6 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.zonostick.com";
 export interface AlertEmailInput {
   brandName: string;
   anomalies: RankingChange[];
-}
-
-function rankLabel(rank: number | null, mentioned: boolean): string {
-  if (rank !== null) return `#${rank}`;
-  if (mentioned) return "圏内(順位なし)";
-  return "圏外";
 }
 
 function escapeHtml(value: string): string {

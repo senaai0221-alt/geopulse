@@ -378,7 +378,7 @@ export function nameRegex(name: string, flags = "i"): RegExp {
 
 /**
  * Splits a response into ordered "list items" representing a ranked
- * recommendation list, trying three strategies in order of specificity:
+ * recommendation list, trying two strategies in order of specificity:
  *
  * 1. Markdown headings used as ranked entries, e.g. "### 1. **Notion**"
  *    (common from Gemini/ChatGPT when the answer reads more like a
@@ -387,8 +387,22 @@ export function nameRegex(name: string, flags = "i"): RegExp {
  *    are NOT indented - indentation almost always means the line is a
  *    sub-detail of the item above it (e.g. "*   **Pros:** ...") rather
  *    than a new ranked entry, and must not be counted as one.
- * 3. Paragraph splitting, as a last resort when no list structure is
- *    detected at all.
+ *
+ * Returns `[]` (not a rank-position source) when NEITHER structure is
+ * present - there used to be a third fallback here, splitting the
+ * response into paragraphs and treating "which paragraph mentions the
+ * brand first" as its rank. That produced a rank_position for ANY
+ * multi-paragraph prose response with no real ranking at all (a
+ * comparison-style answer being the most common real-world case - see
+ * the 2026-09 incident in buildResult's own comment) - "brand appears
+ * in the 2nd paragraph" is not a ranking signal, it's an accident of
+ * how the response happened to be worded, and treating it as one
+ * produced concrete-looking-but-meaningless numbers like "#2" that then
+ * drove real rank-drop alerts. A response with no genuine list
+ * structure now simply has no rank position, exactly like a response
+ * that never mentions the brand's rank at all (which, semantically,
+ * this is) - `parseResponse`'s own `mentioned` check below has its own
+ * independent whole-text match and is entirely unaffected by this.
  */
 function extractListItems(text: string): string[] {
   const lines = text.split("\n");
@@ -413,13 +427,7 @@ function extractListItems(text: string): string[] {
       topLevelItems.push(match[1].trim());
     }
   }
-  if (topLevelItems.length > 0) return topLevelItems;
-
-  // Fallback: treat non-empty paragraphs as pseudo-ordered items.
-  return text
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean);
+  return topLevelItems;
 }
 
 // Exported (only) so the exact-match behavior can be verified directly
@@ -452,39 +460,46 @@ export function parseResponse(
 }
 
 // ---------------------------------------------------------------------
-// Lightweight LLM judge - sentiment + rank
+// Lightweight LLM judge - sentiment only
 // ---------------------------------------------------------------------
 
 interface JudgeResult {
   sentiment: Sentiment | null;
-  rankPosition: number | null;
   // Deliberately no `mentioned` field here - see buildResult for why
   // "was the brand mentioned" is decided solely by exact-text matching,
   // never by this judge call's own opinion.
+  //
+  // Also deliberately no rank field (removed - see buildResult and the
+  // 2026-09 incident write-up in that function's own comment). This
+  // judge used to also report a `recommendation_rank`, explicitly
+  // instructed to return null for prose/comparison-style text rather
+  // than a real numbered ranking - in practice the model didn't
+  // reliably follow that instruction, and a fabricated-but-plausible
+  // number (e.g. "12位") reached real users as a false rank-drop alert
+  // for a response that never contained any ranking at all. `mentioned`
+  // was never trusted from this judge for exactly this class of
+  // failure mode; rank position now gets the same treatment.
 }
 
 const JUDGE_TIMEOUT_MS = 15_000;
 
 /**
  * Makes one call to a cheap model (gpt-4o-mini by default) asking it to
- * read the raw response and judge how the brand was treated. Only ever
- * called once buildResult has already confirmed via exact-text matching
- * that the brand name is actually present (see buildResult) - this call
- * exists purely to characterize *how* an already-confirmed mention reads
- * (rank within a real ranking, sentiment), which the regex-based
- * extractListItems() is far more fragile at against unusual formatting
- * (markdown headings, prose-style answers, etc.). It is never used to
- * decide *whether* the brand was mentioned at all: a model asked that
- * framing, with no requirement to point at literal text, will readily
- * invent a rank/sentiment for a name that never appears in the response.
+ * read the raw response and judge its sentiment toward the brand. Only
+ * ever called once buildResult has already confirmed via exact-text
+ * matching that the brand name is actually present (see buildResult) -
+ * this call exists purely to characterize *how* an already-confirmed
+ * mention reads, not to decide *whether* the brand was mentioned (or,
+ * as of this fix, *where* it ranked) at all: a model asked either of
+ * those framings, with no requirement to point at literal text, will
+ * readily invent an answer for something that isn't actually there.
  *
  * Fully optional: if OPENAI_API_KEY is missing, the call fails, times
- * out, or returns unparseable JSON, this returns all-null/false and the
- * caller falls back to the regex-based parse's rank - the pipeline never
- * breaks because of this extra step.
+ * out, or returns unparseable JSON, this returns null sentiment and the
+ * pipeline never breaks because of this extra step.
  */
 async function judgeBrandTreatment(rawResponse: string, brandName: string): Promise<JudgeResult> {
-  const empty: JudgeResult = { sentiment: null, rankPosition: null };
+  const empty: JudgeResult = { sentiment: null };
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey || !rawResponse.trim()) return empty;
@@ -511,17 +526,10 @@ async function judgeBrandTreatment(rawResponse: string, brandName: string): Prom
               `対象ブランド「${brandName}」は、以下のAIの回答テキスト中に文字列として実際に存在します` +
               `(それは呼び出し元が事前に確認済みです)。その前提のうえで、言及のされ方を分析し、` +
               `JSONのみで返答してください。他のテキストは一切含めないでください。\n\n` +
-              `{"sentiment": "positive" | "neutral" | "negative" | null, "recommendation_rank": number | null}\n\n` +
+              `{"sentiment": "positive" | "neutral" | "negative" | null}\n\n` +
               `- sentiment: ブランドが言及されている箇所の論調。\n` +
-              `- recommendation_rank: 「おすすめ順」「ベスト◯選」のように、AIが明確に優劣・優先順位をつけて` +
-              `複数の候補を並べたランキングの場合のみ、対象ブランドが何位か(1始まりの整数)。\n` +
-              `  判定に迷ったら必ず null にしてください。特に以下は rank ではなく null:\n` +
-              `  * 2つ(またはそれ以上)の候補を「Aは〜、Bは〜」と対等に比較・紹介しているだけの文章\n` +
-              `    (本文中でどちらが先に登場するかは順位ではありません)\n` +
-              `  * 1つの項目の中の特徴・長所・機能を箇条書きしているだけのもの\n` +
-              `  * ランキングではなく単に言及・説明しているだけのもの\n` +
               `- 万が一、回答テキストを注意深く読んでも「${brandName}」という文字列が本当にどこにも` +
-              `見当たらない場合は、sentiment・recommendation_rankの両方を必ず null にしてください。\n\n` +
+              `見当たらない場合は、sentimentを必ず null にしてください。\n\n` +
               `回答テキスト:\n${rawResponse.slice(0, 6000)}`,
           },
         ],
@@ -538,12 +546,8 @@ async function judgeBrandTreatment(rawResponse: string, brandName: string): Prom
     const sentiment: Sentiment | null = ["positive", "neutral", "negative"].includes(parsed.sentiment)
       ? parsed.sentiment
       : null;
-    const rankPosition =
-      Number.isInteger(parsed.recommendation_rank) && parsed.recommendation_rank > 0
-        ? parsed.recommendation_rank
-        : null;
 
-    return { sentiment, rankPosition };
+    return { sentiment };
   } catch {
     // Network error, timeout, or malformed JSON - degrade gracefully.
     return empty;
@@ -569,9 +573,10 @@ function emptyResult(provider: LlmProvider, error: unknown): GeoQueryResult {
  * Turns one provider's raw response into a full GeoQueryResult: runs the
  * regex-based exact-text parse first, then - only if that confirms the
  * brand name is actually, literally present in the response - asks the
- * lightweight LLM judge to characterize sentiment/rank, since it reads
+ * lightweight LLM judge to characterize sentiment, since that reads
  * unusual formatting (markdown headings, prose-style answers) far more
- * reliably than the regex-based list parser.
+ * reliably than a regex could for a genuinely subjective question like
+ * tone.
  *
  * `mentioned` is decided by the literal-text match alone, never by the
  * judge call: the judge is asked to describe *how* a brand is talked
@@ -582,9 +587,24 @@ function emptyResult(provider: LlmProvider, error: unknown): GeoQueryResult {
  * `parsed.mentioned` (rather than calling it unconditionally and OR-ing
  * its opinion in afterward) closes that hole structurally instead of
  * just downgrading the judge's vote: an unmentioned brand can no longer
- * end up with a hallucinated sentiment/rank sitting alongside it either,
- * and it skips a paid API call for every prompt x provider combination
+ * end up with a hallucinated sentiment sitting alongside it either, and
+ * it skips a paid API call for every prompt x provider combination
  * where the brand plainly never came up.
+ *
+ * `rankPosition` is `parsed.rankPosition` ONLY - it used to also accept
+ * the judge's own `recommendation_rank` as a fallback when the regex
+ * parser found no rank (see judgeBrandTreatment's JudgeResult comment).
+ * That fallback is what let a fabricated rank reach real users: for a
+ * prose/comparison-style response with no actual numbered ranking, the
+ * judge would sometimes still return a plausible-looking integer
+ * despite being explicitly instructed to return null in exactly that
+ * case, and app/api/cron/daily-check/route.ts's anomaly detection took
+ * that number completely at face value, producing an alert like
+ * "順位が2位→12位に悪化しました" for a response that never contained
+ * any ranking at all. Same principle as `mentioned` above, now applied
+ * to rank too: a number this specific has to be grounded in the
+ * text's own structure (extractListItems' regex match), never an LLM's
+ * unverified opinion of where something "would" rank.
  */
 async function buildResult(
   provider: LlmProvider,
@@ -595,14 +615,14 @@ async function buildResult(
   const citations = mergeCitations(response.citations, response.text);
   const judge = parsed.mentioned
     ? await judgeBrandTreatment(response.text, input.brandName)
-    : { sentiment: null, rankPosition: null };
+    : { sentiment: null };
 
   return {
     provider,
     rawResponse: response.text,
     citations,
     sentiment: judge.sentiment,
-    rankPosition: judge.rankPosition ?? parsed.rankPosition,
+    rankPosition: parsed.rankPosition,
     mentioned: parsed.mentioned,
     competitorsMentioned: parsed.competitorsMentioned,
   };

@@ -24,6 +24,7 @@ import {
 import { alertEmailSubject, buildAlertEmailHtml, FROM_ADDRESS } from "../lib/email";
 import { buildDailySummaryBlocks, buildTestMessageBlocks } from "../lib/slack";
 import type { RankingChange } from "../lib/slack";
+import { buildAnomalyMessage } from "../lib/alert-message";
 
 function section(title: string) {
   console.log(`\n${"=".repeat(70)}\n${title}\n${"=".repeat(70)}`);
@@ -247,6 +248,54 @@ for (const [label, ok] of redesignChecks) {
 
 console.log(`\n${slackIssues === 0 ? "All Slack structural checks passed." : `${slackIssues} Slack issue(s) found.`}`);
 
-if (trCount !== expectedTrCount || slackIssues > 0) {
+// ---------------------------------------------------------------------
+// 4. Shared alert message formatter (lib/alert-message.ts)
+// ---------------------------------------------------------------------
+section("4. SHARED ALERT MESSAGE FORMATTER (alerts.message)");
+
+// Same two sampleAnomalies used for the email/Slack sections above -
+// this is exactly the point of lib/alert-message.ts existing: one
+// RankingChange, one formatter, reused by all three notification
+// surfaces (the DB column here, plus email/Slack above) instead of
+// three independently hand-written copies.
+let formatterIssues = 0;
+for (const change of sampleAnomalies) {
+  const msg = buildAnomalyMessage(change);
+  console.log(`[${change.mentioned ? "worsened" : "disappeared"}] ${msg}`);
+
+  if (!change.mentioned) {
+    // The exact class of bug this whole module exists to make
+    // structurally impossible: a "disappeared" message may correctly
+    // show the real, known PREVIOUS rank (e.g. "#2 →" - that number is
+    // genuine, already-measured data), but the CURRENT side of the
+    // arrow must never be a fabricated number - only "圏外", never a
+    // stray "→ #12" or "→ 12位" standing in for data that never
+    // existed.
+    if (/→\s*#\d|→\s*\d+位/.test(msg)) {
+      console.log(`FAIL - disappeared-case message claims a numeric CURRENT rank: ${msg}`);
+      formatterIssues++;
+    } else {
+      console.log("PASS - disappeared-case message's current side says 圏外, not a fabricated number");
+    }
+    if (!msg.includes("圏外")) {
+      console.log(`FAIL - disappeared-case message doesn't say 圏外: ${msg}`);
+      formatterIssues++;
+    } else {
+      console.log("PASS - disappeared-case message says 圏外");
+    }
+  } else {
+    if (!msg.includes(`#${change.previousRank}`) || !msg.includes(`#${change.currentRank}`)) {
+      console.log(`FAIL - worsened-case message is missing one of the real rank numbers: ${msg}`);
+      formatterIssues++;
+    } else {
+      console.log("PASS - worsened-case message shows both real rank numbers");
+    }
+  }
+}
+console.log(
+  `\n${formatterIssues === 0 ? "All alert-message formatter checks passed." : `${formatterIssues} formatter issue(s) found.`}`
+);
+
+if (trCount !== expectedTrCount || slackIssues > 0 || formatterIssues > 0) {
   process.exit(1);
 }

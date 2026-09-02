@@ -4,16 +4,14 @@
  * per-user summary plus any detected ranking anomalies.
  */
 
-import type { LlmProvider } from "./geo-engine";
+import { PROVIDER_LABELS, rankLabel, type RankingChange } from "./alert-message";
 
-export interface RankingChange {
-  brandName: string;
-  promptText: string;
-  provider: LlmProvider;
-  previousRank: number | null;
-  currentRank: number | null;
-  mentioned: boolean;
-}
+// Re-exported so every existing `import { type RankingChange } from
+// "./slack"` (or "@/lib/slack") keeps working unchanged - its
+// canonical home moved to lib/alert-message.ts, which both this file
+// and lib/email.ts now depend on for the shared rankLabel/
+// PROVIDER_LABELS formatting (see that module's own comment for why).
+export type { RankingChange };
 
 export interface DailySummaryInput {
   brandName: string;
@@ -24,27 +22,12 @@ export interface DailySummaryInput {
   anomalies: RankingChange[];
 }
 
-const PROVIDER_LABELS: Record<LlmProvider, string> = {
-  chatgpt: "ChatGPT",
-  claude: "Claude",
-  perplexity: "Perplexity",
-  gemini: "Gemini",
-  grok: "Grok",
-  deepseek: "DeepSeek",
-};
-
 // Fallback mirrors lib/email.ts's APP_URL constant - both point the
 // user back into the app from a notification, so they must resolve to
 // the same place. NEXT_PUBLIC_APP_URL is expected to be set in
 // production; this is only what a dev/misconfigured environment falls
 // back to.
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.zonostick.com";
-
-function rankLabel(rank: number | null, mentioned: boolean): string {
-  if (rank !== null) return `#${rank}`;
-  if (mentioned) return "圏内(順位なし)";
-  return "圏外";
-}
 
 function severityEmoji(change: RankingChange): string {
   if (!change.mentioned) return "🔴";

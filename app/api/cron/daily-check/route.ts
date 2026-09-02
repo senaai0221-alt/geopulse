@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { runGeoQuery, type LlmProvider } from "@/lib/geo-engine";
 import { sendDailySummary, type RankingChange } from "@/lib/slack";
 import { sendAlertEmail } from "@/lib/email";
+import { buildAnomalyMessage } from "@/lib/alert-message";
 
 export const dynamic = "force-dynamic";
 // With Fluid compute (on by default for new projects, ours included),
@@ -181,12 +182,21 @@ async function processBrand(
 
           let isAnomaly = false;
           let severity: "info" | "warning" | "critical" = "info";
-          let message = "";
 
+          // A "worsened rank" anomaly is ONLY ever the second branch
+          // below, gated on both ranks being real, non-null numbers -
+          // this is the invariant the 2026-09 "2位→12位" false-alert
+          // incident violated upstream (a fabricated rank_position from
+          // lib/geo-engine.ts reaching here as if it were real; see that
+          // file's buildResult/extractListItems for the actual fix).
+          // Asserting it explicitly here, rather than just relying on
+          // the condition below being written correctly, means a future
+          // change to this block can't silently let a null-backed
+          // "worsened" anomaly slip through without this comment/check
+          // having to be touched too.
           if (wasMentioned && !result.mentioned) {
             isAnomaly = true;
             severity = "critical";
-            message = `${brand.name} が「${prompt.text}」への${result.provider}の回答から圏外になりました。`;
           } else if (
             previousRank !== null &&
             result.rankPosition !== null &&
@@ -194,18 +204,35 @@ async function processBrand(
           ) {
             isAnomaly = true;
             severity = "warning";
-            message = `${brand.name} の順位が「${prompt.text}」(${result.provider})で ${previousRank}位 → ${result.rankPosition}位 に悪化しました。`;
           }
 
           if (isAnomaly) {
-            anomalies.push({
+            const change: RankingChange = {
               brandName: brand.name,
               promptText: prompt.text,
               provider: result.provider,
               previousRank,
               currentRank: result.rankPosition,
               mentioned: result.mentioned,
-            });
+            };
+
+            // A "critical" (disappeared) anomaly must never carry a
+            // current rank number, and a "warning" (worsened) one must
+            // always carry both - if either invariant is ever violated
+            // (a future edit above changes what triggers isAnomaly
+            // without updating this), fail loudly in Sentry rather than
+            // silently writing/sending a message that names a rank
+            // number the underlying data doesn't actually support.
+            const invariantOk =
+              severity === "critical" ? change.currentRank === null : change.previousRank !== null && change.currentRank !== null;
+            if (!invariantOk) {
+              Sentry.captureMessage("daily-check: anomaly rank invariant violated", {
+                level: "error",
+                extra: { change, severity },
+              });
+            }
+
+            anomalies.push(change);
 
             await supabase.from("alerts").insert({
               user_id: brand.user_id,
@@ -213,7 +240,7 @@ async function processBrand(
               prompt_id: prompt.id,
               provider: result.provider,
               severity,
-              message,
+              message: buildAnomalyMessage(change),
               previous_rank: previousRank,
               current_rank: result.rankPosition,
             });
