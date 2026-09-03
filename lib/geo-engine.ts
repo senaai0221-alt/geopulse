@@ -485,20 +485,27 @@ export function nameRegex(name: string, flags = "i"): RegExp {
 
 /**
  * Splits a response into ordered "list items" representing a ranked
- * recommendation list, trying two strategies in order of specificity:
+ * recommendation list, trying three strategies in order of specificity:
  *
  * 1. Markdown headings used as ranked entries, e.g. "### 1. **Notion**"
  *    (common from Gemini/ChatGPT when the answer reads more like a
  *    mini-article than a plain list).
- * 2. Plain numbered ("1.", "2)") or bulleted ("-", "*", "•") lines that
+ * 2. A bold-text rank marker with no Markdown heading/list syntax at
+ *    all, e.g. "**1位：日本通信（合理的シンプル290）**" (2026-09 incident -
+ *    see below). Checked before the generic bullet strategy specifically
+ *    so its own detail lines (see that strategy's own comment) never
+ *    get a chance to be miscounted first.
+ * 3. Plain numbered ("1.", "2)") or bulleted ("-", "*", "•") lines that
  *    are NOT indented - indentation almost always means the line is a
  *    sub-detail of the item above it (e.g. "*   **Pros:** ...") rather
- *    than a new ranked entry, and must not be counted as one.
+ *    than a new ranked entry, and must not be counted as one. Also
+ *    excludes a bulleted "**ラベル**：値" attribute line (e.g.
+ *    "- **料金**：月額2,178円") for the same reason - see LABEL_DETAIL_LINE.
  *
- * Returns `[]` (not a rank-position source) when NEITHER structure is
- * present - there used to be a third fallback here, splitting the
- * response into paragraphs and treating "which paragraph mentions the
- * brand first" as its rank. That produced a rank_position for ANY
+ * Returns `[]` (not a rank-position source) when NONE of the three
+ * structures is present - there used to be a fallback here, splitting
+ * the response into paragraphs and treating "which paragraph mentions
+ * the brand first" as its rank. That produced a rank_position for ANY
  * multi-paragraph prose response with no real ranking at all (a
  * comparison-style answer being the most common real-world case - see
  * the 2026-09 incident in buildResult's own comment) - "brand appears
@@ -525,6 +532,35 @@ export function nameRegex(name: string, flags = "i"): RegExp {
  * scan stops there before ever reaching #5); parseResponse's own
  * negation guard (see hasPositiveMention) fixes the second half for
  * any case where a "○○以外" section is genuinely the only match.
+ *
+ * A THIRD 2026-09 incident (the one strategy 2 above and
+ * LABEL_DETAIL_LINE directly address, found running a deliberately
+ * large real-brand-name demo): a response with structure
+ *   **1位：日本通信（...）**
+ *   - **料金**：月額2,178円（税込）
+ *   - **特徴**：...
+ *   - **注意点**：...
+ *   **2位：IIJmio（...）**
+ *   ...
+ * has its real rank markers ("**1位**") as bold text with no Markdown
+ * heading/list syntax at all - strategy 1 (headings) never matched
+ * them, so the old code fell through to strategy 3 (plain bullets),
+ * which - correctly, by its own rules at the time - counted every
+ * "- **ラベル**：値" detail line as a NEW top-level entry (they ARE
+ * un-indented lines starting with "-"). The response also had multiple
+ * independent mini-rankings ("料金重視の1〜3位", then a separate
+ * "データ大量利用者向けの1〜2位"), and a brand name that only appeared,
+ * completely incidentally, inside one of those unrelated detail lines
+ * (a generic aside naming several carriers) - that detail line's
+ * position in the miscounted list (#17) became the reported rank. See
+ * parseResponse's own `hasDuplicateRankNumbers` for the last line of
+ * defense this incident also motivated: even with strategies 1-3 fixed
+ * for this exact shape, a genuinely ambiguous response with the SAME
+ * rank number appearing more than once (multiple independent
+ * mini-rankings) still can't be trusted to name one true rank - a
+ * fabricated-but-plausible number is worse than admitting "掲載あり・
+ * 順位不明", so that case now suppresses rank_position entirely instead
+ * of guessing.
  */
 function extractListItems(text: string): string[] {
   const lines = text.split("\n");
@@ -536,15 +572,72 @@ function extractListItems(text: string): string[] {
   }, []);
   if (headingIndices.length > 0) return blocksFromIndices(lines, headingIndices);
 
+  // A rank stated as bold text alone - "**1位：...**", "**1. ...**",
+  // "**1)...**", "**1】...**" - with no "#"/"-"/"*" list syntax at all.
+  // Requires a digit directly after the "**" (never matches a bold
+  // LABEL like "**料金**" or "**特徴**", which never starts with one).
+  const boldRankPattern = /^\s{0,3}\*\*\s*\d{1,2}\s*[位.)】:：]/;
+  const boldRankIndices = lines.reduce<number[]>((acc, line, i) => {
+    if (boldRankPattern.test(line)) acc.push(i);
+    return acc;
+  }, []);
+  if (boldRankIndices.length > 0) return blocksFromIndices(lines, boldRankIndices);
+
   // Only lines with zero leading whitespace count as top-level list
   // entries; an indented "*"/"-" is a nested sub-bullet, not a new rank.
+  //
+  // LABEL_DETAIL_LINE is only actually a "detail line" when it sits
+  // inside a numbered item's own block ("1. **ブランドA**" followed by
+  // "- **料金**：..." lines) - it must NOT be excluded just because it
+  // happens to match the "- **label**：value" shape on its own, since
+  // that shape is also how a perfectly ordinary standalone bullet list
+  // reads (e.g. "- **一番おすすめ**：ドコモ", "- **料金を最優先**：楽天
+  // モバイル" - a response with no ranking at all, just labeled
+  // takeaways). Two real 2026-09 production rows were found reparsing
+  // WORSE after LABEL_DETAIL_LINE started excluding unconditionally -
+  // rank 1→2 and rank 3→4, both from exactly this: a document with no
+  // numbered list anywhere had its only standalone bullets wiped out
+  // (case 1), or had an unrelated LATER numbered list ("### 乗り換え前
+  // に注意すること") retroactively swallow an EARLIER, unrelated
+  // "- **label**：value" bullet section into a merged block that pulled
+  // in a stray brand mention from the doc's closing paragraph (case 2).
+  // `insideNumberedItem` tracks whether we are currently inside a block
+  // that was actually opened by a real numbered entry ("\d{1,2}[.)]"),
+  // resetting at every markdown heading (a heading always starts a new
+  // section, ending any numbered list above it) - only inside such a
+  // block does a "- **label**：value" line get treated as that item's
+  // own detail rather than a new top-level entry.
   const topLevelPattern = /^(?:\d{1,2}[.)]|[-*•])\s+(.*)$/;
+  const numberedLinePattern = /^\s{0,3}\d{1,2}[.)]\s+/;
+  const headingLinePattern = /^\s{0,3}#{1,6}\s/;
+  let insideNumberedItem = false;
   const topLevelIndices = lines.reduce<number[]>((acc, line, i) => {
-    if (topLevelPattern.test(line)) acc.push(i);
+    if (headingLinePattern.test(line)) insideNumberedItem = false;
+    if (topLevelPattern.test(line)) {
+      const isNumbered = numberedLinePattern.test(line);
+      const isLabelDetail = LABEL_DETAIL_LINE.test(line);
+      if (!(isLabelDetail && insideNumberedItem && !isNumbered)) acc.push(i);
+      if (isNumbered) insideNumberedItem = true;
+      else if (!isLabelDetail) insideNumberedItem = false;
+    }
     return acc;
   }, []);
   return blocksFromIndices(lines, topLevelIndices);
 }
+
+// A bulleted "**ラベル**：値" attribute line - "- **料金**：月額2,178円",
+// "- **特徴**：...", "* **注意点**: ..." - shaped like it COULD be
+// describing an already-listed item's own attribute rather than a new
+// ranked entry, even though it's an un-indented "-"/"*"/"•" line that
+// would otherwise match topLevelPattern above. Matching this shape is
+// necessary but not sufficient - extractListItems' own `insideNumberedItem`
+// gate is what decides whether a given match is actually treated as a
+// detail line (only true while we're still inside a numbered entry's
+// block) versus an ordinary standalone bullet (a document with no
+// numbered list at all, e.g. "- **一番おすすめ**：ドコモ", is never
+// treated as detail lines - see extractListItems' own comment for two
+// real 2026-09 regressions this distinction fixes).
+const LABEL_DETAIL_LINE = /^(?:\d{1,2}[.)]|[-*•])\s+\*\*[^*\n]{1,20}\*\*\s*[:：]/;
 
 /** For each line index in `starts` (the start of one ranked entry),
  *  joins every line from there up to (not including) the next index in
@@ -558,6 +651,44 @@ function blocksFromIndices(lines: string[], starts: number[]): string[] {
       return lines.slice(start, end).join("\n").trim();
     })
     .filter((block) => block.length > 0);
+}
+
+// Matches whichever of extractListItems' own three marker forms a
+// block's first line actually used - "### 1.", "**1位", "1.", "1)" -
+// and captures the stated number. A plain "-"/"*"/"•" bullet with no
+// digit (the common case) correctly matches nothing here.
+const LEADING_RANK_NUMBER = /^\s{0,3}(?:#{1,6}\s*|\*\*\s*|[-*•]\s*)?(\d{1,2})[.)位】:：]/;
+
+/** The rank number a block's own first line claims to be, or null if
+ *  it doesn't actually state one. */
+function extractLeadingRankNumber(block: string): number | null {
+  const firstLine = block.split("\n", 1)[0];
+  const match = firstLine.match(LEADING_RANK_NUMBER);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+/**
+ * True if the SAME stated rank number (e.g. "1") appears on more than
+ * one of `items`' own leading lines - the strongest available signal
+ * that a response contains multiple independent mini-rankings (e.g.
+ * "料金重視なら1位はA、2位はB..." followed by a separate "データ量重視
+ * なら1位はC、2位はD...") rather than one single ranked list. See
+ * extractListItems' own comment for the real 2026-09 incident this
+ * closes: with two "1位"s and two "2位"s both present, there is no
+ * principled way to know which mini-ranking is "the" answer to how the
+ * brand ranks overall - parseResponse treats this as "give up on a
+ * rank number, not guess one" (mentioned is still decided completely
+ * independently, via the existing whole-text search).
+ */
+function hasDuplicateRankNumbers(items: string[]): boolean {
+  const seen = new Set<number>();
+  for (const item of items) {
+    const n = extractLeadingRankNumber(item);
+    if (n === null) continue;
+    if (seen.has(n)) return true;
+    seen.add(n);
+  }
+  return false;
 }
 
 // A closing bracket/punctuation-then-"以外" run, e.g. "Shokz以外", "「Shokz」
@@ -625,12 +756,22 @@ export function parseResponse(
   let rankPosition: number | null = null;
   let matchedName: string | null = null;
 
-  for (let i = 0; i < items.length; i++) {
-    const hit = names.find((name) => hasPositiveMention(items[i], name));
-    if (hit) {
-      rankPosition = i + 1;
-      matchedName = hit;
-      break;
+  // See hasDuplicateRankNumbers' own comment: a response containing
+  // more than one independent mini-ranking (the same stated "1位"/"2位"
+  // appearing twice) has no principled single answer for "the" rank -
+  // skip the positional search entirely rather than reporting whichever
+  // mini-ranking happened to come first (or, worse, an unrelated
+  // detail line an earlier miscount folded into the wrong "rank").
+  // `mentioned` below is completely unaffected - it's decided
+  // independently by the whole-text search either way.
+  if (!hasDuplicateRankNumbers(items)) {
+    for (let i = 0; i < items.length; i++) {
+      const hit = names.find((name) => hasPositiveMention(items[i], name));
+      if (hit) {
+        rankPosition = i + 1;
+        matchedName = hit;
+        break;
+      }
     }
   }
 
