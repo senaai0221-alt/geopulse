@@ -10,6 +10,7 @@ import {
   CSV_BOM,
   extractMentionSnippet,
 } from "@/lib/csv-export";
+import { formatJst } from "@/lib/jst";
 
 export const dynamic = "force-dynamic";
 
@@ -109,7 +110,10 @@ export async function GET(request: NextRequest) {
   for (const r of (rankings ?? []) as RankingRecord[]) {
     const prompt = promptById.get(r.prompt_id);
     csv += csvRow([
-      new Date(r.checked_at).toLocaleString("ja-JP"),
+      // Pinned to JST (see lib/jst.ts) - toLocaleString("ja-JP") alone
+      // reads the SERVER process's own local time (UTC on Vercel), not
+      // Japan's, silently shifting every timestamp in this column.
+      formatJst(r.checked_at, "yyyy/M/d H:mm:ss"),
       brand.name,
       prompt?.text ?? "",
       prompt?.category ?? "",

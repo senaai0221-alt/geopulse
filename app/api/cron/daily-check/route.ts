@@ -167,10 +167,23 @@ async function processBrand(
           };
         });
 
-        const { error: insertError } = await supabase.from("rankings").insert(rowsToInsert);
+        // .select() so any alert built from this same batch (below) can
+        // link directly to the exact rankings row that triggered it
+        // (alerts.ranking_id) - a reader (or a script debugging a
+        // reported mismatch) can then always trace an alert back to the
+        // literal row it came from, rather than trusting that "the
+        // latest row for this prompt/provider" is still the same one.
+        const { data: insertedRows, error: insertError } = await supabase
+          .from("rankings")
+          .insert(rowsToInsert)
+          .select("id, provider");
         if (insertError) {
           console.error(`Failed to insert rankings for prompt ${prompt.id}:`, insertError.message);
           return;
+        }
+        const rankingIdByProvider = new Map<string, string>();
+        for (const row of insertedRows ?? []) {
+          rankingIdByProvider.set(row.provider, row.id);
         }
 
         for (const result of results) {
@@ -245,6 +258,13 @@ async function processBrand(
               message: buildAnomalyMessage(change),
               previous_rank: previousRank,
               current_rank: result.rankPosition,
+              // Traces this alert back to the exact rankings row that
+              // triggered it, so a reader (dashboard, email, or a script
+              // debugging a reported mismatch) is never guessing "the
+              // latest row for this prompt/provider" - that row can have
+              // moved on by the time anyone looks, which is exactly what
+              // produced the 2026-09 "メール・ダッシュボード不一致" report.
+              ranking_id: rankingIdByProvider.get(result.provider) ?? null,
             });
           }
         }
@@ -414,7 +434,7 @@ async function runDailyCheck(supabase: ReturnType<typeof createAdminClient>) {
       const alertTo = profile?.notification_email || profile?.email;
       if (anomalies.length > 0 && profile?.email_alerts_enabled !== false && alertTo) {
         try {
-          await sendAlertEmail(alertTo, { brandName: brand.name, anomalies });
+          await sendAlertEmail(alertTo, { brandName: brand.name, anomalies, checkedAt });
           emailStatus = "sent";
         } catch (err) {
           emailStatus = "error";

@@ -203,9 +203,21 @@ create table if not exists public.alerts (
   message text not null,
   previous_rank int,
   current_rank int,
+  -- The exact rankings row that triggered this alert (2026-09 "メール・
+  -- ダッシュボード不一致" fix): lets every reader (dashboard, alert
+  -- email, or a debugging script) resolve the alert's rank/time data
+  -- from one authoritative record instead of re-querying "the latest
+  -- row for this prompt/provider", which can drift out from under a
+  -- past alert as later checks come in. Nullable/on delete set null so
+  -- pruning old rankings rows never breaks the alert history itself.
+  ranking_id uuid references public.rankings (id) on delete set null,
   sent_to_slack boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+-- Adds ranking_id for databases created before this column existed;
+-- safe to re-run.
+alter table public.alerts add column if not exists ranking_id uuid references public.rankings (id) on delete set null;
 
 create index if not exists alerts_user_created_idx on public.alerts (user_id, created_at desc);
 

@@ -20,6 +20,15 @@
  * by its official product name only in one response, with the nickname
  * nowhere in the text - see the `aliases` field added below and to
  * `brands`/`parseResponse` itself.
+ *
+ * And the "Shokz 5位" incident (2026-09): a brand whose actual #1
+ * product was named only in bold text on the line AFTER its numbered
+ * heading (a single-line-only match found nothing there), while a
+ * LATER heading literally titled "【Shokz以外】" (brands OTHER than
+ * Shokz) contained the brand name as a negated substring and was the
+ * only thing a single-line match found - reported as rank 5 instead of
+ * the real rank 1. See extractListItems' own full-block-per-entry
+ * rewrite and parseResponse's hasPositiveMention negation guard.
  */
 import { parseResponse } from "../lib/geo-engine";
 
@@ -121,6 +130,35 @@ const cases: Case[] = [
     aliases: ["くまのプーさん えらべる回転6WAY ジムにへんしんメリー"],
     expectMentioned: true,
     expectRankPosition: 1,
+  },
+  {
+    // The exact "Shokz 5位" incident, reproduced from the real raw
+    // response's structure (heading + bold product name on the NEXT
+    // line, real rank-1 product; a later heading literally titled
+    // "【Shokz以外】" further down).
+    name: 'Shokz incident: product name on the line after the heading (not the heading itself), "以外" heading later',
+    rawResponse:
+      "### 1. 【総合1位】音質にこだわりたい方\n" +
+      "**▶ Shokz OpenRun Pro 2**\n" +
+      "* 特徴: 骨伝導と空気伝導のハイブリッド。\n" +
+      "### 2. 【1番人気】スポーツ向け\n" +
+      "**▶ Shokz OpenRun**\n" +
+      "### 5. 【Shokz以外】夜間のランニング派に\n" +
+      "**▶ SUUNTO Wing**\n" +
+      "* 特徴: LEDライト付き。",
+    brandName: "Shokz",
+    expectMentioned: true,
+    expectRankPosition: 1,
+  },
+  {
+    // The negation guard in isolation: the brand appears ONLY inside a
+    // "○○以外" (other than ○○) section, nowhere else at all - must NOT
+    // read as a positive mention just because the substring is present.
+    name: '"以外" negation guard: brand mentioned only as "Shokz以外", nowhere else',
+    rawResponse: "### 1. 【Shokz以外】のおすすめ\n**▶ SUUNTO Wing**\n骨伝導以外の選択肢です。",
+    brandName: "Shokz",
+    expectMentioned: false,
+    expectRankPosition: null,
   },
 ];
 

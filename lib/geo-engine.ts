@@ -410,31 +410,81 @@ export function nameRegex(name: string, flags = "i"): RegExp {
  * that never mentions the brand's rank at all (which, semantically,
  * this is) - `parseResponse`'s own `mentioned` check below has its own
  * independent whole-text match and is entirely unaffected by this.
+ *
+ * Each returned item is the FULL block of text from its own
+ * heading/bullet line up to (not including) the next one, not just
+ * that one line - a real incident (also 2026-09) had a brand's #1
+ * product only named in bold text on the line *after* its numbered
+ * heading ("### 1. 圧倒的一番人気！...\n**Shokz OpenRun Pro 2**"), which
+ * a single-line match entirely misses. Meanwhile item #5's own heading
+ * text ("### 5. 【Shokz以外】...") contains the brand name as a literal
+ * substring inside a NEGATION ("other than Shokz") - a single-line
+ * match on item #1 finding nothing left THIS as the only match, so the
+ * brand was reported at rank 5 instead of its real rank 1. Capturing
+ * the full block fixes the first half (item #1 now matches, and the
+ * scan stops there before ever reaching #5); parseResponse's own
+ * negation guard (see hasPositiveMention) fixes the second half for
+ * any case where a "○○以外" section is genuinely the only match.
  */
 function extractListItems(text: string): string[] {
   const lines = text.split("\n");
 
   const headingPattern = /^\s{0,3}#{1,6}\s*\d{1,2}[.)]\s*(.*)$/;
-  const headingItems: string[] = [];
-  for (const line of lines) {
-    const match = line.match(headingPattern);
-    if (match && match[1].trim().length > 0) {
-      headingItems.push(match[1].trim());
-    }
-  }
-  if (headingItems.length > 0) return headingItems;
+  const headingIndices = lines.reduce<number[]>((acc, line, i) => {
+    if (headingPattern.test(line)) acc.push(i);
+    return acc;
+  }, []);
+  if (headingIndices.length > 0) return blocksFromIndices(lines, headingIndices);
 
   // Only lines with zero leading whitespace count as top-level list
   // entries; an indented "*"/"-" is a nested sub-bullet, not a new rank.
   const topLevelPattern = /^(?:\d{1,2}[.)]|[-*•])\s+(.*)$/;
-  const topLevelItems: string[] = [];
-  for (const line of lines) {
-    const match = line.match(topLevelPattern);
-    if (match && match[1].trim().length > 0) {
-      topLevelItems.push(match[1].trim());
-    }
+  const topLevelIndices = lines.reduce<number[]>((acc, line, i) => {
+    if (topLevelPattern.test(line)) acc.push(i);
+    return acc;
+  }, []);
+  return blocksFromIndices(lines, topLevelIndices);
+}
+
+/** For each line index in `starts` (the start of one ranked entry),
+ *  joins every line from there up to (not including) the next index in
+ *  the list - or to the end of `lines` for the last entry - into that
+ *  entry's full text block. See extractListItems' own comment for why
+ *  a single line isn't enough. */
+function blocksFromIndices(lines: string[], starts: number[]): string[] {
+  return starts
+    .map((start, i) => {
+      const end = i + 1 < starts.length ? starts[i + 1] : lines.length;
+      return lines.slice(start, end).join("\n").trim();
+    })
+    .filter((block) => block.length > 0);
+}
+
+// A closing bracket/punctuation-then-"以外" run, e.g. "Shokz以外", "「Shokz」
+// 以外", "Shokz(ショックス)以外" - the extremely common Japanese "brands
+// OTHER than X" construction. Deliberately scoped to this one specific,
+// confirmed real-incident pattern (not a general negation detector,
+// which would risk becoming exactly the kind of fragile heuristic this
+// codebase has otherwise avoided by staying with plain exact-text
+// matching) - see extractListItems' own comment for the incident.
+const NEGATION_SUFFIX = /^[\s」』】》〉\])）:：、,]*以外/;
+
+/**
+ * True if `name` has at least one occurrence in `text` that ISN'T
+ * immediately followed by a "以外" (excluding) suffix - i.e. a genuine
+ * positive mention exists somewhere, not just a "brands other than
+ * this one" reference. Used everywhere `parseResponse` used to do a
+ * plain `nameRegex(name).test(...)` for brand/alias/competitor
+ * matching, so "Shokz以外のおすすめ" can no longer read as a positive
+ * mention of Shokz on its own.
+ */
+function hasPositiveMention(text: string, name: string): boolean {
+  for (const m of text.matchAll(nameRegex(name, "gi"))) {
+    if (m.index === undefined) continue;
+    const after = text.slice(m.index + m[0].length, m.index + m[0].length + 12);
+    if (!NEGATION_SUFFIX.test(after)) return true;
   }
-  return topLevelItems;
+  return false;
 }
 
 // Exported (only) so the exact-match behavior can be verified directly
@@ -471,7 +521,7 @@ export function parseResponse(
   let matchedName: string | null = null;
 
   for (let i = 0; i < items.length; i++) {
-    const hit = names.find((name) => nameRegex(name).test(items[i]));
+    const hit = names.find((name) => hasPositiveMention(items[i], name));
     if (hit) {
       rankPosition = i + 1;
       matchedName = hit;
@@ -480,13 +530,13 @@ export function parseResponse(
   }
 
   if (matchedName === null) {
-    matchedName = names.find((name) => nameRegex(name).test(rawResponse)) ?? null;
+    matchedName = names.find((name) => hasPositiveMention(rawResponse, name)) ?? null;
   }
 
   const mentioned = matchedName !== null;
 
   const competitorsMentioned = competitors.filter((competitor) =>
-    nameRegex(competitor).test(rawResponse)
+    hasPositiveMention(rawResponse, competitor)
   );
 
   return { mentioned, rankPosition, competitorsMentioned, matchedName };

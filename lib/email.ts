@@ -14,6 +14,7 @@
  */
 
 import { PROVIDER_LABELS, rankLabel, type RankingChange } from "./alert-message";
+import { formatJstIntl } from "./jst";
 
 // Exported (only) so the exact sender/body can be inspected directly by
 // scripts/verify-notifications-and-exports.ts without sending a real
@@ -24,6 +25,13 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.zonostick.com";
 export interface AlertEmailInput {
   brandName: string;
   anomalies: RankingChange[];
+  /** When this batch of checks ran - shown in the email (JST, see
+   *  lib/jst.ts) so a reader can line this email up against the
+   *  matching row on the dashboard instead of guessing. Optional only
+   *  for scripts/verify-notifications-and-exports.ts's own inspection
+   *  calls; the real send path (sendAlertEmail, called from app/api/
+   *  cron/daily-check/route.ts) always provides it. */
+  checkedAt?: Date;
 }
 
 function escapeHtml(value: string): string {
@@ -62,6 +70,17 @@ export function buildAlertEmailHtml(input: AlertEmailInput): string {
       <h1 style="font-size:18px;margin:0 0 8px;">⚠️ ${escapeHtml(input.brandName)}で重要な変動を検知しました</h1>
       <p style="font-size:14px;color:#475569;margin:0 0 20px;">
         本日のAI検索チェックで、順位の急降下または推奨リストからの除外を検知しました。詳細はダッシュボードでご確認ください。
+        ${
+          input.checkedAt
+            ? `<br /><span style="color:#94a3b8;font-size:12px;">計測日時: ${formatJstIntl(input.checkedAt, {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })} (JST)</span>`
+            : ""
+        }
       </p>
       <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
         <thead>

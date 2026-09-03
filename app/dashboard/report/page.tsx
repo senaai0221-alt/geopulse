@@ -1,7 +1,7 @@
-import { format } from "date-fns";
 import { Download } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { formatJst, jstMidnight, jstMidnightFromDateString } from "@/lib/jst";
 import { createClient } from "@/lib/supabase/server";
 import { LLM_PROVIDERS, type LlmProvider } from "@/lib/geo-engine";
 import { T } from "@/components/t";
@@ -53,18 +53,26 @@ interface KpiSet {
   shareOfVoice: number; // 0-100
 }
 
+// JST (see lib/jst.ts) - "now" read via the server process's own local
+// clock (UTC on Vercel, not Japan's) used to report the WRONG month for
+// the first 9 hours of every JST month, silently opening the report to
+// last month's data on the 1st.
 function currentMonthStr(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return formatJst(new Date(), "yyyy-MM");
 }
 
 /** [start, end) - end is exclusive (the first instant of the *next*
  *  month), so a plain `checked_at >= start && checked_at < end` range
  *  check on either date or timestamptz values works without off-by-one
- *  edge cases at midnight on the last day. */
+ *  edge cases at midnight on the last day. Boundaries are JST midnight
+ *  (see lib/jst.ts), not the server process's own local midnight - on a
+ *  UTC server, `new Date(y, m-1, 1)` used to construct UTC midnight,
+ *  9 hours before the real start of the JST month, which silently
+ *  pulled the first 9 hours of every month's data into the PREVIOUS
+ *  month's report instead. */
 function monthRange(month: string): { start: Date; end: Date } {
   const [y, m] = month.split("-").map(Number);
-  return { start: new Date(y, m - 1, 1), end: new Date(y, m, 1) };
+  return { start: jstMidnight(y, m - 1, 1), end: jstMidnight(y, m, 1) };
 }
 
 function previousMonthStr(month: string): string {
@@ -290,21 +298,21 @@ export default async function ReportPage({
   // For each logged GEO施策 this month, a real before/after exposure-
   // rate split computed from this month's own rankings - never left for
   // the AI to guess at. checked_at is compared against the action's own
-  // midnight (in the server's local time, same as monthRange/prevMonth
-  // above), so a check that ran later the same day the action was taken
-  // counts as "after". null/null (rather than 0/0) when either side has
-  // no data at all, so lib/report-insights.ts can tell "no measurable
-  // change" apart from "not enough data to say" and skip the claim
-  // entirely rather than asserting a number computed from zero checks.
+  // JST midnight (see lib/jst.ts), so a check that ran later the same
+  // day the action was taken counts as "after". null/null (rather than
+  // 0/0) when either side has no data at all, so lib/report-insights.ts
+  // can tell "no measurable change" apart from "not enough data to say"
+  // and skip the claim entirely rather than asserting a number computed
+  // from zero checks.
   const marketingActionsForInsights = monthActions.map((a) => {
-    const actionMidnight = new Date(`${a.action_date}T00:00:00`);
+    const actionMidnight = jstMidnightFromDateString(a.action_date);
     const beforeRankings = rankings.filter((r) => new Date(r.checked_at) < actionMidnight);
     const afterRankings = rankings.filter((r) => new Date(r.checked_at) >= actionMidnight);
     const rateOf = (rows: typeof rankings) =>
       rows.length > 0 ? Math.round((rows.filter((r) => r.mentioned).length / rows.length) * 100) : null;
 
     return {
-      date: format(new Date(actionMidnight), "M/d"),
+      date: formatJst(actionMidnight, "M/d"),
       category: MARKETING_ACTION_CATEGORY_LABELS_JA[a.category],
       title: a.title,
       mentionRateBefore: rateOf(beforeRankings),
@@ -407,7 +415,7 @@ export default async function ReportPage({
         <header className="mb-8 flex items-center justify-between border-b border-border pb-4">
           <ReportLogo logoUrl={profile?.report_logo_url ?? null} companyName={profile?.company_name ?? null} />
           <div className="text-right text-xs text-muted-foreground">
-            <T k="report.generatedAt" />: {format(new Date(), "yyyy-MM-dd HH:mm")}
+            <T k="report.generatedAt" />: {formatJst(new Date(), "yyyy-MM-dd HH:mm")}
           </div>
         </header>
 

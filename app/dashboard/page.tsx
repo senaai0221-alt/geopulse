@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { format } from "date-fns";
 import {
   AlertTriangle,
   Bell,
@@ -19,6 +18,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { LLM_PROVIDERS, type LlmProvider } from "@/lib/geo-engine";
 import { cn, formatDate } from "@/lib/utils";
+import { formatJst, jstDateKey } from "@/lib/jst";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -134,8 +134,17 @@ export default async function DashboardPage({
       .order("checked_at", { ascending: false })
       .limit(20000),
     supabase
+      // Joins the exact rankings row this alert was built from
+      // (ranking_id, added 2026-09) so the timestamp shown here is the
+      // SAME record the alert email used, not `alerts.created_at` -
+      // which is whenever this insert happened to run, potentially
+      // seconds apart from the check itself under concurrent
+      // processing - see this fix's report for the reported "email and
+      // dashboard show different times" incident. Falls back to
+      // `alerts.created_at` for rows written before ranking_id existed
+      // (ranking is then null).
       .from("alerts")
-      .select("*")
+      .select("*, ranking:rankings(checked_at)")
       .eq("brand_id", selectedBrand.id)
       .order("created_at", { ascending: false })
       .limit(10),
@@ -232,7 +241,12 @@ export default async function DashboardPage({
 
   const dayBuckets = new Map<string, DayBucket>();
   for (const r of allRankings) {
-    const dateKey = format(new Date(r.checked_at), "yyyy-MM-dd");
+    // JST calendar day (see lib/jst.ts) - the daily cron runs at
+    // 07:00-07:30 JST, which is still the previous UTC calendar day on
+    // Vercel's own (UTC) server clock, so a plain date-fns format()
+    // here silently bucketed every single cron-written row into
+    // yesterday's trend-chart point.
+    const dateKey = jstDateKey(r.checked_at);
     if (!dayBuckets.has(dateKey)) dayBuckets.set(dateKey, emptyDayBucket());
     const bucket = dayBuckets.get(dateKey)!;
 
@@ -257,7 +271,7 @@ export default async function DashboardPage({
 
   const trendData: TrendPoint[] = sortedDayKeys.map((dateKey) => {
     const b = dayBuckets.get(dateKey)!;
-    const point = { date: format(new Date(dateKey), "M/d") } as TrendPoint;
+    const point = { date: formatJst(new Date(dateKey), "M/d") } as TrendPoint;
     for (const p of PROVIDERS) {
       point[p] = b.providerRank[p].count > 0 ? round1(b.providerRank[p].sum / b.providerRank[p].count) : null;
     }
@@ -267,7 +281,7 @@ export default async function DashboardPage({
   const exposureTrendData: ExposureTrendPoint[] = sortedDayKeys.map((dateKey) => {
     const b = dayBuckets.get(dateKey)!;
     return {
-      date: format(new Date(dateKey), "M/d"),
+      date: formatJst(new Date(dateKey), "M/d"),
       exposureRate: b.total > 0 ? round1((b.mentioned / b.total) * 100) : null,
     };
   });
@@ -275,7 +289,7 @@ export default async function DashboardPage({
   const voiceTrendData: VoiceTrendPoint[] = sortedDayKeys.map((dateKey) => {
     const b = dayBuckets.get(dateKey)!;
     const entityTotal = Object.values(b.entityMentions).reduce((sum, c) => sum + c, 0);
-    const point = { date: format(new Date(dateKey), "M/d") } as VoiceTrendPoint;
+    const point = { date: formatJst(new Date(dateKey), "M/d") } as VoiceTrendPoint;
     for (const name of voiceEntities) {
       const count = b.entityMentions[name] ?? 0;
       point[name] = entityTotal > 0 ? round1((count / entityTotal) * 100) : null;
@@ -719,7 +733,9 @@ export default async function DashboardPage({
                     <AlertLink promptId={alert.prompt_id} provider={alert.provider}>
                       {alert.message}
                     </AlertLink>
-                    <p className="text-xs text-muted-foreground">{formatDate(alert.created_at)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(alert.ranking?.checked_at ?? alert.created_at)}
+                    </p>
                   </div>
                 </li>
               ))}

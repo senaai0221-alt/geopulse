@@ -119,16 +119,26 @@ const sampleAnomalies: RankingChange[] = [
   },
 ];
 
+// Same instant used for the Slack section below - 06:00 JST on
+// 2026-08-30, given with an explicit +09:00 offset so this test means
+// the same thing regardless of the machine/CI runner's own local
+// timezone. This is also what exercises the JST timestamp fix: this
+// script itself may run on a JST machine (a JST dev box would mask a
+// timezone bug the exact same way it did in production before this
+// fix - see lib/jst.ts's own comment), so the sanity check below
+// asserts the JST calendar date literally, not just "some date".
+const emailCheckedAt = new Date("2026-08-30T06:00:00+09:00");
+
 console.log(`From: ${FROM_ADDRESS}`);
 console.log(`Subject: ${alertEmailSubject("Zonostick")}`);
 console.log("\n--- HTML body ---");
-console.log(buildAlertEmailHtml({ brandName: "Zonostick", anomalies: sampleAnomalies }));
+console.log(buildAlertEmailHtml({ brandName: "Zonostick", anomalies: sampleAnomalies, checkedAt: emailCheckedAt }));
 
 // A quick structural sanity check on the HTML itself: every dynamic
 // value we fed in should actually appear somewhere in the output, and
 // there should be exactly as many <tr> rows as anomalies (capped at 20
 // in the real function).
-const emailHtml = buildAlertEmailHtml({ brandName: "Zonostick", anomalies: sampleAnomalies });
+const emailHtml = buildAlertEmailHtml({ brandName: "Zonostick", anomalies: sampleAnomalies, checkedAt: emailCheckedAt });
 const trCount = (emailHtml.match(/<tr>/g) ?? []).length;
 // +1 for the table's own <thead><tr> header row, which also matches
 // the bare `<tr>` pattern (no attributes on either).
@@ -139,6 +149,10 @@ console.log(
 );
 console.log(
   `Sanity: ${emailHtml.includes("おすすめのイヤホンは？") && emailHtml.includes("ワイヤレスイヤホン 比較") ? "PASS" : "FAIL"} - both prompt texts present`
+);
+const emailJstOk = emailHtml.includes("2026年8月30日") && emailHtml.includes("(JST)");
+console.log(
+  `Sanity: ${emailJstOk ? "PASS" : "FAIL"} - checkedAt renders as the correct JST calendar date, not shifted by the runner's own local timezone`
 );
 
 // ---------------------------------------------------------------------
@@ -296,6 +310,6 @@ console.log(
   `\n${formatterIssues === 0 ? "All alert-message formatter checks passed." : `${formatterIssues} formatter issue(s) found.`}`
 );
 
-if (trCount !== expectedTrCount || slackIssues > 0 || formatterIssues > 0) {
+if (trCount !== expectedTrCount || slackIssues > 0 || formatterIssues > 0 || !emailJstOk) {
   process.exit(1);
 }

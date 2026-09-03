@@ -5,6 +5,7 @@
  */
 
 import { PROVIDER_LABELS, rankLabel, type RankingChange } from "./alert-message";
+import { formatJstIntl } from "./jst";
 
 // Re-exported so every existing `import { type RankingChange } from
 // "./slack"` (or "@/lib/slack") keeps working unchanged - its
@@ -58,11 +59,15 @@ function severityEmoji(change: RankingChange): string {
  * matters.
  */
 export function buildDailySummaryBlocks(input: DailySummaryInput) {
-  const dateLabel = new Intl.DateTimeFormat("ja-JP", {
+  // Pinned to JST (see lib/jst.ts) - the cron runs at 07:00-07:30 JST,
+  // which is still the PREVIOUS calendar day in UTC (Vercel's server
+  // default with no timeZone given), so this used to label every
+  // single daily summary with yesterday's date.
+  const dateLabel = formatJstIntl(input.checkedAt, {
     year: "numeric",
     month: "long",
     day: "numeric",
-  }).format(input.checkedAt);
+  });
   const mentionRatePct = Math.round(input.mentionRate * 100);
   const hasAnomalies = input.anomalies.length > 0;
 

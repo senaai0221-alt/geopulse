@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
 import { TrendingUp, Target, PieChart } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { formatJst } from "@/lib/jst";
 import { useI18n } from "@/lib/i18n/context";
 import { RankTrendChart, type TrendPoint } from "@/components/rank-trend-chart";
 import { ExposureTrendChart, type ExposureTrendPoint } from "@/components/exposure-trend-chart";
@@ -73,7 +73,11 @@ export function TrendExplorer({
   const markers: ActionMarker[] = actions
     .filter((a) => a.action_date >= periodStartKey)
     .map((a) => ({
-      date: format(new Date(a.action_date), "M/d"),
+      // JST, matching dashboard/page.tsx's day-bucket keys (see
+      // lib/jst.ts) - this runs client-side, so a non-JST-browser
+      // viewer would otherwise land a marker on the wrong chart column
+      // relative to a bucket that was always computed in JST server-side.
+      date: formatJst(new Date(a.action_date), "M/d"),
       category: t(`marketingActions.category.${a.category}`),
       title: a.title,
     }));
