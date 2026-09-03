@@ -3,7 +3,9 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { assertCanAddBrand, assertCanAddPrompt } from "@/lib/plan-limits";
+import { runPromptCheckNow } from "@/lib/prompt-check";
 
 // Same caps as app/dashboard/actions.ts's own LIMITS, except
 // competitorCount - the wizard only ever renders 3 competitor inputs
@@ -88,40 +90,55 @@ export async function completeOnboarding(formData: FormData): Promise<{ ok: bool
 
   if (brandError || !brand) return { ok: false, code: "brand_save_failed" };
 
-  let createdPromptIds: string[] = [];
+  let createdPrompts: { id: string; text: string }[] = [];
   if (prompts.length > 0) {
     const { data: insertedPrompts } = await supabase
       .from("prompts")
       .insert(prompts.map((p) => ({ brand_id: brand.id, text: p.text, category: p.category || null })))
-      .select("id");
-    createdPromptIds = (insertedPrompts ?? []).map((p) => p.id as string);
+      .select("id, text");
+    createdPrompts = (insertedPrompts ?? []).map((p) => ({ id: p.id as string, text: p.text as string }));
   }
 
   await supabase.from("profiles").update({ onboarding_completed: true }).eq("id", user.id);
 
-  // Unlike PromptForm's own truly fire-and-forget first-time check (a
-  // client-side fetch the browser keeps alive on its own regardless of
-  // whether the page awaits it), this one runs from a Server Action - an
-  // un-awaited fetch here has no such guarantee once this function
-  // returns and the serverless invocation ends, so it's awaited on
-  // purpose. The whole point of running it at all is that the dashboard
-  // the wizard redirects to next shows real numbers immediately instead
-  // of a full day of empty "計測中" rows; a fire-and-forget call that
-  // gets cut off mid-flight would defeat that. Runs every created
-  // prompt's check in parallel (see maxDuration on app/onboarding/
-  // page.tsx), so the wait is bounded by the single slowest prompt, not
-  // the sum of all of them. Best-effort either way - a failed check here
-  // just means tomorrow's cron covers it normally instead, same
-  // fallback check-now's own route already documents.
-  await Promise.all(
-    createdPromptIds.map((promptId) =>
-      fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/prompts/check-now`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ promptId }),
-      }).catch(() => {})
-    )
-  );
+  // Runs every created prompt's first-time measurement directly (see
+  // maxDuration on app/onboarding/page.tsx), rather than fetching back
+  // to this app's own /api/prompts/check-now over HTTP the way this
+  // used to work. That fetch ran from inside a Server Action - no
+  // browser attached, so it carried none of the caller's session
+  // cookies - and check-now's own auth check saw `user: null` on every
+  // single call, always returning 401. The failure was swallowed by a
+  // `.catch(() => {})` meant to guard against "the LLM providers are
+  // slow", not "this call can structurally never succeed" - so every
+  // brand-new subscriber's dashboard sat on "初回計測中" forever with
+  // no error anywhere, until the next morning's cron quietly covered it
+  // instead (2026-09 incident, found doing a full new-user walkthrough).
+  // Calling runPromptCheckNow directly needs no cookie at all - ownership
+  // here is "I just created this brand/prompt myself, under this
+  // request's own authenticated user", not a second round-trip through
+  // an HTTP auth check. Awaited (not fire-and-forget) for the same
+  // reason as before: the whole point is the dashboard this redirects to
+  // next shows real numbers immediately instead of empty "計測中" rows,
+  // and an un-awaited call has no guarantee of finishing once this
+  // Server Action returns and the invocation ends. Still best-effort -
+  // a failed check here just means tomorrow's cron covers it normally.
+  if (createdPrompts.length > 0) {
+    const admin = createAdminClient();
+    await Promise.all(
+      createdPrompts.map((prompt) =>
+        runPromptCheckNow(admin, {
+          promptId: prompt.id,
+          promptText: prompt.text,
+          brandId: brand.id,
+          brandName,
+          brandAliases: [],
+          competitors,
+        }).catch((err) => {
+          console.error(`onboarding: first-time check failed for prompt ${prompt.id}:`, err);
+        })
+      )
+    );
+  }
 
   return { ok: true };
 }

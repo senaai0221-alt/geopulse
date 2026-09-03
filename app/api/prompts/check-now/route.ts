@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { runGeoQuery } from "@/lib/geo-engine";
+import { runPromptCheckNow } from "@/lib/prompt-check";
 
 export const dynamic = "force-dynamic";
 // One prompt across 6 providers, run in parallel (see runGeoQuery) with a
@@ -85,73 +85,18 @@ export async function POST(request: NextRequest) {
   try {
     const admin = createAdminClient();
 
-    // Fetched before running the query so a failed provider call can
-    // fall back to "what did we already know" instead of overwriting it
-    // with a blank result - see the comment below.
-    const { data: previousRows } = await admin
-      .from("rankings")
-      .select("provider, mentioned, rank_position, checked_at")
-      .eq("prompt_id", prompt.id)
-      .order("checked_at", { ascending: false })
-      .limit(12);
-    const previousByProvider = new Map<string, { mentioned: boolean; rank_position: number | null }>();
-    for (const row of previousRows ?? []) {
-      if (!previousByProvider.has(row.provider)) {
-        previousByProvider.set(row.provider, { mentioned: row.mentioned, rank_position: row.rank_position });
-      }
-    }
-
-    const results = await runGeoQuery({
-      prompt: prompt.text,
+    const result = await runPromptCheckNow(admin, {
+      promptId: prompt.id,
+      promptText: prompt.text,
+      brandId: prompt.brand_id,
       brandName: brand.name,
       brandAliases: brand.aliases ?? [],
       competitors: brand.competitors ?? [],
     });
 
-    const checkedAt = new Date().toISOString();
-    // A provider call that timed out or errored must never be written
-    // as a real "not mentioned" (a false "圏外") - it would silently
-    // read as a genuine drop everywhere this data is used. On error,
-    // carry forward the last known-good mentioned/rank_position for
-    // that provider instead, and keep `error` set so it's still visible
-    // (see the dashboard's per-cell warning icon).
-    const { error: insertError } = await admin.from("rankings").insert(
-      results.map((result) => {
-        if (result.error) {
-          const previous = previousByProvider.get(result.provider);
-          return {
-            brand_id: prompt.brand_id,
-            prompt_id: prompt.id,
-            provider: result.provider,
-            mentioned: previous?.mentioned ?? false,
-            rank_position: previous?.rank_position ?? null,
-            sentiment: null,
-            competitors_mentioned: [],
-            citations: [],
-            raw_response: null,
-            error: result.error,
-            checked_at: checkedAt,
-          };
-        }
-        return {
-          brand_id: prompt.brand_id,
-          prompt_id: prompt.id,
-          provider: result.provider,
-          mentioned: result.mentioned,
-          rank_position: result.rankPosition,
-          sentiment: result.sentiment,
-          competitors_mentioned: result.competitorsMentioned,
-          citations: result.citations,
-          raw_response: result.rawResponse || null,
-          error: null,
-          checked_at: checkedAt,
-        };
-      })
-    );
-
-    if (insertError) {
-      console.error(`check-now: failed to insert rankings for prompt ${promptId}:`, insertError.message);
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    if (!result.ok) {
+      console.error(`check-now: failed to insert rankings for prompt ${promptId}:`, result.error);
+      return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true });
