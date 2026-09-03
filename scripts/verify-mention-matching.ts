@@ -75,6 +75,23 @@
  * real spelling on its own (real romanizations often diverge from
  * strict phonetic Hepburn) - see lib/alert-message.ts's
  * `possibleMismatch` hint for the safety net.
+ *
+ * The cases below this point (2026-09) are not tied to any one real
+ * incident - they're a deliberate stress test of exotic-but-real
+ * brand-name shapes (a 2-character ASCII name, names built entirely
+ * around a regex metacharacter, a name with an internal space), added
+ * at the operator's explicit request after the fixes above: this is a
+ * multi-tenant SaaS, and a customer can register literally any string
+ * as their brand name, not just the specific names past incidents
+ * happened to involve. Every one of these passes today with NO code
+ * change - `nameRegex`/`buildCandidatePattern` already derive their
+ * `\b` placement and escaping from the CANDIDATE STRING'S OWN Unicode
+ * properties (see buildCandidatePattern's own comment), never from a
+ * per-brand lookup table, so a brand-name shape nobody has hit yet is
+ * handled by the same general machinery as one that has. These cases
+ * exist to keep it that way - if a future change ever narrows that
+ * generality back down to "works for the brand names in our test
+ * fixtures," one of these should fail.
  */
 import { parseResponse } from "../lib/geo-engine";
 
@@ -329,12 +346,127 @@ const cases: Case[] = [
     brandName: "資生堂",
     expectMentioned: true, // exact-text match on the kanji itself, unaffected by the romaji layer
   },
+  {
+    // A 2-character ASCII name is exactly the shape the "GO" case above
+    // already covers in the abstract - this is the literal real brand
+    // ("au") the operator raised as the concrete worry. `\b` requires a
+    // genuine word-char/non-word-char transition on BOTH sides, so "au"
+    // embedded inside a longer English word structurally cannot match -
+    // this has nothing to do with "au" being a registered brand, it's
+    // the same regex property "GO" already relies on.
+    name: 'Short ASCII name ("au") does not false-positive inside "author"',
+    rawResponse: "This guide was written by the author of several books.",
+    brandName: "au",
+    expectMentioned: false,
+  },
+  {
+    name: 'Short ASCII name ("au") does not false-positive inside "default"',
+    rawResponse: "Keep the default settings unless you have a reason to change them.",
+    brandName: "au",
+    expectMentioned: false,
+  },
+  {
+    name: 'Short ASCII name ("au") matches as a genuine standalone mention',
+    rawResponse: "電波の強さで選ぶなら au が安定しています。",
+    brandName: "au",
+    expectMentioned: true,
+  },
+  {
+    name: 'Short ASCII name ("au") matches immediately adjacent to Japanese text with no space at all',
+    rawResponse: "auの評判は高いです。",
+    brandName: "au",
+    expectMentioned: true,
+  },
+  {
+    // escapeRegExp must treat "+" as a literal character, not the regex
+    // quantifier it normally is - a name built entirely around a regex
+    // metacharacter is exactly the case that would silently corrupt
+    // into a broken (or dangerously loose) pattern if escaping were
+    // ever missed for one candidate path.
+    name: 'Symbol-containing name ("C++") matches literally, "+" is escaped rather than acting as a regex quantifier',
+    rawResponse: "初心者にはC++がまず学ぶ価値のある言語です。",
+    brandName: "C++",
+    expectMentioned: true,
+  },
+  {
+    name: 'Symbol-containing name ("C++") does not match on a bare "C" alone',
+    rawResponse: "Cはシンプルな言語です。",
+    brandName: "C++",
+    expectMentioned: false,
+  },
+  {
+    name: 'Symbol-containing name ("A&W") matches literally ("&" has no special regex meaning to begin with, but the leading/trailing \\b still has to be derived from the name\'s own first/last character correctly)',
+    rawResponse: "ハンバーガーなら A&W もおすすめです。",
+    brandName: "A&W",
+    expectMentioned: true,
+  },
+  {
+    name: '"." is escaped, not left as a regex wildcard that could match any character - "A.I." must not match an unrelated "AXI"',
+    rawResponse: "AXIという指標を確認してください。",
+    brandName: "A.I.",
+    expectMentioned: false,
+  },
+  {
+    name: 'Dotted name ("A.I.") still matches its own real, literal text',
+    rawResponse: "A.I.を活用したサービスです。",
+    brandName: "A.I.",
+    expectMentioned: true,
+  },
+  {
+    // Registered name itself contains a hyphen (unlike the ELFBAR case,
+    // where the hyphen only ever appeared in the LLM's rendering) -
+    // confirms the mandatory-hyphen path in the name doesn't get
+    // accidentally treated as optional/droppable.
+    name: 'Digit-and-hyphen name ("7-Eleven") matches its own real, literal text',
+    rawResponse: "コンビニなら7-Elevenが近くにあります。",
+    brandName: "7-Eleven",
+    expectMentioned: true,
+  },
+  {
+    // A name with its own internal space - must match as the whole
+    // phrase, not just a fragment of it (a response merely discussing
+    // "au" on its own, with no "PAY" anywhere, is a different product).
+    name: 'Multi-word ASCII name with an internal space ("au PAY") matches as the whole phrase',
+    rawResponse: "決済アプリはau PAYが便利です。",
+    brandName: "au PAY",
+    expectMentioned: true,
+  },
+  {
+    name: 'Multi-word ASCII name with an internal space ("au PAY") does NOT match on "au" alone with no "PAY" anywhere',
+    rawResponse: "電波が強いのはauです。",
+    brandName: "au PAY",
+    expectMentioned: false,
+  },
+  {
+    // Not a realistic brand name, but a customer-controlled input field
+    // regardless - nameRegex must never throw for ANY string a customer
+    // could type into the brand-name field, however unusual. If this
+    // constructs an invalid RegExp, parseResponse throws and the entire
+    // daily check for that brand fails outright rather than degrading
+    // to "not mentioned" for one odd response.
+    name: "Symbol-heavy registered name never throws building its matcher (malformed-regex robustness)",
+    rawResponse: "何かのテキストです。",
+    brandName: "A(B)[C]{D}*E+F?G^H$I|J\\K",
+    expectMentioned: false,
+  },
 ];
 
 let failures = 0;
 
 for (const c of cases) {
-  const result = parseResponse(c.rawResponse, c.brandName, c.aliases ?? [], c.competitors ?? []);
+  // A thrown error (e.g. an invalid RegExp built from an unusual
+  // registered name - see the symbol-heavy case above) must show up as
+  // one clean FAIL, not crash the whole suite before every later case
+  // gets a chance to run.
+  let result: ReturnType<typeof parseResponse>;
+  try {
+    result = parseResponse(c.rawResponse, c.brandName, c.aliases ?? [], c.competitors ?? []);
+  } catch (err) {
+    failures++;
+    console.log(`FAIL - ${c.name}`);
+    console.log(`     threw: ${err instanceof Error ? err.message : String(err)}`);
+    continue;
+  }
   const mentionedOk = result.mentioned === c.expectMentioned;
   const competitorsOk =
     c.expectCompetitors === undefined ||
