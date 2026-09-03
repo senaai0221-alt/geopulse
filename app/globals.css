@@ -55,7 +55,11 @@
     max-width: 100%;
   }
   body {
-    @apply bg-background text-foreground;
+    /* font-sans explicitly, rather than relying on Preflight's own
+       default - see DESIGN.md §3.2/tailwind.config.ts's fontFamily.sans
+       for why this is a single system-font stack (with proper Japanese
+       fallbacks) across the whole app, not a webfont. */
+    @apply bg-background text-foreground font-sans;
   }
 }
 

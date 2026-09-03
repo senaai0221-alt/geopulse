@@ -26,6 +26,29 @@ const config: Config = {
       },
     },
     extend: {
+      fontFamily: {
+        // See DESIGN.md §3.2: a single system-font stack across every
+        // screen (product UI strategy, not a corporate-site webfont) -
+        // Zonostick is authenticated-only with no free tier, so most
+        // real usage time is inside the dashboard, not the marketing
+        // page, and this avoids a webfont network request/FOUC on the
+        // screen people actually live in. Tailwind's own default `sans`
+        // stack has no CJK fallback at all, which is why Japanese text
+        // (this is a bilingual, ja-auto-detecting product - see
+        // lib/i18n/context.tsx) rendered in whatever font a given
+        // browser/OS happened to fall back to.
+        sans: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Helvetica Neue",
+          "Arial",
+          "Hiragino Kaku Gothic ProN",
+          "Hiragino Sans",
+          "Yu Gothic",
+          "Meiryo",
+          "sans-serif",
+        ],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
