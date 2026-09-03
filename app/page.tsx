@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { T } from "@/components/t";
 import { LangToggle } from "@/components/lang-toggle";
 import { createClient } from "@/lib/supabase/server";
+import { TRIAL_PERIOD_DAYS } from "@/lib/stripe";
 
 // All 6 providers Zonostick actually queries - keep in sync with
 // LLM_PROVIDERS in lib/geo-engine.ts.
@@ -65,6 +66,17 @@ const PLANS = [
       "landing.proFeature5",
     ],
     highlighted: true,
+    // Matches /pricing's own isTrialEligible/TRIAL_PERIOD_DAYS gating
+    // (Pro-only, first-ever Stripe customer only - see lib/stripe.ts).
+    // A first-time visitor here can't have eligibility checked without
+    // an account yet, so this advertises the trial the same qualified
+    // way /pricing's own subtitleTrial already does ("初めてのご利用な
+    // ら...") rather than an unconditional promise - true for the
+    // overwhelming majority of people landing on a marketing page for
+    // the first time, and never actually wrong: someone who turns out
+    // ineligible simply sees the plain "subscribe now" checkout instead,
+    // exactly like a returning /pricing visitor already does.
+    offersTrial: true,
   },
   {
     name: "Business",
@@ -82,6 +94,7 @@ const PLANS = [
       "landing.businessFeature4",
     ],
     highlighted: false,
+    offersTrial: false,
   },
 ] as const;
 
@@ -283,6 +296,15 @@ export default async function LandingPage() {
                     <span className="text-3xl font-bold">{plan.price}</span>
                     <span className="text-sm text-muted-foreground">{plan.period}</span>
                   </div>
+                  {plan.offersTrial && (
+                    // Same badge/copy as /pricing's own (post-login,
+                    // eligibility-checked) trial callout - see the PLANS
+                    // entry's own comment on why advertising it here,
+                    // pre-login, is still accurate.
+                    <Badge variant="secondary" className="w-fit">
+                      <T k="pricing.trialBadge" vars={{ days: TRIAL_PERIOD_DAYS }} />
+                    </Badge>
+                  )}
                   <p className="text-sm text-muted-foreground">
                     <T k={plan.descKey} />
                   </p>
@@ -315,8 +337,17 @@ export default async function LandingPage() {
                       "w-full"
                     )}
                   >
-                    <T k="nav.getStarted" />
+                    {plan.offersTrial ? (
+                      <T k="pricing.ctaProTrial" vars={{ days: TRIAL_PERIOD_DAYS }} />
+                    ) : (
+                      <T k="nav.getStarted" />
+                    )}
                   </Link>
+                  {plan.offersTrial && (
+                    <p className="text-center text-xs text-muted-foreground">
+                      <T k="pricing.trialNote" />
+                    </p>
+                  )}
                 </CardContent>
               </Card>
               );
