@@ -1,4 +1,4 @@
-import { Download } from "lucide-react";
+import { Download, Lock } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { formatJst, jstMidnight, jstMidnightFromDateString } from "@/lib/jst";
@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LLM_PROVIDERS, type LlmProvider } from "@/lib/geo-engine";
 import { T } from "@/components/t";
 import { buttonVariants } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { PrintButton } from "../print-button";
 import { UpgradePrompt } from "../upgrade-button";
 import { MonthSelector, MonthLabel } from "./month-selector";
@@ -185,34 +186,65 @@ export default async function ReportPage({
   // report.businessOnlyDesc) - opening the rest of this page to Pro
   // would silently hand out what Business pays extra for, so nothing
   // past the brand switcher and CSV link is even fetched for Pro.
+  //
+  // Deliberately two separate Cards, not one section with the CSV link
+  // floating in a header above a big upgrade block - an earlier version
+  // did exactly that, and a solid-border "available now" card sitting
+  // directly above a much bigger, more visually dominant upgrade card
+  // read as "you need to upgrade to use ANY of this, including CSV" -
+  // the CSV button was small and easy to miss while the upgrade card
+  // filled most of the screen. Each card now names exactly what it
+  // covers (a solid border + an explicit "included in your current
+  // plan" line for CSV; a dashed border + a lock icon + a title naming
+  // the A4/PDF report specifically, not a bare "this feature", for the
+  // one that actually needs Business), so neither can be read as
+  // gating the other.
   if (isPro) {
     return (
       <div className="mx-auto max-w-2xl py-12">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-6">
           <ReportBrandSelector brands={brands} selectedBrandId={selectedBrand.id} month={month} />
-          <a
-            href={`/api/export/csv?brand=${selectedBrand.id}`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
-          >
-            <Download className="h-3.5 w-3.5" />
-            <T k="dashboard.downloadCsv" />
-          </a>
         </div>
-        <div className="rounded-lg border border-dashed border-border p-8 text-center">
-          <h2 className="text-lg font-semibold">
-            <T k="report.businessOnly" />
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            <T k="report.businessOnlyDesc" />
-          </p>
-          <div className="mt-6 flex justify-center">
+
+        <Card>
+          <CardHeader className="flex-row items-center gap-2.5 space-y-0">
+            <Download className="h-4 w-4 text-primary" />
+            <CardTitle>
+              <T k="report.csvExportTitle" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <CardDescription className="text-sm">
+              <T k="report.csvExportDesc" />
+            </CardDescription>
+            <a
+              href={`/api/export/csv?brand=${selectedBrand.id}`}
+              className={cn(buttonVariants({ size: "sm" }), "w-fit gap-1.5")}
+            >
+              <Download className="h-3.5 w-3.5" />
+              <T k="dashboard.downloadCsv" />
+            </a>
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6 border-dashed">
+          <CardHeader className="flex-row items-center gap-2.5 space-y-0">
+            <Lock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle>
+              <T k="report.a4BusinessOnly" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <CardDescription className="text-sm">
+              <T k="report.businessOnlyDesc" />
+            </CardDescription>
             <UpgradePrompt
               proPriceId={process.env.STRIPE_PRICE_ID_PRO ?? ""}
               businessPriceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""}
               currentPlan={profile?.plan}
             />
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

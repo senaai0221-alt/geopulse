@@ -241,8 +241,10 @@
   "report": {
     "print": "Print / Save as PDF",
     "generatedAt": "Generated",
-    "businessOnly": "This feature is Business-plan only",
     "businessOnlyDesc": "A print/PDF-optimized A4 report for internal and client reporting is available on the Business plan.",
+    "a4BusinessOnly": "The A4 (PDF/print) report is Business-plan only",
+    "csvExportTitle": "CSV data export",
+    "csvExportDesc": "Included in your current plan. Download the raw per-prompt, per-LLM results as a CSV file.",
     "noPlanTitle": "A paid plan is required",
     "noPlanDesc": "Reporting is available on the Pro and Business plans. Pro includes CSV data export; Business adds a print/PDF-optimized A4 report on top of that.",
     "openReport": "Open A4 report",

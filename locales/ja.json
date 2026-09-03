@@ -241,8 +241,10 @@
   "report": {
     "print": "印刷 / PDFとして保存",
     "generatedAt": "作成日時",
-    "businessOnly": "この機能はBusinessプラン限定です",
     "businessOnlyDesc": "社内・クライアント報告用のA4レポート出力(PDF/印刷最適化)は、Businessプランにアップグレードするとご利用いただけます。",
+    "a4BusinessOnly": "A4レポート(PDF/印刷)出力はBusinessプラン限定です",
+    "csvExportTitle": "CSV形式でのデータ出力",
+    "csvExportDesc": "現在のプランでご利用いただけます。プロンプト × LLMごとの計測結果を生データとしてCSVでダウンロードできます。",
     "noPlanTitle": "有料プランへのご契約が必要です",
     "noPlanDesc": "レポート機能はPro・Businessプランでご利用いただけます。ProプランはCSV形式でのデータ出力、Businessプランはさらに印刷・PDF最適化されたA4レポートもご利用いただけます。",
     "openReport": "A4レポートを開く",
