@@ -1,7 +1,7 @@
 "use client";
 
 import type { LlmProvider } from "@/lib/geo-engine";
-import { nameRegex } from "@/lib/geo-engine";
+import { nameRegex, toHalfWidth } from "@/lib/geo-engine";
 import { useI18n } from "@/lib/i18n/context";
 
 const PROVIDER_LABELS: Record<LlmProvider, string> = {
@@ -22,12 +22,20 @@ const PROVIDER_LABELS: Record<LlmProvider, string> = {
 function highlightBrandMentions(text: string, brandName: string): (string | { match: string })[] {
   if (!brandName.trim()) return [text];
   const regex = nameRegex(brandName, "gi");
+  // Matched against a full-width-folded copy (see toHalfWidth) so a
+  // brand rendered in full-width ASCII highlights the same way
+  // parseResponse already counted it as a mention - toHalfWidth is
+  // length/position-preserving, so every match index below is sliced
+  // out of the real, unmodified `text` instead (never the folded
+  // copy), and what's shown to the reader is exactly what the LLM
+  // actually wrote.
+  const normalizedText = toHalfWidth(text);
   const segments: (string | { match: string })[] = [];
   let lastIndex = 0;
-  for (const m of text.matchAll(regex)) {
+  for (const m of normalizedText.matchAll(regex)) {
     const index = m.index ?? 0;
     if (index > lastIndex) segments.push(text.slice(lastIndex, index));
-    segments.push({ match: m[0] });
+    segments.push({ match: text.slice(index, index + m[0].length) });
     lastIndex = index + m[0].length;
   }
   if (lastIndex < text.length) segments.push(text.slice(lastIndex));

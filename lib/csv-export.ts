@@ -8,7 +8,7 @@
  * scripts/verify-notifications-and-exports.ts for testing, with no
  * request/Supabase session required.
  */
-import { nameRegex, type LlmProvider } from "./geo-engine";
+import { nameRegex, toHalfWidth, type LlmProvider } from "./geo-engine";
 
 export const PROVIDER_LABELS: Record<LlmProvider, string> = {
   chatgpt: "ChatGPT",
@@ -81,7 +81,12 @@ export function extractMentionSnippet(
   radius = MENTION_SNIPPET_RADIUS
 ): string {
   if (!rawResponse || !brandName.trim()) return "";
-  const match = nameRegex(brandName, "i").exec(rawResponse);
+  // Match against a full-width-folded copy (see toHalfWidth) so a
+  // brand rendered in full-width ASCII is found the same way
+  // parseResponse already found it - toHalfWidth is length/position-
+  // preserving, so the match index is still valid against the real,
+  // unmodified rawResponse sliced below.
+  const match = nameRegex(brandName, "i").exec(toHalfWidth(rawResponse));
   if (!match) return "";
 
   const start = Math.max(0, match.index - radius);

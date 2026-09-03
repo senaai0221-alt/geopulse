@@ -346,6 +346,40 @@ function isAsciiWordChar(ch: string | undefined): boolean {
 }
 
 /**
+ * Folds full-width ("zenkaku") ASCII letters/digits/punctuation
+ * (U+FF01-U+FF5E, plus the full-width space U+3000) down to their
+ * ordinary half-width equivalents - Japanese-context LLM output very
+ * commonly renders an alphabet brand name this way ("ＥＬＦＢＡＲ"
+ * instead of "ELFBAR"), which the old byte-for-byte matcher treated as
+ * a completely different string (not a case difference - these are
+ * distinct Unicode code points, so the "i" flag alone never helped).
+ * Every other character - every Japanese/Chinese character, every
+ * symbol outside that block - passes through completely unchanged.
+ *
+ * One code point maps to exactly one code point, so the result is
+ * always the same length with every character at the same index as
+ * the input - callers that need to slice/highlight the *original*
+ * text (extractMentionSnippet, evidence-snippet.tsx) can match against
+ * the normalized copy and safely reuse its match indices against the
+ * real, unmodified text the LLM actually returned.
+ */
+export function toHalfWidth(text: string): string {
+  return text
+    .replace(/[！-～]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+    .replace(/　/g, " ");
+}
+
+// A family of characters different renderers use interchangeably for
+// "no meaningful difference" between two parts of the same compound
+// name: an ordinary space, or one of several hyphen/dash look-alikes
+// (Unicode has several visually-similar code points, and which one an
+// LLM's output contains is arbitrary - see the ELFBAR incident this
+// generalizes). Used only as an OPTIONAL separator between two
+// characters that otherwise both still have to appear, never a way to
+// skip a character outright.
+const OPTIONAL_SEPARATOR = "[\\s\\-\\u2010-\\u2015]?";
+
+/**
  * Builds an exact-name matcher for use against raw LLM response text.
  *
  * `\b` (word boundary) is only meaningful next to an ASCII "word"
@@ -377,28 +411,36 @@ function isAsciiWordChar(ch: string | undefined): boolean {
  * occurrence instead of just testing presence.
  */
 export function nameRegex(name: string, flags = "i"): RegExp {
-  const leading = isAsciiWordChar(name[0]) ? "\\b" : "";
-  const trailing = isAsciiWordChar(name[name.length - 1]) ? "\\b" : "";
+  // Fold full-width ASCII down to half-width before anything else, so
+  // a name registered (or, rarely, rendered by an LLM) in either width
+  // is treated identically - see toHalfWidth's own comment.
+  const normalizedName = toHalfWidth(name);
+  const leading = isAsciiWordChar(normalizedName[0]) ? "\\b" : "";
+  const trailing = isAsciiWordChar(normalizedName[normalizedName.length - 1]) ? "\\b" : "";
 
   // A registered name with no internal space (e.g. "ELFBAR") is very
-  // commonly rendered by an LLM as separate title-cased words instead
-  // ("Elf Bar") - a real 2026-09 incident had a raw response plainly
-  // list "Elf Bar BC5000" and still produced a false "圏外" alert,
-  // because the old exact-contiguous pattern (still case-insensitive,
-  // still Markdown-agnostic - neither of those was ever the problem)
-  // simply never considered "Elf Bar" a match for "ELFBAR" at all.
-  // Tolerating an optional single whitespace between every character
-  // catches that rendering while staying a strict superset of the old
-  // match - every character of the name must still appear, in the same
-  // order, so this is additive, not a loosening of what already
-  // matched. Gated to names with 4+ non-space characters: below that,
-  // treating two short, unrelated fragments separated by whitespace as
-  // a "match" starts colliding with ordinary prose too often to be
-  // worth it (e.g. a 2-character name matching any two of its letters
-  // that happen to appear as adjacent single-letter tokens).
-  const nonSpaceLength = name.replace(/\s/g, "").length;
+  // commonly rendered by an LLM with different spacing/punctuation
+  // instead - as two separate title-cased words ("Elf Bar"), or with a
+  // hyphen inserted ("ELF-BAR"). A real 2026-09 incident had a raw
+  // response plainly list "Elf Bar BC5000" and still produced a false
+  // "圏外" alert, because the old exact-contiguous pattern (still
+  // case-insensitive, still Markdown-agnostic - neither of those was
+  // ever the problem) simply never considered "Elf Bar" a match for
+  // "ELFBAR" at all. Tolerating an optional space or hyphen/dash
+  // between every character (OPTIONAL_SEPARATOR) catches both
+  // renderings while staying a strict superset of the old match -
+  // every character of the name must still appear, in the same order,
+  // so this is additive, not a loosening of what already matched.
+  // Gated to names with 4+ non-space characters: below that, treating
+  // two short, unrelated fragments separated by a space/hyphen as a
+  // "match" starts colliding with ordinary prose too often to be worth
+  // it (e.g. a 2-character name matching any two of its letters that
+  // happen to appear as adjacent single-letter tokens).
+  const nonSpaceLength = normalizedName.replace(/\s/g, "").length;
   const pattern =
-    nonSpaceLength >= 4 ? [...name].map((ch) => escapeRegExp(ch)).join("\\s?") : escapeRegExp(name);
+    nonSpaceLength >= 4
+      ? [...normalizedName].map((ch) => escapeRegExp(ch)).join(OPTIONAL_SEPARATOR)
+      : escapeRegExp(normalizedName);
 
   return new RegExp(`${leading}${pattern}${trailing}`, flags);
 }
@@ -499,9 +541,14 @@ const NEGATION_SUFFIX = /^[\s」』】》〉\])）:：、,]*以外/;
  * mention of Shokz on its own.
  */
 function hasPositiveMention(text: string, name: string): boolean {
-  for (const m of text.matchAll(nameRegex(name, "gi"))) {
+  // toHalfWidth is length- and position-preserving (one code point in,
+  // one code point out), so matching/slicing against this normalized
+  // copy throughout stays index-consistent within this function - no
+  // remapping needed, and nothing outside this function ever sees it.
+  const normalizedText = toHalfWidth(text);
+  for (const m of normalizedText.matchAll(nameRegex(name, "gi"))) {
     if (m.index === undefined) continue;
-    const after = text.slice(m.index + m[0].length, m.index + m[0].length + 12);
+    const after = normalizedText.slice(m.index + m[0].length, m.index + m[0].length + 12);
     if (!NEGATION_SUFFIX.test(after)) return true;
   }
   return false;

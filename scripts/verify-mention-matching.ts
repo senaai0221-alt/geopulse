@@ -47,6 +47,20 @@
  * locked-in regression cases below anyway, since a fix report asked for
  * them explicitly. See nameRegex's own comment for the character-by-
  * character `\s?` fix and why it's gated to 4+ character names.
+ *
+ * Generalized beyond ELFBAR itself right after that fix, at the
+ * operator's explicit request ("プーメリーだけの問題ではなく全ブランド
+ * 共通の問題として改善してほしい"): the space-tolerance mechanism now
+ * also tolerates a hyphen/dash in the same position (OPTIONAL_SEPARATOR
+ * covers both), and a brand name rendered in full-width ("zenkaku")
+ * ASCII - very common in Japanese-context output ("ＥＬＦＢＡＲ") and
+ * a genuinely different Unicode code point per character, not a case
+ * difference the "i" flag could ever have folded - is now matched via
+ * toHalfWidth. Both are, deliberately, purely mechanical/formatting
+ * normalizations that apply automatically to every brand with no
+ * per-brand configuration - unlike a genuine nickname/alternate-name
+ * (see the プーメリー case above), which has no mechanical rule to
+ * derive it from and still requires registering it as an alias.
  */
 import { parseResponse } from "../lib/geo-engine";
 
@@ -237,6 +251,32 @@ const cases: Case[] = [
     rawResponse: "### 1. 【Elf Bar以外】のおすすめ\n**▶ SUUNTO Wing**",
     brandName: "ELFBAR",
     expectMentioned: false,
+  },
+  {
+    // Generalized fix, applies to every brand automatically: a hyphen
+    // inserted where the registered name has none.
+    name: 'Hyphen-tolerant match: registered "ELFBAR", response writes "ELF-BAR"',
+    rawResponse: "使い捨てVAPEなら ELF-BAR が定番の一つです。",
+    brandName: "ELFBAR",
+    expectMentioned: true,
+  },
+  {
+    // Generalized fix: full-width ("zenkaku") ASCII, extremely common
+    // in Japanese-context LLM output and NOT something the existing
+    // case-insensitive "i" flag could ever fold (different Unicode
+    // code points per character, not upper/lower case of the same one).
+    name: "Full-width (zenkaku) ASCII match: registered \"ELFBAR\", response writes \"ＥＬＦＢＡＲ\"",
+    rawResponse: "使い捨てVAPEなら ＥＬＦＢＡＲ が定番の一つです。",
+    brandName: "ELFBAR",
+    expectMentioned: true,
+  },
+  {
+    // Both generalizations composing at once, on a different brand -
+    // proves this isn't an ELFBAR-specific patch.
+    name: "Full-width + hyphen composing together on an unrelated brand name",
+    rawResponse: "おすすめは「Ｇｅｅｋ－Ｂａｒ」です。",
+    brandName: "GeekBar",
+    expectMentioned: true,
   },
 ];
 
