@@ -6,6 +6,7 @@ import { runGeoQuery, type LlmProvider } from "@/lib/geo-engine";
 import { sendDailySummary, type RankingChange } from "@/lib/slack";
 import { sendAlertEmail } from "@/lib/email";
 import { buildAnomalyMessage } from "@/lib/alert-message";
+import { findRomajiNearMiss } from "@/lib/romaji";
 
 export const dynamic = "force-dynamic";
 // With Fluid compute (on by default for new projects, ours included),
@@ -222,6 +223,20 @@ async function processBrand(
           }
 
           if (isAnomaly) {
+            // Only for a "disappeared" (critical) anomaly - a hedge
+            // against exactly the ドコモ incident (2026-09): the
+            // deterministic matcher, correctly, found no exact mention
+            // (mechanical romaji included - see lib/romaji.ts), but a
+            // near-miss Latin spelling in the raw response is a real
+            // signal that the LLM likely did mention the brand, just in
+            // a genuine romanization that diverges from strict
+            // phonetic Hepburn. See buildAnomalyMessage's own handling
+            // of `possibleMismatch` - this never changes `mentioned`
+            // or the rank itself, only adds a caveat asking the reader
+            // to double-check before acting on the alert.
+            const possibleMismatch =
+              severity === "critical" ? findRomajiNearMiss(result.rawResponse ?? "", brand.name) : null;
+
             const change: RankingChange = {
               brandName: brand.name,
               promptText: prompt.text,
@@ -229,6 +244,7 @@ async function processBrand(
               previousRank,
               currentRank: result.rankPosition,
               mentioned: result.mentioned,
+              possibleMismatch,
             };
 
             // A "critical" (disappeared) anomaly must never carry a

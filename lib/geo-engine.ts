@@ -9,6 +9,8 @@
  * serverless / edge runtime.
  */
 
+import { katakanaToHepburn } from "./romaji";
+
 export type LlmProvider = "chatgpt" | "claude" | "perplexity" | "gemini" | "grok" | "deepseek";
 
 export const LLM_PROVIDERS: LlmProvider[] = [
@@ -410,13 +412,18 @@ const OPTIONAL_SEPARATOR = "[\\s\\-\\u2010-\\u2015]?";
  * defaults to "i" (single-match test); pass "gi" to find every
  * occurrence instead of just testing presence.
  */
-export function nameRegex(name: string, flags = "i"): RegExp {
-  // Fold full-width ASCII down to half-width before anything else, so
-  // a name registered (or, rarely, rendered by an LLM) in either width
-  // is treated identically - see toHalfWidth's own comment.
-  const normalizedName = toHalfWidth(name);
-  const leading = isAsciiWordChar(normalizedName[0]) ? "\\b" : "";
-  const trailing = isAsciiWordChar(normalizedName[normalizedName.length - 1]) ? "\\b" : "";
+/**
+ * Builds the `${leading}${core}${trailing}` fragment for exactly one
+ * candidate string - factored out of nameRegex so a katakana name and
+ * its mechanically-derived romaji candidate (see below) can each get
+ * their own correct `\b` boundary logic (only ever meaningful next to
+ * an ASCII character - a katakana candidate never gets one, its romaji
+ * sibling always does) instead of one shared, wrong-for-one-of-them
+ * boundary.
+ */
+function buildCandidatePattern(candidate: string): string {
+  const leading = isAsciiWordChar(candidate[0]) ? "\\b" : "";
+  const trailing = isAsciiWordChar(candidate[candidate.length - 1]) ? "\\b" : "";
 
   // A registered name with no internal space (e.g. "ELFBAR") is very
   // commonly rendered by an LLM with different spacing/punctuation
@@ -431,18 +438,49 @@ export function nameRegex(name: string, flags = "i"): RegExp {
   // renderings while staying a strict superset of the old match -
   // every character of the name must still appear, in the same order,
   // so this is additive, not a loosening of what already matched.
-  // Gated to names with 4+ non-space characters: below that, treating
-  // two short, unrelated fragments separated by a space/hyphen as a
-  // "match" starts colliding with ordinary prose too often to be worth
-  // it (e.g. a 2-character name matching any two of its letters that
-  // happen to appear as adjacent single-letter tokens).
-  const nonSpaceLength = normalizedName.replace(/\s/g, "").length;
-  const pattern =
+  // Gated to candidates with 4+ non-space characters: below that,
+  // treating two short, unrelated fragments separated by a space/
+  // hyphen as a "match" starts colliding with ordinary prose too often
+  // to be worth it (e.g. a 2-character name matching any two of its
+  // letters that happen to appear as adjacent single-letter tokens).
+  const nonSpaceLength = candidate.replace(/\s/g, "").length;
+  const core =
     nonSpaceLength >= 4
-      ? [...normalizedName].map((ch) => escapeRegExp(ch)).join(OPTIONAL_SEPARATOR)
-      : escapeRegExp(normalizedName);
+      ? [...candidate].map((ch) => escapeRegExp(ch)).join(OPTIONAL_SEPARATOR)
+      : escapeRegExp(candidate);
 
-  return new RegExp(`${leading}${pattern}${trailing}`, flags);
+  return `${leading}${core}${trailing}`;
+}
+
+export function nameRegex(name: string, flags = "i"): RegExp {
+  // Fold full-width ASCII down to half-width before anything else, so
+  // a name registered (or, rarely, rendered by an LLM) in either width
+  // is treated identically - see toHalfWidth's own comment.
+  const normalizedName = toHalfWidth(name);
+  const patterns = [buildCandidatePattern(normalizedName)];
+
+  // A katakana brand name ("ドコモ") is routinely written by an LLM in
+  // plain Latin letters instead ("docomo") - a 2026-09 incident (a
+  // deliberately large real-brand-name demo) found this producing
+  // false "圏外" alerts for brands that were plainly mentioned, just
+  // not in the script they were registered under. katakanaToHepburn is
+  // a mechanical, table-driven transliteration (see lib/romaji.ts's own
+  // comment) - not a fuzzy guess - so matching against its output stays
+  // consistent with this function's whole exact-text philosophy: every
+  // character of the ORIGINAL name still had to map to something and
+  // appear in order, just expressed in a different, equally exact,
+  // alphabet. This does NOT catch every real spelling (real corporate
+  // romanizations routinely diverge from strict phonetic Hepburn - even
+  // "ドコモ" itself mechanically romanizes to "dokomo", one letter off
+  // from the real "docomo") - see lib/alert-message.ts's
+  // `possibleMismatch` hint for the safety net that covers the rest.
+  const romaji = katakanaToHepburn(normalizedName);
+  if (romaji && romaji.length >= 2 && romaji.toLowerCase() !== normalizedName.toLowerCase()) {
+    patterns.push(buildCandidatePattern(romaji));
+  }
+
+  const combined = patterns.length > 1 ? `(?:${patterns.join("|")})` : patterns[0];
+  return new RegExp(combined, flags);
 }
 
 /**

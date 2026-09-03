@@ -57,6 +57,15 @@ export function buildAlertEmailHtml(input: AlertEmailInput): string {
           </td>
           <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#0f172a;white-space:nowrap;">
             ${rankLabel(change.previousRank, true)} → <strong>${rankLabel(change.currentRank, change.mentioned)}</strong>
+            ${
+              // See RankingChange.possibleMismatch's own comment
+              // (lib/alert-message.ts) - a hedge, not a retraction.
+              change.possibleMismatch
+                ? `<div style="margin-top:4px;font-weight:400;color:#b45309;white-space:normal;">⚠️ 表記ゆれの可能性（原文の「${escapeHtml(
+                    change.possibleMismatch
+                  )}」表記をご確認ください）</div>`
+                : ""
+            }
           </td>
         </tr>`;
     })

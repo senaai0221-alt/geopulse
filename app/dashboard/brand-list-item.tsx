@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { AliasSuggestionHint } from "@/components/alias-suggestion-hint";
 import { useI18n } from "@/lib/i18n/context";
 import { translateActionError } from "@/lib/i18n/action-error";
 import { updateBrand, deleteBrand } from "./actions";
@@ -52,6 +53,11 @@ export function BrandListItem({
 }) {
   const { t } = useI18n();
   const [editing, setEditing] = useState(autoFocus);
+  // Controlled only because AliasSuggestionHint needs to read the live
+  // name and read/write aliases while editing - every other field in
+  // this form stays uncontrolled (defaultValue, read via FormData).
+  const [name, setName] = useState(brand.name);
+  const [aliases, setAliases] = useState((brand.aliases ?? []).join(", "));
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
   // Stored as a code and translated at render time (see `error` below) -
@@ -117,7 +123,14 @@ export function BrandListItem({
             <Target className="h-3.5 w-3.5 text-muted-foreground" />
             {t("settings.brandName")}
           </Label>
-          <Input id={`name-${brand.id}`} name="name" defaultValue={brand.name} maxLength={NAME_MAX} required />
+          <Input
+            id={`name-${brand.id}`}
+            name="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={NAME_MAX}
+            required
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`domain-${brand.id}`} className="flex items-center gap-1.5">
@@ -135,11 +148,17 @@ export function BrandListItem({
           <Input
             id={`aliases-${brand.id}`}
             name="aliases"
-            defaultValue={(brand.aliases ?? []).join(", ")}
+            value={aliases}
+            onChange={(e) => setAliases(e.target.value)}
             maxLength={ALIASES_MAX}
             placeholder={t("settings.brandAliasesPlaceholder")}
           />
           <p className="text-xs text-slate-400">{t("settings.brandAliasesHint")}</p>
+          <AliasSuggestionHint
+            brandName={name}
+            currentAliases={aliases}
+            onAdd={(suggestion) => setAliases((prev) => (prev.trim() ? `${prev}, ${suggestion}` : suggestion))}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`competitors-${brand.id}`} className="flex items-center gap-1.5">

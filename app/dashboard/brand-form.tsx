@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { AliasSuggestionHint } from "@/components/alias-suggestion-hint";
 import { useI18n } from "@/lib/i18n/context";
 import { translateActionError } from "@/lib/i18n/action-error";
 import { createBrand } from "./actions";
@@ -25,6 +26,11 @@ export function BrandForm({ businessPriceId }: { businessPriceId: string }) {
   const { t } = useI18n();
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
+  // Controlled only because AliasSuggestionHint needs to read the live
+  // brand name and read/write the aliases field - every other field
+  // here stays a plain uncontrolled `name` input read via FormData.
+  const [name, setName] = useState("");
+  const [aliases, setAliases] = useState("");
   // Stored as a code, not a pre-translated string, and translated at
   // render time (see `error` below) - so if the viewer switches the
   // JA/EN toggle while an error is showing, it re-translates immediately
@@ -53,7 +59,13 @@ export function BrandForm({ businessPriceId }: { businessPriceId: string }) {
     startTransition(async () => {
       try {
         await createBrand(formData);
+        // formRef.current?.reset() alone doesn't clear `name`/`aliases`
+        // - they're controlled (see AliasSuggestionHint's need to read
+        // both live) - so React would just redraw them back to their
+        // current state right after the native reset.
         formRef.current?.reset();
+        setName("");
+        setAliases("");
       } catch (err) {
         setErrorCode(err instanceof Error ? err.message : "");
       }
@@ -74,7 +86,15 @@ export function BrandForm({ businessPriceId }: { businessPriceId: string }) {
             <Target className="h-3.5 w-3.5 text-muted-foreground" />
             {t("settings.brandName")}
           </Label>
-          <Input id="name" name="name" placeholder={t("settings.brandNamePlaceholder")} maxLength={NAME_MAX} required />
+          <Input
+            id="name"
+            name="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t("settings.brandNamePlaceholder")}
+            maxLength={NAME_MAX}
+            required
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="domain" className="flex items-center gap-1.5">
@@ -92,10 +112,17 @@ export function BrandForm({ businessPriceId }: { businessPriceId: string }) {
           <Input
             id="aliases"
             name="aliases"
+            value={aliases}
+            onChange={(e) => setAliases(e.target.value)}
             placeholder={t("settings.brandAliasesPlaceholder")}
             maxLength={ALIASES_MAX}
           />
           <p className="text-xs text-slate-400">{t("settings.brandAliasesHint")}</p>
+          <AliasSuggestionHint
+            brandName={name}
+            currentAliases={aliases}
+            onAdd={(suggestion) => setAliases((prev) => (prev.trim() ? `${prev}, ${suggestion}` : suggestion))}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="competitors" className="flex items-center gap-1.5">

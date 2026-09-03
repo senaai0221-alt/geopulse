@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Target, Globe, Users, MessageCircleQuestion, Loader2, Rocket } from "lucide-react";
+import { Target, Globe, Users, MessageCircleQuestion, Loader2, Rocket, Tag } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { CategoryChipGroup } from "@/components/category-chip-group";
+import { AliasSuggestionHint } from "@/components/alias-suggestion-hint";
 import { useI18n } from "@/lib/i18n/context";
 import { translateActionError } from "@/lib/i18n/action-error";
 import { completeOnboarding } from "./actions";
@@ -19,6 +20,7 @@ const PROMPT_SLOTS = [1, 2, 3] as const;
 
 const NAME_MAX = 100;
 const DOMAIN_MAX = 200;
+const ALIASES_MAX = 300;
 const COMPETITOR_MAX = 60;
 const PROMPT_MAX = 300;
 
@@ -46,6 +48,7 @@ export function OnboardingWizard() {
   const [isPending, startTransition] = useTransition();
 
   const [brandName, setBrandName] = useState("");
+  const [aliases, setAliases] = useState("");
   const [domain, setDomain] = useState("");
   const [competitors, setCompetitors] = useState<Record<number, string>>({ 1: "", 2: "", 3: "" });
   const [prompts, setPrompts] = useState<Record<number, PromptDraft>>(emptyPrompts());
@@ -70,6 +73,7 @@ export function OnboardingWizard() {
 
     const formData = new FormData();
     formData.set("brand_name", brandName);
+    formData.set("aliases", aliases);
     formData.set("domain", domain);
     for (const slot of COMPETITOR_SLOTS) formData.set(`competitor_${slot}`, competitors[slot]);
     for (const slot of PROMPT_SLOTS) {
@@ -116,6 +120,25 @@ export function OnboardingWizard() {
               required
               autoFocus
               className="onboarding-glow ring-2 ring-primary/40"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="onboarding-aliases" className="flex items-center gap-1.5">
+              <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+              {t("onboarding.aliasesLabel")}
+            </Label>
+            <Input
+              id="onboarding-aliases"
+              value={aliases}
+              onChange={(e) => setAliases(e.target.value)}
+              placeholder={t("settings.brandAliasesPlaceholder")}
+              maxLength={ALIASES_MAX}
+            />
+            <p className="text-xs text-muted-foreground">{t("settings.brandAliasesHint")}</p>
+            <AliasSuggestionHint
+              brandName={brandName}
+              currentAliases={aliases}
+              onAdd={(suggestion) => setAliases((prev) => (prev.trim() ? `${prev}, ${suggestion}` : suggestion))}
             />
           </div>
           <div className="flex flex-col gap-1.5">

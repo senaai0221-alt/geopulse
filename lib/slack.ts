@@ -117,7 +117,15 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
             `　順位: ${rankLabel(change.previousRank, true)} → *${rankLabel(
               change.currentRank,
               change.mentioned
-            )}*`,
+            )}*` +
+            // See RankingChange.possibleMismatch's own comment (lib/
+            // alert-message.ts) - a hedge, not a retraction: the
+            // deterministic verdict above still stands, this just
+            // flags a plausible reason to double-check it before
+            // acting.
+            (change.possibleMismatch
+              ? `\n　⚠️ 表記ゆれの可能性（原文の「${change.possibleMismatch}」表記をご確認ください）`
+              : ""),
         },
       });
     }

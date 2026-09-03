@@ -310,6 +310,53 @@ console.log(
   `\n${formatterIssues === 0 ? "All alert-message formatter checks passed." : `${formatterIssues} formatter issue(s) found.`}`
 );
 
-if (trCount !== expectedTrCount || slackIssues > 0 || formatterIssues > 0 || !emailJstOk) {
+section("5. possibleMismatch hint (ドコモ 圏外 incident, 2026-09)");
+
+let mismatchIssues = 0;
+
+const mismatchChange: RankingChange = {
+  brandName: "ドコモ",
+  promptText: "今一番おすすめの携帯会社はどこ？",
+  provider: "grok",
+  previousRank: 3,
+  currentRank: null,
+  mentioned: false,
+  possibleMismatch: "docomo",
+};
+const mismatchMsg = buildAnomalyMessage(mismatchChange);
+console.log(mismatchMsg);
+if (!mismatchMsg.includes("表記ゆれ") || !mismatchMsg.includes("docomo")) {
+  console.log("FAIL - alerts.message doesn't surface the possibleMismatch hint");
+  mismatchIssues++;
+} else {
+  console.log("PASS - alerts.message surfaces the possibleMismatch hint with the near-miss word quoted");
+}
+// The deterministic verdict itself must stay completely untouched by
+// the hint - possibleMismatch is a caveat, never a silent override.
+if (!mismatchMsg.includes("圏外")) {
+  console.log("FAIL - the underlying 圏外 verdict must still be stated, not replaced by the hint");
+  mismatchIssues++;
+} else {
+  console.log("PASS - the underlying 圏外 verdict is still stated alongside the hint");
+}
+
+// No hint at all (the common case - severity=critical with no near
+// miss found, or a warning-severity change where this is never even
+// computed) must render exactly like before - no stray "undefined" or
+// empty caveat text leaking in.
+const noMismatchChange: RankingChange = { ...mismatchChange, possibleMismatch: null };
+const noMismatchMsg = buildAnomalyMessage(noMismatchChange);
+if (noMismatchMsg.includes("表記ゆれ") || noMismatchMsg.includes("undefined")) {
+  console.log(`FAIL - a null possibleMismatch leaked a hint or "undefined" into the message: ${noMismatchMsg}`);
+  mismatchIssues++;
+} else {
+  console.log("PASS - a null possibleMismatch renders identically to the pre-existing message (no stray hint)");
+}
+
+console.log(
+  `\n${mismatchIssues === 0 ? "All possibleMismatch hint checks passed." : `${mismatchIssues} issue(s) found.`}`
+);
+
+if (trCount !== expectedTrCount || slackIssues > 0 || formatterIssues > 0 || !emailJstOk || mismatchIssues > 0) {
   process.exit(1);
 }

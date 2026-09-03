@@ -13,6 +13,8 @@ import { runPromptCheckNow } from "@/lib/prompt-check";
 const LIMITS = {
   brandName: 100,
   domain: 200,
+  aliasItem: 100,
+  aliasCount: 5,
   competitorItem: 60,
   competitorCount: 3,
   promptText: 300,
@@ -21,6 +23,22 @@ const LIMITS = {
 
 function truncate(value: string, max: number): string {
   return value.length > max ? value.slice(0, max) : value;
+}
+
+// Same shape as app/dashboard/actions.ts's own parseAliases - a
+// bounded, comma-separated list of alternate names/nicknames for the
+// tracked brand itself (see supabase/schema.sql's brands.aliases and
+// lib/geo-engine.ts's parseResponse). The wizard didn't have this
+// field at all before - a new subscriber whose brand name doesn't
+// exactly match how an LLM spells it (see AliasSuggestionHint) had no
+// way to fix that until their first visit to the dashboard's own brand
+// form.
+function parseAliases(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((a) => truncate(a.trim(), LIMITS.aliasItem))
+    .filter(Boolean)
+    .slice(0, LIMITS.aliasCount);
 }
 
 async function requireUser() {
@@ -63,6 +81,7 @@ export async function completeOnboarding(formData: FormData): Promise<{ ok: bool
   if (!brandName) return { ok: false, code: "brand_name_required" };
 
   const domain = truncate(String(formData.get("domain") ?? "").trim(), LIMITS.domain);
+  const aliases = parseAliases(String(formData.get("aliases") ?? ""));
 
   const competitors = Array.from({ length: LIMITS.competitorCount }, (_, i) =>
     truncate(String(formData.get(`competitor_${i + 1}`) ?? "").trim(), LIMITS.competitorItem)
@@ -84,7 +103,7 @@ export async function completeOnboarding(formData: FormData): Promise<{ ok: bool
 
   const { data: brand, error: brandError } = await supabase
     .from("brands")
-    .insert({ user_id: user.id, name: brandName, domain: domain || null, competitors })
+    .insert({ user_id: user.id, name: brandName, domain: domain || null, aliases, competitors })
     .select("id")
     .single();
 
@@ -131,7 +150,7 @@ export async function completeOnboarding(formData: FormData): Promise<{ ok: bool
           promptText: prompt.text,
           brandId: brand.id,
           brandName,
-          brandAliases: [],
+          brandAliases: aliases,
           competitors,
         }).catch((err) => {
           console.error(`onboarding: first-time check failed for prompt ${prompt.id}:`, err);

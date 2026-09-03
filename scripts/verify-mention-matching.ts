@@ -61,6 +61,20 @@
  * per-brand configuration - unlike a genuine nickname/alternate-name
  * (see the プーメリー case above), which has no mechanical rule to
  * derive it from and still requires registering it as an alias.
+ *
+ * And the "ドコモ 圏外" incident (2026-09, found running a deliberately
+ * large real-brand-name demo across 3 telecom brands/20 prompts/5 real
+ * days of LLM checks): a katakana brand name ("ドコモ") was written by
+ * Grok in plain Latin letters ("docomo") in several responses, which
+ * the matcher - correctly, for the literal katakana string - read as
+ * "not mentioned," producing false "圏外" alerts for a brand that was
+ * plainly on the list. See lib/romaji.ts's katakanaToHepburn (a
+ * mechanical, table-driven transliteration - not a fuzzy guess) and
+ * nameRegex's own comment for why this is additive to, not a
+ * replacement for, exact katakana matching. This does NOT catch every
+ * real spelling on its own (real romanizations often diverge from
+ * strict phonetic Hepburn) - see lib/alert-message.ts's
+ * `possibleMismatch` hint for the safety net.
  */
 import { parseResponse } from "../lib/geo-engine";
 
@@ -277,6 +291,43 @@ const cases: Case[] = [
     rawResponse: "おすすめは「Ｇｅｅｋ－Ｂａｒ」です。",
     brandName: "GeekBar",
     expectMentioned: true,
+  },
+  {
+    // Layer 1 of the ドコモ fix: katakana->Hepburn romaji auto-matching.
+    // "トヨタ" mechanically romanizes to exactly "toyota" (unlike
+    // "ドコモ"->"dokomo", which is one letter off from the real
+    // "docomo" - see this file's own comment on why that residual gap
+    // needs the alert-level hint, not this layer, to fully close).
+    name: 'Katakana->romaji auto-match: registered "トヨタ", response writes "Toyota"',
+    rawResponse: "自動車ならToyotaが世界的に有名です。",
+    brandName: "トヨタ",
+    expectMentioned: true,
+  },
+  {
+    name: 'Katakana->romaji auto-match: registered "ホンダ", response writes lowercase "honda"',
+    rawResponse: "バイクなら honda もおすすめです。",
+    brandName: "ホンダ",
+    expectMentioned: true,
+  },
+  {
+    // The actual ドコモ incident: mechanical romaji ("dokomo") does NOT
+    // equal the real spelling ("docomo") - this layer alone can't catch
+    // it, by design (it's not a fuzzy guess). Locked in as a documented
+    // known gap, not a silent regression.
+    name: 'Katakana->romaji gap (expected, documented): "ドコモ" mechanically romanizes to "dokomo", not the real "docomo"',
+    rawResponse: "5位 | docomo/au/SoftBank | エリア・安定性を最優先",
+    brandName: "ドコモ",
+    expectMentioned: false,
+  },
+  {
+    // A kanji/katakana-mixed or already-Latin name must not attempt
+    // romaji derivation at all (isPureKatakana gates this) - a garbled
+    // hybrid pattern would just never match anything, which is safe,
+    // but confirms the gate itself works rather than silently no-op'ing.
+    name: "Mixed kanji+katakana name is not romaji-converted (isPureKatakana gate)",
+    rawResponse: "資生堂の製品がおすすめです。",
+    brandName: "資生堂",
+    expectMentioned: true, // exact-text match on the kanji itself, unaffected by the romaji layer
   },
 ];
 
