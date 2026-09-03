@@ -131,14 +131,19 @@ export default async function ReportPage({
     .eq("id", user.id)
     .single();
 
-  if (profile?.plan !== "business") {
+  const isBusiness = profile?.plan === "business";
+  const isPro = profile?.plan === "pro";
+
+  // No paid plan at all - neither the CSV export (Pro+Business, see
+  // app/api/export/csv/route.ts) nor the A4 report itself is reachable.
+  if (!isBusiness && !isPro) {
     return (
       <div className="mx-auto max-w-md py-16 text-center">
         <h1 className="text-xl font-semibold">
-          <T k="report.businessOnly" />
+          <T k="report.noPlanTitle" />
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          <T k="report.businessOnlyDesc" />
+          <T k="report.noPlanDesc" />
         </p>
         <div className="mt-6 flex justify-center">
           <UpgradePrompt
@@ -170,6 +175,47 @@ export default async function ReportPage({
   }
   const selectedBrand = brands.find((b) => b.id === searchParams.brand) ?? brands[0];
   const month = searchParams.month && /^\d{4}-\d{2}$/.test(searchParams.month) ? searchParams.month : currentMonthStr();
+
+  // Pro plan: CSV export only, not the A4 report itself (2026-09 - CSV
+  // used to only be reachable from the dashboard's own button; that
+  // button is gone now, replaced by this page's copy for both plans -
+  // see app/dashboard/page.tsx). The AI-written commentary, charts, and
+  // print-optimized layout below stay the Business-plan differentiator
+  // promised on the pricing/landing pages (landing.faqA2,
+  // report.businessOnlyDesc) - opening the rest of this page to Pro
+  // would silently hand out what Business pays extra for, so nothing
+  // past the brand switcher and CSV link is even fetched for Pro.
+  if (isPro) {
+    return (
+      <div className="mx-auto max-w-2xl py-12">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <ReportBrandSelector brands={brands} selectedBrandId={selectedBrand.id} month={month} />
+          <a
+            href={`/api/export/csv?brand=${selectedBrand.id}`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+          >
+            <Download className="h-3.5 w-3.5" />
+            <T k="dashboard.downloadCsv" />
+          </a>
+        </div>
+        <div className="rounded-lg border border-dashed border-border p-8 text-center">
+          <h2 className="text-lg font-semibold">
+            <T k="report.businessOnly" />
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            <T k="report.businessOnlyDesc" />
+          </p>
+          <div className="mt-6 flex justify-center">
+            <UpgradePrompt
+              proPriceId={process.env.STRIPE_PRICE_ID_PRO ?? ""}
+              businessPriceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""}
+              currentPlan={profile?.plan}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
   const prevMonth = previousMonthStr(month);
   const { start, end } = monthRange(month);
   const { start: prevStart, end: prevEnd } = monthRange(prevMonth);
@@ -396,9 +442,11 @@ export default async function ReportPage({
         <div className="flex items-center gap-2">
           <MonthSelector brandId={selectedBrand.id} month={month} />
           {/* The dashboard's own CSV button (app/dashboard/page.tsx) was
-              removed in favor of this one place - export lives on the
-              report page alongside PDF (PrintButton), not scattered
-              across both. */}
+              removed (2026-09) in favor of this one place - export lives
+              on the report page alongside PDF (PrintButton), not
+              scattered across both. This is the Business-plan copy of
+              the same link the isPro branch above also renders (its own
+              stripped-down page, without the rest of this one). */}
           <a
             href={`/api/export/csv?brand=${selectedBrand.id}`}
             className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}

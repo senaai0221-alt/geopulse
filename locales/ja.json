@@ -243,6 +243,8 @@
     "generatedAt": "作成日時",
     "businessOnly": "この機能はBusinessプラン限定です",
     "businessOnlyDesc": "社内・クライアント報告用のA4レポート出力(PDF/印刷最適化)は、Businessプランにアップグレードするとご利用いただけます。",
+    "noPlanTitle": "有料プランへのご契約が必要です",
+    "noPlanDesc": "レポート機能はPro・Businessプランでご利用いただけます。ProプランはCSV形式でのデータ出力、Businessプランはさらに印刷・PDF最適化されたA4レポートもご利用いただけます。",
     "openReport": "A4レポートを開く",
     "reportTitle": "GEOトラッキングレポート",
     "summary": "サマリー",

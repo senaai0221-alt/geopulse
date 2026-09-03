@@ -5,7 +5,6 @@ import {
   Target,
   Link2,
   Loader2,
-  Download,
   ListChecks,
   LineChart,
   PieChart,
@@ -473,26 +472,19 @@ export default async function DashboardPage({
         {/* The "A4レポートを開く" button that used to sit here moved to
             /dashboard/report itself (this card's header is just the
             title again, not a second home for a link to a page that
-            already has its own nav entry). CSV stays reachable from
-            both places, though, for a different reason: /dashboard/
-            report is Business-only, but the CSV export itself is
-            Pro+Business (see app/api/export/csv/route.ts) - a Pro
-            account has no other page this link could live on. */}
+            already has its own nav entry). The CSV button that used to
+            sit here too (2026-09) moved there as well - /dashboard/
+            report now has its own Pro-tier view for exactly this link
+            (Pro no longer needs a second home for it now that the
+            report page isn't Business-only anymore - see that page's
+            own isPro branch), so data export lives in one place instead
+            of being scattered across dashboard and report. */}
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2">
             <ListChecks className="h-4 w-4 text-primary" />
             <T k="dashboard.latestRankings" />
             <InfoTooltip textKey="dashboard.latestRankingsTooltip" />
           </CardTitle>
-          {(plan === "pro" || plan === "business") && (
-            <a
-              href={`/api/export/csv?brand=${selectedBrand.id}`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 gap-1.5")}
-            >
-              <Download className="h-3.5 w-3.5" />
-              <T k="dashboard.downloadCsv" />
-            </a>
-          )}
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <PromptForm

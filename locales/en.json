@@ -243,6 +243,8 @@
     "generatedAt": "Generated",
     "businessOnly": "This feature is Business-plan only",
     "businessOnlyDesc": "A print/PDF-optimized A4 report for internal and client reporting is available on the Business plan.",
+    "noPlanTitle": "A paid plan is required",
+    "noPlanDesc": "Reporting is available on the Pro and Business plans. Pro includes CSV data export; Business adds a print/PDF-optimized A4 report on top of that.",
     "openReport": "Open A4 report",
     "reportTitle": "GEO Tracking Report",
     "summary": "Summary",
