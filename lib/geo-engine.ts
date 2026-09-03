@@ -377,10 +377,30 @@ function isAsciiWordChar(ch: string | undefined): boolean {
  * occurrence instead of just testing presence.
  */
 export function nameRegex(name: string, flags = "i"): RegExp {
-  const escaped = escapeRegExp(name);
   const leading = isAsciiWordChar(name[0]) ? "\\b" : "";
   const trailing = isAsciiWordChar(name[name.length - 1]) ? "\\b" : "";
-  return new RegExp(`${leading}${escaped}${trailing}`, flags);
+
+  // A registered name with no internal space (e.g. "ELFBAR") is very
+  // commonly rendered by an LLM as separate title-cased words instead
+  // ("Elf Bar") - a real 2026-09 incident had a raw response plainly
+  // list "Elf Bar BC5000" and still produced a false "圏外" alert,
+  // because the old exact-contiguous pattern (still case-insensitive,
+  // still Markdown-agnostic - neither of those was ever the problem)
+  // simply never considered "Elf Bar" a match for "ELFBAR" at all.
+  // Tolerating an optional single whitespace between every character
+  // catches that rendering while staying a strict superset of the old
+  // match - every character of the name must still appear, in the same
+  // order, so this is additive, not a loosening of what already
+  // matched. Gated to names with 4+ non-space characters: below that,
+  // treating two short, unrelated fragments separated by whitespace as
+  // a "match" starts colliding with ordinary prose too often to be
+  // worth it (e.g. a 2-character name matching any two of its letters
+  // that happen to appear as adjacent single-letter tokens).
+  const nonSpaceLength = name.replace(/\s/g, "").length;
+  const pattern =
+    nonSpaceLength >= 4 ? [...name].map((ch) => escapeRegExp(ch)).join("\\s?") : escapeRegExp(name);
+
+  return new RegExp(`${leading}${pattern}${trailing}`, flags);
 }
 
 /**

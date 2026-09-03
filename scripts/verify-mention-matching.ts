@@ -29,6 +29,24 @@
  * only thing a single-line match found - reported as rank 5 instead of
  * the real rank 1. See extractListItems' own full-block-per-entry
  * rewrite and parseResponse's hasPositiveMention negation guard.
+ *
+ * And the "ELFBAR 圏外" incident (2026-09): the brand is registered as
+ * one word ("ELFBAR"), but every provider that mentioned it wrote it
+ * as two separate title-cased words ("Elf Bar") - a rendering the old
+ * exact-contiguous matcher never considered equal to "ELFBAR" at all,
+ * producing a false "圏外" alert for a response that plainly listed
+ * "Elf Bar BC5000" at #2. Root-caused against the real stored
+ * raw_response, then confirmed via an isolated before/after diff
+ * against every stored response for every brand in production (251
+ * rows): only the genuinely-affected ELFBAR rows changed, and every
+ * change was a newly-found true mention, never a lost one. Investigated
+ * (and explicitly ruled out by the same real data) as the bug's cause:
+ * case-sensitivity and Markdown decoration were NOT actually broken -
+ * nameRegex already matches case-insensitively and `\b` boundaries
+ * already ignore surrounding Markdown punctuation; both get their own
+ * locked-in regression cases below anyway, since a fix report asked for
+ * them explicitly. See nameRegex's own comment for the character-by-
+ * character `\s?` fix and why it's gated to 4+ character names.
  */
 import { parseResponse } from "../lib/geo-engine";
 
@@ -159,6 +177,66 @@ const cases: Case[] = [
     brandName: "Shokz",
     expectMentioned: false,
     expectRankPosition: null,
+  },
+  {
+    // The exact "ELFBAR" incident, reproduced from the real stored
+    // raw_response's structure: registered as one word, every provider
+    // wrote it as two ("Elf Bar").
+    name: 'ELFBAR incident: registered as one word, response writes it as two ("Elf Bar")',
+    rawResponse:
+      "-   **Elf Bar（エルフバー）**\n" +
+      "    世界で最も売れているディスポーザブルの定番です。**「Elf Bar BC5000」**は、5000 puffと大容量で、コスパが非常に良いです。\n" +
+      "-   **Geek Bar（ギークバー）**\n" +
+      "    最近の海外市場で急伸しているブランドです。",
+    brandName: "ELFBAR",
+    competitors: ["Geek Bar"],
+    expectMentioned: true,
+    expectRankPosition: 1,
+    expectCompetitors: ["Geek Bar"],
+  },
+  {
+    // Case-insensitivity was already correct before the ELFBAR fix (the
+    // "i"/"gi" regex flag), but the bug report explicitly asked this be
+    // covered directly - locking it in here.
+    name: "Case-insensitive match: registered \"ELFBAR\", response writes lowercase \"elfbar\"",
+    rawResponse: "使い捨てVAPEなら elfbar が定番の一つです。",
+    brandName: "ELFBAR",
+    expectMentioned: true,
+  },
+  {
+    // Markdown decoration was already correct before the ELFBAR fix
+    // too (`\b` boundaries don't care what non-word character sits on
+    // the other side) - locking in bold and link-syntax cases directly,
+    // as the bug report explicitly asked for.
+    name: "Markdown bold does not block a match: **ELFBAR**",
+    rawResponse: "おすすめの使い捨てVAPEは **ELFBAR** です。",
+    brandName: "ELFBAR",
+    expectMentioned: true,
+  },
+  {
+    name: "Markdown link does not block a match: [ELFBAR](https://...)",
+    rawResponse: "詳しくは[ELFBAR](https://www.elfbarjapan.jp/)の公式サイトをご覧ください。",
+    brandName: "ELFBAR",
+    expectMentioned: true,
+  },
+  {
+    // The new character-by-character whitespace tolerance is gated to
+    // 4+ non-space characters specifically so it doesn't start treating
+    // two unrelated short tokens separated by a space as a match - a
+    // short name must still require an exact contiguous match.
+    name: "Short (<4 char) name is NOT loosened: \"GO\" must not match unrelated \"G\" ... \"O\" tokens with a word between",
+    rawResponse: "この製品は G社の O型番 です。",
+    brandName: "GO",
+    expectMentioned: false,
+  },
+  {
+    // The whitespace tolerance is additive, not a relaxation of the
+    // existing negation guard - "Elf Bar以外" must still read as a
+    // negated (non-positive) mention, exactly like the contiguous case.
+    name: '"以外" negation guard still applies to the loosened match: "Elf Bar以外"',
+    rawResponse: "### 1. 【Elf Bar以外】のおすすめ\n**▶ SUUNTO Wing**",
+    brandName: "ELFBAR",
+    expectMentioned: false,
   },
 ];
 
