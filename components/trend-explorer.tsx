@@ -12,6 +12,7 @@ import { VoiceTrendChart, type VoiceTrendPoint } from "@/components/voice-trend-
 import type { ActionMarker } from "@/components/action-markers";
 import { MarketingActionDialog } from "@/app/dashboard/marketing-action-dialog";
 import type { MarketingAction } from "@/lib/marketing-actions";
+import { PERIODS, useDashboardPeriod } from "@/components/dashboard-period-context";
 
 type Metric = "exposure" | "rank" | "voice";
 const METRICS: { id: Metric; icon: typeof TrendingUp; labelKey: string }[] = [
@@ -19,9 +20,6 @@ const METRICS: { id: Metric; icon: typeof TrendingUp; labelKey: string }[] = [
   { id: "rank", icon: Target, labelKey: "dashboard.trendTabRank" },
   { id: "voice", icon: PieChart, labelKey: "dashboard.trendTabVoice" },
 ];
-
-const PERIODS = [7, 30, 90] as const;
-type Period = (typeof PERIODS)[number];
 
 /**
  * The dashboard's trend card, upgraded from a single rank-position
@@ -39,6 +37,11 @@ type Period = (typeof PERIODS)[number];
  * in the window has a gap). A logged action outside the visible window,
  * or on a day with no measurement at all for the current metric, just
  * has nothing to attach a marker to - graceful, not an error.
+ *
+ * `period` itself lives in DashboardPeriodProvider (see that module's
+ * own comment), not local state here - the KPI cards further up the
+ * page (dashboard-kpi-cards.tsx) need to report the same window this
+ * graph is showing, and they're rendered nowhere near each other.
  */
 export function TrendExplorer({
   brandId,
@@ -61,7 +64,7 @@ export function TrendExplorer({
 }) {
   const { t } = useI18n();
   const [metric, setMetric] = useState<Metric>("exposure");
-  const [period, setPeriod] = useState<Period>(30);
+  const { period, setPeriod } = useDashboardPeriod();
 
   const slicedRank = rankData.slice(-period);
   const slicedExposure = exposureData.slice(-period);

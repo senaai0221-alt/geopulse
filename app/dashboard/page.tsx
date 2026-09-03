@@ -2,12 +2,10 @@ import Link from "next/link";
 import {
   AlertTriangle,
   Bell,
-  TrendingUp,
   Target,
   Link2,
   Loader2,
   Download,
-  Megaphone,
   ListChecks,
   LineChart,
   PieChart,
@@ -27,6 +25,8 @@ import { type TrendPoint } from "@/components/rank-trend-chart";
 import { type ExposureTrendPoint } from "@/components/exposure-trend-chart";
 import { type VoiceTrendPoint } from "@/components/voice-trend-chart";
 import { TrendExplorer } from "@/components/trend-explorer";
+import { DashboardKpiCards, type DailyStatsPoint, type DailyAlertPoint } from "@/components/dashboard-kpi-cards";
+import { DashboardPeriodProvider } from "@/components/dashboard-period-context";
 import { getMarketingActions } from "@/lib/marketing-actions";
 import { ShareOfVoice, type ShareOfVoiceEntry } from "@/components/share-of-voice";
 import { T } from "@/components/t";
@@ -120,10 +120,7 @@ export default async function DashboardPage({
   const trendWindowEnd = new Date();
   trendWindowEnd.setDate(trendWindowEnd.getDate() + 1);
 
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-  const [{ data: prompts }, { data: recentRankings }, { data: alerts }, { count: alertsThisWeek }, marketingActions] = await Promise.all([
+  const [{ data: prompts }, { data: recentRankings }, { data: alerts }, { data: alertDates }, marketingActions] = await Promise.all([
     supabase
       .from("prompts")
       .select("*")
@@ -151,20 +148,24 @@ export default async function DashboardPage({
       .eq("brand_id", selectedBrand.id)
       .order("created_at", { ascending: false })
       .limit(10),
-    // A separate, uncapped count for the "直近7日間のアラート" KPI card -
-    // the query above is deliberately capped at 10 rows for the "最近の
-    // アラート" list display, and reusing that same capped array to
-    // COUNT this week's alerts silently floors the KPI at 10 for any
-    // brand active enough to generate more than 10 alerts in a week
-    // (found running a deliberately alert-heavy multi-day demo: 47 real
-    // alerts across 3 brands, but every brand's "直近7日間のアラート"
-    // card topped out at whatever fit in the capped list instead of the
-    // brand's real count). `head: true` returns only the count, no rows.
+    // A separate, uncapped fetch for the KPI cards' own period-selector
+    // (see components/dashboard-kpi-cards.tsx) - the query above is
+    // deliberately capped at 10 rows for the "最近のアラート" list
+    // display, and reusing that same capped array to COUNT alerts over
+    // any window silently floors the count at 10 for any brand active
+    // enough to generate more in that window (found running a
+    // deliberately alert-heavy multi-day demo: 47 real alerts across 3
+    // brands, but a fixed "直近7日間のアラート" card built off the
+    // capped list topped out at whatever fit in it instead of the
+    // brand's real count - same root cause, now generalized to every
+    // selectable period instead of just re-fixing the one fixed-7-day
+    // case). Bounded to the same 90-day window as rankings/trend data,
+    // matching the KPI cards' own longest selectable period.
     supabase
       .from("alerts")
-      .select("*", { count: "exact", head: true })
+      .select("created_at")
       .eq("brand_id", selectedBrand.id)
-      .gte("created_at", oneWeekAgo.toISOString()),
+      .gte("created_at", trendWindowStart.toISOString()),
     getMarketingActions(supabase, selectedBrand.id, { start: trendWindowStart, end: trendWindowEnd }),
   ]);
 
@@ -203,12 +204,6 @@ export default async function DashboardPage({
 
   const latestList = Array.from(latestByKey.values());
   const mentionedCount = latestList.filter((r) => r.mentioned).length;
-  const mentionRate = latestList.length > 0 ? mentionedCount / latestList.length : 0;
-  const ranked = latestList.filter((r) => r.rank_position !== null);
-  const avgRank =
-    ranked.length > 0
-      ? ranked.reduce((sum, r) => sum + (r.rank_position ?? 0), 0) / ranked.length
-      : null;
 
   // Group prompts by their optional category ("cohort"). Prompts without a
   // category fall into a single UNCATEGORIZED bucket; if that ends up being
@@ -317,6 +312,35 @@ export default async function DashboardPage({
     return point;
   });
 
+  // Daily mentioned/total/rank totals, parallel to the trend arrays
+  // above but kept summable across an arbitrary tail slice rather than
+  // pre-flattened into one ratio per day - this is what lets the KPI
+  // cards (DashboardKpiCards) report "選択期間全体の平均" for whichever
+  // period is selected, instead of always the single latest
+  // measurement with no stated time window (2026-09 fix).
+  const dailyStats: DailyStatsPoint[] = sortedDayKeys.map((dateKey) => {
+    const b = dayBuckets.get(dateKey)!;
+    let rankSum = 0;
+    let rankCount = 0;
+    for (const p of PROVIDERS) {
+      rankSum += b.providerRank[p].sum;
+      rankCount += b.providerRank[p].count;
+    }
+    return { date: dateKey, mentioned: b.mentioned, total: b.total, rankSum, rankCount };
+  });
+
+  // Same idea for the KPI row's alert count - a separate bucket map
+  // since alerts are keyed by their own created_at, not the
+  // rankings.checked_at the day buckets above are built from.
+  const alertDayCounts = new Map<string, number>();
+  for (const a of alertDates ?? []) {
+    const dateKey = jstDateKey(a.created_at);
+    alertDayCounts.set(dateKey, (alertDayCounts.get(dateKey) ?? 0) + 1);
+  }
+  const dailyAlerts: DailyAlertPoint[] = Array.from(alertDayCounts.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, count]) => ({ date, count }));
+
   const visibleAlerts = (alerts ?? []).slice(0, VISIBLE_ALERTS);
 
   // A brand exists (the `!brands` branch above already returned) but no
@@ -331,6 +355,12 @@ export default async function DashboardPage({
   const showOnboarding = !prompts || prompts.length === 0;
 
   return (
+    // Shared period (7/30/90 days) for the KPI cards and the trend
+    // graph further down - see dashboard-period-context.tsx's own
+    // comment for why this is a Context rather than lifted local state
+    // (the two consumers are rendered nowhere near each other on this
+    // page).
+    <DashboardPeriodProvider>
     <div className="flex flex-col gap-6">
       {/* Brand switcher */}
       <div className="flex flex-wrap items-center gap-2">
@@ -352,84 +382,12 @@ export default async function DashboardPage({
         ))}
       </div>
 
-      {/* Zero-mention warning: churn-risk empty state, not just a blank chart */}
-      {latestList.length > 0 && mentionRate === 0 && (
-        <Card className="border-destructive/40 bg-destructive/5">
-          <CardHeader className="flex-row items-start gap-3 space-y-0">
-            <Megaphone className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
-            <div>
-              <CardTitle className="text-destructive">
-                <T k="dashboard.zeroMentionTitle" />
-              </CardTitle>
-              <CardDescription className="mt-1 text-foreground/80">
-                <T k="dashboard.zeroMentionDesc" />
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ul className="ml-1 flex list-disc flex-col gap-1.5 pl-4 text-sm text-foreground/80">
-              <li>
-                <T k="dashboard.zeroMentionTip1" />
-              </li>
-              <li>
-                <T k="dashboard.zeroMentionTip2" />
-              </li>
-              <li>
-                <T k="dashboard.zeroMentionTip3" />
-              </li>
-            </ul>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* KPI cards - top row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <T k="dashboard.mentionRate" />
-              <InfoTooltip textKey="dashboard.mentionRateTooltip" />
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{Math.round(mentionRate * 100)}%</div>
-            <p className="text-xs text-muted-foreground">
-              <T k="dashboard.mentionRateHint" />
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <T k="dashboard.avgRank" />
-              <InfoTooltip textKey="dashboard.avgRankTooltip" />
-            </CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{avgRank !== null ? avgRank.toFixed(1) : "-"}</div>
-            <p className="text-xs text-muted-foreground">
-              <T k="dashboard.avgRankHint" />
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <T k="dashboard.alertsThisWeek" />
-              <InfoTooltip textKey="dashboard.alertsThisWeekTooltip" />
-            </CardTitle>
-            <Bell className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{alertsThisWeek ?? 0}</div>
-            <p className="text-xs text-muted-foreground">
-              <T k="dashboard.alertsThisWeekHint" />
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Zero-mention warning + KPI cards (露出率/平均順位/アラート),
+          all scoped to one shared, switchable period - see
+          DashboardKpiCards and dashboard-period-context.tsx's own
+          comments for why this replaced a plain snapshot of the
+          single latest measurement with no stated time window. */}
+      <DashboardKpiCards dailyStats={dailyStats} dailyAlerts={dailyAlerts} />
 
       {/* Onboarding guide - replaces the (otherwise empty) trend chart
           for a brand-new account, and points straight at the highlighted
@@ -772,5 +730,6 @@ export default async function DashboardPage({
         </Card>
       </div>
     </div>
+    </DashboardPeriodProvider>
   );
 }
