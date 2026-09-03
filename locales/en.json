@@ -139,6 +139,7 @@
     "trend": "Performance Trends",
     "trendDesc": "Pick a period to see daily AI exposure, position, and Share of Voice trends",
     "trendNeedsMoreData": "Still gathering data - the trend will appear from day 2 onward.",
+    "trendNoRankData": "No ranked (numbered-list) mentions in this period yet - the brand may only be appearing in prose responses so far.",
     "trendTabExposure": "Exposure",
     "trendTabRank": "Position",
     "trendTabVoice": "Share of Voice",

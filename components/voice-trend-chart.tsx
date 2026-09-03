@@ -97,6 +97,11 @@ export function VoiceTrendChart({
               dot={{ r: 3.5, strokeWidth: 2, stroke: "#fff" }}
               activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }}
               connectNulls
+              // See rank-trend-chart.tsx's RankTrendChart for why: this
+              // chart mounts fresh every time a viewer switches to the
+              // "Share of Voice" tab, which restarts Recharts' ~1.5s
+              // entry-draw animation from an empty line on every switch.
+              isAnimationActive={false}
             />
           ))}
         </LineChart>

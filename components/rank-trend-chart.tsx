@@ -89,6 +89,19 @@ export function RankTrendChart({ data, actions = [] }: { data: TrendPoint[]; act
     return <p className="text-sm text-muted-foreground">{t("dashboard.trendNeedsMoreData")}</p>;
   }
 
+  // A day only enters `data` at all once it has at least one measurement
+  // (see dashboard/page.tsx's dayBuckets loop) - but a brand whose
+  // responses are only ever prose (never a numbered/ranked list) has
+  // `rank_position: null` on every single row, every day, for every
+  // provider. That's a real, valid state (not a bug), but rendering it
+  // as bare axes with no line and no explanation reads exactly like the
+  // "掲載順位データが反映されない" report - so it gets its own message
+  // instead of a silently empty plot.
+  const hasAnyRank = data.some((point) => PROVIDER_ORDER.some((p) => point[p] !== null && point[p] !== undefined));
+  if (!hasAnyRank) {
+    return <p className="text-sm text-muted-foreground">{t("dashboard.trendNoRankData")}</p>;
+  }
+
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -103,6 +116,14 @@ export function RankTrendChart({ data, actions = [] }: { data: TrendPoint[]; act
           />
           <YAxis
             reversed
+            // #1 is always the top of the axis and the scale never
+            // shrinks past a real rank value, regardless of which
+            // providers/days happen to be in the currently sliced
+            // (7/30/90-day) window - an auto-computed domain could
+            // otherwise land on a "nice" bound like 0 (see the stray
+            // 0 tick this replaces) that no real rank_position value
+            // ever takes.
+            domain={[1, "dataMax"]}
             allowDecimals={false}
             tick={{ fontSize: 11, fill: "hsl(215 16% 47%)" }}
             axisLine={false}
@@ -131,6 +152,19 @@ export function RankTrendChart({ data, actions = [] }: { data: TrendPoint[]; act
               dot={{ r: 4, strokeWidth: 2, stroke: "#fff" }}
               activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }}
               connectNulls
+              // The rank/exposure/voice tabs are mutually exclusive
+              // (see TrendExplorer) - each mounts fresh, from zero,
+              // every time a viewer switches to it, which restarts
+              // Recharts' default ~1.5s entry-draw animation from an
+              // empty line on every single switch. A viewer who
+              // clicks "掲載順位" and looks (the whole point of
+              // clicking a tab) lands mid-animation and sees exactly
+              // "no data plotted" for up to that long, even though
+              // the data was there the entire time - this is the
+              // reported bug's actual mechanism, not a data or axis
+              // problem. Disabling the animation makes every tab
+              // render its full line immediately on mount.
+              isAnimationActive={false}
             />
           ))}
         </LineChart>

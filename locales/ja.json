@@ -139,6 +139,7 @@
     "trend": "パフォーマンス推移",
     "trendDesc": "期間を選んで、AI露出率・掲載順位・Share of Voiceの日次推移を確認できます",
     "trendNeedsMoreData": "データ蓄積中です(2日目以降に推移が表示されます)",
+    "trendNoRankData": "この期間はまだ番号付きリストでの言及がありません(文章内での言及のみの可能性があります)",
     "trendTabExposure": "露出率",
     "trendTabRank": "掲載順位",
     "trendTabVoice": "Share of Voice",
