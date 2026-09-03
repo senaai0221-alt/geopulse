@@ -79,6 +79,20 @@ create table if not exists public.brands (
   user_id uuid not null references public.profiles (id) on delete cascade,
   name text not null,
   domain text,
+  -- Alternate names/nicknames for this exact brand - e.g. name=
+  -- "プーメリー" (a common nickname), aliases=["くまのプーさん えらべる
+  -- 回転6WAY ジムにへんしんメリー"] (the official product name). Added
+  -- after a real false "圏外" alert: an LLM response described the
+  -- product at #1 by its full official name only, with no mention of
+  -- the nickname anywhere in the text, so the exact-string mention
+  -- matcher (lib/geo-engine.ts parseResponse - deliberately never
+  -- LLM-judged, see that file's own comments) correctly reported "not
+  -- found" for a literal string that genuinely wasn't there, even
+  -- though the same product plainly was. Aliases widen the set of
+  -- exact strings that count as "this is the brand", same mechanism as
+  -- `competitors` below, applied to the tracked brand itself - still
+  -- zero LLM judgment involved, just more than one string to check.
+  aliases text[] not null default '{}',
   competitors text[] not null default '{}',
   is_active boolean not null default true,
   -- alert when the rank position worsens (numerically increases) by at
@@ -86,6 +100,10 @@ create table if not exists public.brands (
   rank_drop_threshold int not null default 3,
   created_at timestamptz not null default now()
 );
+
+-- Adds aliases for databases created before this field existed; safe to
+-- re-run.
+alter table public.brands add column if not exists aliases text[] not null default '{}';
 
 create index if not exists brands_user_idx on public.brands (user_id);
 

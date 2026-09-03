@@ -35,6 +35,7 @@ interface BrandRow {
   id: string;
   user_id: string;
   name: string;
+  aliases: string[];
   competitors: string[];
   rank_drop_threshold: number;
 }
@@ -120,6 +121,7 @@ async function processBrand(
         const results = await runGeoQuery({
           prompt: prompt.text,
           brandName: brand.name,
+          brandAliases: brand.aliases ?? [],
           competitors: brand.competitors ?? [],
         });
 
@@ -330,7 +332,7 @@ async function runDailyCheck(supabase: ReturnType<typeof createAdminClient>) {
   // (see lib/plan-limits.ts for why).
   const { data: brands, error: brandsError } = await supabase
     .from("brands")
-    .select("id, user_id, name, competitors, rank_drop_threshold, profiles!inner(plan)")
+    .select("id, user_id, name, aliases, competitors, rank_drop_threshold, profiles!inner(plan)")
     .eq("is_active", true)
     .in("profiles.plan", ["pro", "business"]);
 

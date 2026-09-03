@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
   const { data: prompt } = await supabase
     .from("prompts")
-    .select("id, text, brand_id, last_checked_at, brands(name, competitors)")
+    .select("id, text, brand_id, last_checked_at, brands(name, aliases, competitors)")
     .eq("id", promptId)
     .single();
 
@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
     const results = await runGeoQuery({
       prompt: prompt.text,
       brandName: brand.name,
+      brandAliases: brand.aliases ?? [],
       competitors: brand.competitors ?? [],
     });
 

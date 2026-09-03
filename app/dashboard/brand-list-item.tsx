@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Globe, Tag, Pencil, Trash2, Loader2, Target, Users } from "lucide-react";
+import { Globe, Tag, Fingerprint, Pencil, Trash2, Loader2, Target, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ interface Brand {
   id: string;
   name: string;
   domain: string | null;
+  aliases: string[] | null;
   competitors: string[] | null;
   /** false when a plan downgrade pushed this brand past the new plan's
    *  limit (see lib/plan-reconciliation.ts) - paused, not deleted, and
@@ -28,6 +29,7 @@ interface Brand {
 // regardless - see BrandForm for why these exist too.
 const NAME_MAX = 100;
 const DOMAIN_MAX = 200;
+const ALIASES_MAX = 300;
 const COMPETITORS_MAX = 300;
 
 /** One row in the brand-management list: view mode by default, an
@@ -126,6 +128,20 @@ export function BrandListItem({
           <p className="text-xs text-slate-400">{t("settings.brandDomainHint")}</p>
         </div>
         <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`aliases-${brand.id}`} className="flex items-center gap-1.5">
+            <Fingerprint className="h-3.5 w-3.5 text-muted-foreground" />
+            {t("settings.brandAliases")}
+          </Label>
+          <Input
+            id={`aliases-${brand.id}`}
+            name="aliases"
+            defaultValue={(brand.aliases ?? []).join(", ")}
+            maxLength={ALIASES_MAX}
+            placeholder={t("settings.brandAliasesPlaceholder")}
+          />
+          <p className="text-xs text-slate-400">{t("settings.brandAliasesHint")}</p>
+        </div>
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor={`competitors-${brand.id}`} className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5 text-muted-foreground" />
             {t("settings.brandCompetitors")}
@@ -208,6 +224,16 @@ export function BrandListItem({
           <span className="truncate" title={brand.domain}>
             {brand.domain}
           </span>
+        </span>
+      )}
+      {brand.aliases && brand.aliases.length > 0 && (
+        <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground" title={t("settings.brandAliasesHint")}>
+          <Fingerprint className="h-3 w-3 shrink-0" />
+          {brand.aliases.map((a) => (
+            <Badge key={a} variant="outline" className="text-[11px]">
+              {a}
+            </Badge>
+          ))}
         </span>
       )}
       {brand.competitors && brand.competitors.length > 0 && (

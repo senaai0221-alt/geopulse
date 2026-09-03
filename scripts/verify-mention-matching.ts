@@ -14,6 +14,12 @@
  * the final `mentioned` verdict) means this layer alone is now the sole
  * source of truth for "mentioned" - so proving it right here is
  * sufficient to prove the incident can't recur.
+ *
+ * Also covers the later "プーメリー" false-圏外 incident (2026-09): a
+ * brand registered under a common nickname whose product got described
+ * by its official product name only in one response, with the nickname
+ * nowhere in the text - see the `aliases` field added below and to
+ * `brands`/`parseResponse` itself.
  */
 import { parseResponse } from "../lib/geo-engine";
 
@@ -21,9 +27,11 @@ interface Case {
   name: string;
   rawResponse: string;
   brandName: string;
+  aliases?: string[];
   competitors?: string[];
   expectMentioned: boolean;
   expectCompetitors?: string[];
+  expectRankPosition?: number | null;
 }
 
 const cases: Case[] = [
@@ -88,18 +96,45 @@ const cases: Case[] = [
     expectMentioned: false,
     expectCompetitors: ["競合ブランドA"],
   },
+  {
+    // The exact "プーメリー" incident: the brand is registered under its
+    // common nickname, but this particular response only ever uses the
+    // official product name - the nickname string itself never appears
+    // anywhere. Without the alias, this must (correctly, for what it's
+    // actually being asked) come back not-mentioned; WITH the alias
+    // registered, the exact same response must be recognized, at its
+    // real rank.
+    name: "プーメリー incident: nickname absent, official product name present in a numbered list",
+    rawResponse:
+      "1. 【タカラトミー】くまのプーさん えらべる回転6WAY ジムにへんしんメリー\n" +
+      "2. 【ピープル】うちの赤ちゃん世界一 スマート知育ジム＆メリー",
+    brandName: "プーメリー",
+    expectMentioned: false,
+    expectRankPosition: null,
+  },
+  {
+    name: "プーメリー incident, fixed: same response, official name registered as an alias",
+    rawResponse:
+      "1. 【タカラトミー】くまのプーさん えらべる回転6WAY ジムにへんしんメリー\n" +
+      "2. 【ピープル】うちの赤ちゃん世界一 スマート知育ジム＆メリー",
+    brandName: "プーメリー",
+    aliases: ["くまのプーさん えらべる回転6WAY ジムにへんしんメリー"],
+    expectMentioned: true,
+    expectRankPosition: 1,
+  },
 ];
 
 let failures = 0;
 
 for (const c of cases) {
-  const result = parseResponse(c.rawResponse, c.brandName, c.competitors ?? []);
+  const result = parseResponse(c.rawResponse, c.brandName, c.aliases ?? [], c.competitors ?? []);
   const mentionedOk = result.mentioned === c.expectMentioned;
   const competitorsOk =
     c.expectCompetitors === undefined ||
     JSON.stringify([...result.competitorsMentioned].sort()) ===
       JSON.stringify([...c.expectCompetitors].sort());
-  const ok = mentionedOk && competitorsOk;
+  const rankOk = c.expectRankPosition === undefined || result.rankPosition === c.expectRankPosition;
+  const ok = mentionedOk && competitorsOk && rankOk;
 
   console.log(`${ok ? "PASS" : "FAIL"} - ${c.name}`);
   if (!ok) {
@@ -111,6 +146,9 @@ for (const c of cases) {
           result.competitorsMentioned
         )}`
       );
+    }
+    if (c.expectRankPosition !== undefined) {
+      console.log(`     expected rankPosition=${c.expectRankPosition}, got ${result.rankPosition}`);
     }
   }
 }

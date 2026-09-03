@@ -19,6 +19,8 @@ import { isMarketingActionCategory } from "@/lib/marketing-actions";
 const LIMITS = {
   brandName: 100,
   domain: 200,
+  aliasItem: 100,
+  aliasCount: 5,
   competitorItem: 60,
   competitorCount: 20,
   promptText: 300,
@@ -42,12 +44,29 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function parseCompetitors(raw: string): string[] {
+// Shared by competitors and aliases - both are just "a bounded list of
+// short strings, comma-separated in one input" with the same shape,
+// only the per-item/count caps differ.
+function parseCommaList(raw: string, itemMax: number, countMax: number): string[] {
   return raw
     .split(",")
-    .map((c) => truncate(c.trim(), LIMITS.competitorItem))
+    .map((c) => truncate(c.trim(), itemMax))
     .filter(Boolean)
-    .slice(0, LIMITS.competitorCount);
+    .slice(0, countMax);
+}
+
+function parseCompetitors(raw: string): string[] {
+  return parseCommaList(raw, LIMITS.competitorItem, LIMITS.competitorCount);
+}
+
+// Alternate names/nicknames for the tracked brand itself - see
+// supabase/schema.sql's brands.aliases and lib/geo-engine.ts's
+// parseResponse for why this exists: an exact-text mention/rank match
+// against a single `name` string missed a real product that an LLM
+// happened to describe by its official name rather than the nickname
+// it was registered under.
+function parseAliases(raw: string): string[] {
+  return parseCommaList(raw, LIMITS.aliasItem, LIMITS.aliasCount);
 }
 
 async function requireUser() {
@@ -64,6 +83,7 @@ export async function createBrand(formData: FormData) {
 
   const name = truncate(String(formData.get("name") ?? "").trim(), LIMITS.brandName);
   const domain = truncate(String(formData.get("domain") ?? "").trim(), LIMITS.domain);
+  const aliases = parseAliases(String(formData.get("aliases") ?? ""));
   const competitors = parseCompetitors(String(formData.get("competitors") ?? ""));
 
   if (!name) throw new Error("brand_name_required");
@@ -81,6 +101,7 @@ export async function createBrand(formData: FormData) {
     user_id: user.id,
     name,
     domain: domain || null,
+    aliases,
     competitors,
   });
 
@@ -94,6 +115,7 @@ export async function updateBrand(formData: FormData) {
   const brandId = String(formData.get("brand_id") ?? "");
   const name = truncate(String(formData.get("name") ?? "").trim(), LIMITS.brandName);
   const domain = truncate(String(formData.get("domain") ?? "").trim(), LIMITS.domain);
+  const aliases = parseAliases(String(formData.get("aliases") ?? ""));
   const competitors = parseCompetitors(String(formData.get("competitors") ?? ""));
 
   if (!brandId || !name) throw new Error("brand_name_required");
@@ -102,7 +124,7 @@ export async function updateBrand(formData: FormData) {
   // caller owns - no need to re-check ownership here.
   const { error } = await supabase
     .from("brands")
-    .update({ name, domain: domain || null, competitors })
+    .update({ name, domain: domain || null, aliases, competitors })
     .eq("id", brandId);
 
   if (error) throw new Error(error.message);

@@ -26,6 +26,12 @@ export interface GeoQueryInput {
   prompt: string;
   /** The brand name to search for in each response. */
   brandName: string;
+  /** Alternate names/nicknames for the SAME brand (e.g. an official
+   *  product name vs. a common nickname) - any of these counts as
+   *  equally "the brand" for mention/rank purposes, still via exact-
+   *  text matching only (see parseResponse) - never an LLM's opinion of
+   *  whether two names refer to the same thing. */
+  brandAliases?: string[];
   /** Known competitor names, used to detect who else got recommended. */
   competitors: string[];
 }
@@ -35,11 +41,12 @@ export type Sentiment = "positive" | "neutral" | "negative";
 export interface GeoQueryResult {
   provider: LlmProvider;
   mentioned: boolean;
-  /** 1-based rank within a numbered/bulleted list, or null if the brand
-   *  was not mentioned, or was mentioned outside of any rankable list.
-   *  Judged by a lightweight LLM call when available (more robust against
-   *  markdown-heading-style lists than the regex parser), falling back to
-   *  the regex-based parse if the judge call fails or is unavailable. */
+  /** 1-based rank within a numbered/bulleted/heading list, or null if
+   *  the brand was not mentioned, or was mentioned outside of any real
+   *  list structure. Purely regex/text-structure-based (see
+   *  parseResponse/extractListItems) - never an LLM's own opinion of
+   *  where something "would" rank, after a real incident where that
+   *  produced a fabricated rank for prose with no ranking at all. */
   rankPosition: number | null;
   /** How the brand is talked about, per the lightweight judge call. null
    *  if the brand wasn't mentioned, or the judge call was unavailable. */
@@ -434,29 +441,55 @@ function extractListItems(text: string): string[] {
 // against real raw-response text without needing live API keys - see
 // scripts/verify-mention-matching.ts. Not otherwise used outside this
 // module.
+//
+// `brandAliases` widens "is this the brand" beyond the single `name`
+// string - added after a real incident where an LLM described the
+// tracked product at #1 by its official product name only, with no
+// trace of the nickname the brand was actually registered under
+// anywhere in the text; the exact-match matcher (correctly, for that
+// one literal string) reported "not mentioned", producing a false
+// "圏外" alert for a product that was plainly right there at the top.
+// Every name/alias is checked with the exact same nameRegex exact-text
+// rule - this is still zero LLM judgment, just more than one string
+// the operator has told us are equally "the brand".
 export function parseResponse(
   rawResponse: string,
   brandName: string,
+  brandAliases: string[],
   competitors: string[]
-): Omit<GeoQueryResult, "provider" | "rawResponse" | "citations" | "sentiment"> {
-  const brandPattern = nameRegex(brandName);
+): Omit<GeoQueryResult, "provider" | "rawResponse" | "citations" | "sentiment"> & {
+  /** Whichever of `brandName`/`brandAliases` actually matched - null if
+   *  none did. Passed through to judgeBrandTreatment (see buildResult)
+   *  so its own "is this string really in the text" framing stays
+   *  accurate when an alias (not the primary name) is what matched. */
+  matchedName: string | null;
+} {
+  const names = [brandName, ...brandAliases].map((n) => n.trim()).filter(Boolean);
   const items = extractListItems(rawResponse);
 
   let rankPosition: number | null = null;
+  let matchedName: string | null = null;
+
   for (let i = 0; i < items.length; i++) {
-    if (brandPattern.test(items[i])) {
+    const hit = names.find((name) => nameRegex(name).test(items[i]));
+    if (hit) {
       rankPosition = i + 1;
+      matchedName = hit;
       break;
     }
   }
 
-  const mentioned = rankPosition !== null || brandPattern.test(rawResponse);
+  if (matchedName === null) {
+    matchedName = names.find((name) => nameRegex(name).test(rawResponse)) ?? null;
+  }
+
+  const mentioned = matchedName !== null;
 
   const competitorsMentioned = competitors.filter((competitor) =>
     nameRegex(competitor).test(rawResponse)
   );
 
-  return { mentioned, rankPosition, competitorsMentioned };
+  return { mentioned, rankPosition, competitorsMentioned, matchedName };
 }
 
 // ---------------------------------------------------------------------
@@ -605,17 +638,30 @@ function emptyResult(provider: LlmProvider, error: unknown): GeoQueryResult {
  * to rank too: a number this specific has to be grounded in the
  * text's own structure (extractListItems' regex match), never an LLM's
  * unverified opinion of where something "would" rank.
+ *
+ * `input.brandAliases` (see parseResponse) covers the other real
+ * incident this pipeline has hit: a brand registered under a common
+ * nickname whose product got described by its full official name only
+ * in one particular response, with the nickname nowhere in the text.
+ * The exact-match rule was working exactly as designed - the literal
+ * string genuinely wasn't there - the fix is giving it more than one
+ * literal string to look for, not loosening the rule itself.
  */
 async function buildResult(
   provider: LlmProvider,
   response: ProviderResponse,
   input: GeoQueryInput
 ): Promise<GeoQueryResult> {
-  const parsed = parseResponse(response.text, input.brandName, input.competitors);
+  const parsed = parseResponse(response.text, input.brandName, input.brandAliases ?? [], input.competitors);
   const citations = mergeCitations(response.citations, response.text);
-  const judge = parsed.mentioned
-    ? await judgeBrandTreatment(response.text, input.brandName)
-    : { sentiment: null };
+  // Whichever name/alias actually matched (parsed.matchedName), not
+  // always input.brandName - the judge's own prompt asserts that exact
+  // string is present in the text, which would be a false premise if
+  // only an alias (not the primary name) is what matched.
+  const judge =
+    parsed.mentioned && parsed.matchedName
+      ? await judgeBrandTreatment(response.text, parsed.matchedName)
+      : { sentiment: null };
 
   return {
     provider,
