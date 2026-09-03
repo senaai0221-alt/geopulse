@@ -125,6 +125,7 @@
     "mentionedNoRank": "Featured",
     "sentimentTitle": "Sentiment",
     "checkErrorTooltip": "A temporary connection error on the AI provider's side caused this one check to fail. What's shown is still your last successful measurement. This usually clears up on its own by tomorrow's automatic check. If it keeps happening for several days, please reach out to support.",
+    "checkErrorTooltipFirstCheck": "A temporary connection error on the AI provider's side caused this very first check to fail. It's shown as \"not found\" since there's no measurement history yet, but that doesn't reflect the real result. Tomorrow's automatic check will update it with a real result.",
     "sentimentPositive": "Positive",
     "sentimentNeutral": "Neutral",
     "sentimentNegative": "Negative",

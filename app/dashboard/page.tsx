@@ -169,9 +169,18 @@ export default async function DashboardPage({
 
   const latestByKey = new Map<string, RankingRecord>();
   const promptsWithAnyData = new Set<string>();
+  // How many rows exist for a given (prompt, provider) pair within the
+  // 90-day window - used only to tell a genuinely-first-ever check that
+  // failed (count === 1: the failed row itself, nothing else) apart
+  // from a later one (see CheckErrorBadge's isFirstCheck prop). Below
+  // 2 either way behaves the same for this purpose, so this only
+  // needs to distinguish "exactly one" from "more than one," not count
+  // precisely - but a Map of counts is just as simple to build as a Set.
+  const checkCountByKey = new Map<string, number>();
   for (const r of allRankings) {
     const key = `${r.prompt_id}-${r.provider}`;
     if (!latestByKey.has(key)) latestByKey.set(key, r);
+    checkCountByKey.set(key, (checkCountByKey.get(key) ?? 0) + 1);
     promptsWithAnyData.add(r.prompt_id);
   }
 
@@ -578,7 +587,9 @@ export default async function DashboardPage({
                             </span>
                           </TableCell>
                           {PROVIDERS.map((provider) => {
-                            const r = latestByKey.get(`${prompt.id}-${provider}`);
+                            const key = `${prompt.id}-${provider}`;
+                            const r = latestByKey.get(key);
+                            const isFirstCheck = (checkCountByKey.get(key) ?? 0) <= 1;
                             return (
                               <TableCell
                                 key={provider}
@@ -595,7 +606,7 @@ export default async function DashboardPage({
                                 {r ? (
                                   <div className="flex flex-nowrap items-center gap-1.5">
                                     <RankBadge mentioned={r.mentioned} rank={r.rank_position} />
-                                    {r.error && <CheckErrorBadge />}
+                                    {r.error && <CheckErrorBadge isFirstCheck={isFirstCheck} />}
                                     <SentimentDot sentiment={r.sentiment} />
                                     {r.citations && r.citations.length > 0 && (
                                       <span

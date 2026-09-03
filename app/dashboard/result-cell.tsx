@@ -28,17 +28,26 @@ export function RankBadge({ mentioned, rank }: { mentioned: boolean; rank: numbe
  *  only visible sign that today's measurement didn't actually succeed
  *  and what's shown is carried forward from the last good check. */
 /**
- * Warning icon shown when a check failed (a provider API error) and
- * the cell is carrying forward the last known-good value instead of a
- * false "圏外" (see app/api/cron/daily-check/route.ts). Uses the same
- * rich Tooltip as InfoTooltip rather than a native `title` attribute -
- * a one-line browser tooltip isn't enough room to explain that this is
- * normally transient and when it's actually worth worrying about,
- * which matters here specifically: a customer seeing this icon several
- * mornings in a row with no explanation reads it as "the product is
- * broken," not "an AI provider had a bad moment."
+ * Warning icon shown when a check failed (a provider API error). Uses
+ * the same rich Tooltip as InfoTooltip rather than a native `title`
+ * attribute - a one-line browser tooltip isn't enough room to explain
+ * that this is normally transient and when it's actually worth
+ * worrying about, which matters here specifically: a customer seeing
+ * this icon several mornings in a row with no explanation reads it as
+ * "the product is broken," not "an AI provider had a bad moment."
+ *
+ * `isFirstCheck` (2026-09 fix): the standard copy claims "表示は前回の
+ * 正常な計測値のままです" (showing the last known-good value) - true for
+ * a failed re-check, but false and actively confusing for a brand's
+ * very first-ever measurement failing, where there IS no previous
+ * value (see lib/prompt-check.ts - a failed provider with no prior row
+ * just falls back to `mentioned: false`, not "carried forward"). A
+ * real new subscriber hit exactly this during onboarding and asked,
+ * reasonably, "it's the first time, there's no previous result" - the
+ * tooltip now says so instead of asserting a history that doesn't
+ * exist.
  */
-export function CheckErrorBadge() {
+export function CheckErrorBadge({ isFirstCheck = false }: { isFirstCheck?: boolean }) {
   const { t } = useI18n();
   return (
     <Tooltip>
@@ -47,7 +56,9 @@ export function CheckErrorBadge() {
           <AlertTriangle className="h-3.5 w-3.5" />
         </span>
       </TooltipTrigger>
-      <TooltipContent>{t("dashboard.checkErrorTooltip")}</TooltipContent>
+      <TooltipContent>
+        {t(isFirstCheck ? "dashboard.checkErrorTooltipFirstCheck" : "dashboard.checkErrorTooltip")}
+      </TooltipContent>
     </Tooltip>
   );
 }
