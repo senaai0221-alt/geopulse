@@ -120,7 +120,10 @@ export default async function DashboardPage({
   const trendWindowEnd = new Date();
   trendWindowEnd.setDate(trendWindowEnd.getDate() + 1);
 
-  const [{ data: prompts }, { data: recentRankings }, { data: alerts }, marketingActions] = await Promise.all([
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+  const [{ data: prompts }, { data: recentRankings }, { data: alerts }, { count: alertsThisWeek }, marketingActions] = await Promise.all([
     supabase
       .from("prompts")
       .select("*")
@@ -148,6 +151,20 @@ export default async function DashboardPage({
       .eq("brand_id", selectedBrand.id)
       .order("created_at", { ascending: false })
       .limit(10),
+    // A separate, uncapped count for the "直近7日間のアラート" KPI card -
+    // the query above is deliberately capped at 10 rows for the "最近の
+    // アラート" list display, and reusing that same capped array to
+    // COUNT this week's alerts silently floors the KPI at 10 for any
+    // brand active enough to generate more than 10 alerts in a week
+    // (found running a deliberately alert-heavy multi-day demo: 47 real
+    // alerts across 3 brands, but every brand's "直近7日間のアラート"
+    // card topped out at whatever fit in the capped list instead of the
+    // brand's real count). `head: true` returns only the count, no rows.
+    supabase
+      .from("alerts")
+      .select("*", { count: "exact", head: true })
+      .eq("brand_id", selectedBrand.id)
+      .gte("created_at", oneWeekAgo.toISOString()),
     getMarketingActions(supabase, selectedBrand.id, { start: trendWindowStart, end: trendWindowEnd }),
   ]);
 
@@ -192,12 +209,6 @@ export default async function DashboardPage({
     ranked.length > 0
       ? ranked.reduce((sum, r) => sum + (r.rank_position ?? 0), 0) / ranked.length
       : null;
-
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-  const alertsThisWeek = (alerts ?? []).filter(
-    (a) => new Date(a.created_at) >= oneWeekAgo
-  ).length;
 
   // Group prompts by their optional category ("cohort"). Prompts without a
   // category fall into a single UNCATEGORIZED bucket; if that ends up being
@@ -412,7 +423,7 @@ export default async function DashboardPage({
             <Bell className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{alertsThisWeek}</div>
+            <div className="text-2xl font-bold">{alertsThisWeek ?? 0}</div>
             <p className="text-xs text-muted-foreground">
               <T k="dashboard.alertsThisWeekHint" />
             </p>
