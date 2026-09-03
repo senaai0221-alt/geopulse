@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
+import { isSafeRedirectPath } from "@/lib/utils";
 
 /**
  * Handles the redirect from a Supabase magic-link email: exchanges the
@@ -10,7 +11,13 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const rawNext = searchParams.get("next");
+  // `next` now also arrives here from app/login's own `next` query
+  // param (forwarded into the Google/OTP redirectTo URL) as well as
+  // middleware's own same-origin-only usage - see isSafeRedirectPath's
+  // comment for why an attacker-editable value has to be validated
+  // here, not just trusted.
+  const next = isSafeRedirectPath(rawNext) ? rawNext : "/dashboard";
 
   if (code) {
     const supabase = createClient();

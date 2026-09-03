@@ -94,12 +94,13 @@ export default async function LandingPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const primaryHref = user ? "/dashboard" : "/login";
+  // "今すぐ始める"/getStarted always means signup-framing on /login (see
+  // login-form.tsx's own readMode) - there's no separate signup flow to
+  // send it to instead (Google/email OTP both create an account on
+  // first use), but the CTA's own wording still shouldn't land on a
+  // page that opens on the "ログイン" tab.
+  const primaryHref = user ? "/dashboard" : "/login?mode=signup";
   const primaryLabelKey = user ? "nav.backToDashboard" : "nav.getStarted";
-  // A logged-in-but-unpaid visitor goes to the real checkout flow
-  // (/pricing); /pricing itself redirects paid users straight on to
-  // /dashboard, so this never shows pricing to someone already paying.
-  const planCtaHref = user ? "/pricing" : "/login";
 
   return (
     <main className="flex flex-col">
@@ -117,7 +118,7 @@ export default async function LandingPage() {
                 {user.email}
               </span>
             ) : (
-              <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">
+              <Link href="/login?mode=login" className="text-sm text-muted-foreground hover:text-foreground">
                 <T k="nav.login" />
               </Link>
             )}
@@ -248,7 +249,23 @@ export default async function LandingPage() {
             <T k="landing.pricingSubtitle" />
           </p>
           <div className="mx-auto mt-12 grid max-w-3xl grid-cols-1 gap-6 pt-3 md:grid-cols-2">
-            {PLANS.map((plan) => (
+            {PLANS.map((plan) => {
+              // Carries which specific plan was clicked through to
+              // wherever it lands next, so the visitor never has to
+              // re-find "the Business one" on a generic list -
+              // /pricing?plan= highlights the matching card (see that
+              // page's own comment on why this is presentational only,
+              // never an auto-checkout). A logged-in-but-unpaid visitor
+              // skips /login entirely and goes straight to /pricing;
+              // a guest goes through /login first, with /pricing?plan=
+              // as its `next` so the highlight still applies once
+              // they're back.
+              const planKey = plan.name.toLowerCase();
+              const pricingHref = `/pricing?plan=${planKey}`;
+              const planCtaHref = user
+                ? pricingHref
+                : `/login?mode=signup&next=${encodeURIComponent(pricingHref)}`;
+              return (
               <Card
                 key={plan.name}
                 className={`relative flex h-full flex-col ${
@@ -302,7 +319,8 @@ export default async function LandingPage() {
                   </Link>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

@@ -55,8 +55,23 @@ const PLANS = [
  * there is no free tier (see lib/plan-limits.ts). Middleware redirects
  * unpaid visitors to /dashboard/* here; this page redirects the other
  * way once a subscription is active, so nobody sees pricing twice.
+ *
+ * `?plan=pro`/`?plan=business` (from the marketing page's own per-plan
+ * CTAs, or from /login's `next` param once a just-authenticated visitor
+ * lands back here) highlights that card instead of leaving the visitor
+ * to re-find the plan they already picked. This is presentational only
+ * - it never pre-fills a priceId or auto-triggers UpgradeButton's own
+ * checkout call, which always requires an explicit click of its own
+ * (see that component's preview/confirm flow for plan changes) so
+ * nobody is ever redirected into a paid checkout without having just
+ * clicked something on this exact page themselves.
  */
-export default async function PricingPage() {
+export default async function PricingPage({
+  searchParams,
+}: {
+  searchParams: { plan?: string };
+}) {
+  const selectedPlan = searchParams.plan?.toLowerCase();
   const supabase = createClient();
   const {
     data: { user },
@@ -116,16 +131,24 @@ export default async function PricingPage() {
         <div className="grid w-full max-w-2xl grid-cols-1 gap-6 pt-3 sm:grid-cols-2">
           {PLANS.map((plan) => {
             const offerTrial = accountTrialEligible && plan.priceIdEnv === "STRIPE_PRICE_ID_PRO";
+            // An explicit `?plan=` selection takes priority over the
+            // static "recommended" badge - once someone has actually
+            // picked a plan (from the marketing page or a returning
+            // /login redirect), showing them "recommended" on a
+            // DIFFERENT card than the one they clicked would read as
+            // this page second-guessing their own choice.
+            const isSelected = !!selectedPlan && plan.name.toLowerCase() === selectedPlan;
+            const badgeKey = isSelected ? "pricing.selectedPlanBadge" : plan.highlighted ? "landing.recommended" : null;
             return (
             <Card
               key={plan.name}
               className={`relative flex h-full flex-col ${
-                plan.highlighted ? "border-primary shadow-lg ring-1 ring-primary" : ""
+                plan.highlighted || isSelected ? "border-primary shadow-lg ring-1 ring-primary" : ""
               }`}
             >
-              {plan.highlighted && (
+              {badgeKey && (
                 <Badge className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 shadow-sm">
-                  <T k="landing.recommended" />
+                  <T k={badgeKey} />
                 </Badge>
               )}
               <CardHeader>

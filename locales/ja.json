@@ -69,10 +69,18 @@
   "login": {
     "title": "ログイン / 新規登録",
     "subtitle": "Googleアカウント、またはメールアドレスでログインできます",
+    "tabLogin": "ログイン",
+    "tabSignup": "新規登録",
+    "titleLogin": "ログイン",
+    "titleSignup": "アカウントを作成",
+    "subtitleLogin": "Googleアカウント、またはメールアドレスでログインできます",
+    "subtitleSignup": "Googleアカウント、またはメールアドレスで今すぐ始められます",
     "googleSignIn": "Googleでログイン",
+    "googleSignInSignup": "Googleで始める",
     "or": "または",
     "email": "メールアドレス",
     "sendLink": "ログインリンクを送信",
+    "sendLinkSignup": "登録して始める",
     "linkSent": "宛にログインリンクを送信しました。メールをご確認ください。",
     "sendFailed": "メールの送信に失敗しました。お手元にログインコードがあれば、下に入力してログインできます。",
     "enterCode": "ログインコードを入力",
@@ -275,6 +283,7 @@
     "pageLabel": "ページ {n} / 3"
   },
   "pricing": {
+    "selectedPlanBadge": "あなたが選んだプラン",
     "title": "プランを選んで始めましょう",
     "subtitle": "Zonostickは有料プランでご利用いただけます。プランを選択すると、そのまま決済画面に進みます。決済完了後、すぐにダッシュボードでブランドの追跡を開始できます。",
     "subtitleTrial": "初めてのご利用なら、Proプランを{days}日間無料でお試しいただけます。クレジットカードのご登録は必要ですが、期間中は一切課金されません。",

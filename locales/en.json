@@ -69,10 +69,18 @@
   "login": {
     "title": "Log in / Sign up",
     "subtitle": "Sign in with Google, or with your email address",
+    "tabLogin": "Log in",
+    "tabSignup": "Sign up",
+    "titleLogin": "Log in",
+    "titleSignup": "Create your account",
+    "subtitleLogin": "Sign in with Google, or with your email address",
+    "subtitleSignup": "Sign up with Google, or with your email address",
     "googleSignIn": "Sign in with Google",
+    "googleSignInSignup": "Continue with Google",
     "or": "or",
     "email": "Email address",
     "sendLink": "Send sign-in link",
+    "sendLinkSignup": "Sign up and get started",
     "linkSent": "A sign-in link was sent to. Please check your inbox.",
     "sendFailed": "We couldn't send the email. If you already have a sign-in code, enter it below.",
     "enterCode": "Enter your sign-in code",
@@ -275,6 +283,7 @@
     "pageLabel": "Page {n} of 3"
   },
   "pricing": {
+    "selectedPlanBadge": "Your selected plan",
     "title": "Choose a plan to get started",
     "subtitle": "Zonostick runs on paid plans. Pick one to go straight to checkout - once payment completes, you can start tracking brands right away on the dashboard.",
     "subtitleTrial": "First time here? Try Pro free for {days} days. A card is required, but you won't be charged during the trial.",
