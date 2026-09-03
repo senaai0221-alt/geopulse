@@ -483,19 +483,112 @@ export function nameRegex(name: string, flags = "i"): RegExp {
   return new RegExp(combined, flags);
 }
 
+// A GFM-style Markdown table row - starts and ends with "|", with at
+// least one interior "|" separating cells.
+const TABLE_ROW = /^\s{0,3}\|.+\|\s*$/;
+// The header-separator row every real GFM table has directly under its
+// header row - only dashes/colons/pipes/spaces, e.g. "|---|:---:|--:|".
+const TABLE_SEPARATOR_ROW = /^\s{0,3}\|?[\s:|-]*-[\s:|-]*\|?\s*$/;
+
+function splitTableRow(line: string): string[] {
+  const inner = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  return inner.split("|").map((cell) => cell.trim());
+}
+
+// A table cell that IS a stated rank marker and nothing else - "1位",
+// "**1位**", "#1" - never a price/percentage/data-cap cell that merely
+// starts with a digit ("2,970円", "70%", "5分" all fail this). Requires
+// the 位/# marker rather than accepting a bare integer, specifically to
+// avoid a coincidentally-numeric column (a 1-5 satisfaction score, a
+// GB figure) in a non-ranking table being mistaken for a rank column -
+// every real ranking table seen uses one of these two explicit markers.
+const RANK_CELL = /^\**#?\s*\d{1,2}\s*位?\**$/;
+
+/**
+ * Strategy 1 of extractListItems (see its own comment): recognizes a
+ * Markdown table with an explicit rank column and returns one item per
+ * data row, in table order - e.g.
+ *   | 順位 | 会社 | 特徴 |
+ *   |------|------|------|
+ *   | **1位** | **Rakuten Mobile** | ... |
+ *   | **2位** | **ahamo（ドコモ）** | ... |
+ * A real 2026-09 incident had exactly this shape for a brand's own
+ * table-based ranking, with no heading/bold/bullet list anywhere else
+ * in the response - none of the other three strategies recognize a
+ * table row at all (they all require a line to START with "#"/"*"/
+ * digit/dash, never "|"), so extractListItems returned `[]` and a
+ * genuinely table-ranked brand was reported as rank-position-unknown
+ * despite the table plainly stating its position.
+ *
+ * The rank column is found structurally, by content, not by header
+ * text (a header can read "順位", "ランク", "Rank", "#", or be entirely
+ * absent in a re-formatted response) - whichever column's cells ALL
+ * match RANK_CELL across every data row is trusted as the rank column;
+ * if no column qualifies, this table is not treated as a ranking at
+ * all (returns `[]` for that table) rather than guessing. Each
+ * returned item starts with that row's own rank cell verbatim ("1位",
+ * "**1位**", ...) followed by every other cell - LEADING_RANK_NUMBER
+ * (used by hasDuplicateRankNumbers) parses that leading cell exactly
+ * like it parses a heading/bold-marker line, so a table with two "1位"
+ * rows is caught by the same duplicate-rank safety net as any other
+ * strategy.
+ */
+function extractTableItems(lines: string[]): string[] {
+  const items: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (!TABLE_ROW.test(lines[i]) || !TABLE_SEPARATOR_ROW.test(lines[i + 1] ?? "")) {
+      i++;
+      continue;
+    }
+    const dataRows: string[][] = [];
+    let j = i + 2;
+    while (j < lines.length && TABLE_ROW.test(lines[j])) {
+      dataRows.push(splitTableRow(lines[j]));
+      j++;
+    }
+    // Only the first few columns are checked - every real example seen
+    // has the rank column at (or very near) the left edge, and scanning
+    // every column of a wide comparison table would raise the odds of
+    // a coincidental match in an unrelated numeric column.
+    const columnCount = dataRows[0]?.length ?? 0;
+    let rankCol = -1;
+    for (let col = 0; col < Math.min(columnCount, 3); col++) {
+      if (dataRows.length > 0 && dataRows.every((row) => RANK_CELL.test(row[col] ?? ""))) {
+        rankCol = col;
+        break;
+      }
+    }
+    if (rankCol !== -1) {
+      for (const row of dataRows) {
+        const otherCells = row.filter((_, idx) => idx !== rankCol);
+        items.push([row[rankCol], ...otherCells].join(" "));
+      }
+    }
+    i = j;
+  }
+  return items;
+}
+
 /**
  * Splits a response into ordered "list items" representing a ranked
- * recommendation list, trying three strategies in order of specificity:
+ * recommendation list, trying four strategies in order of specificity:
  *
- * 1. Markdown headings used as ranked entries, e.g. "### 1. **Notion**"
+ * 1. A Markdown (GFM) table with a genuine rank/order column, e.g.
+ *    "| 順位 | 会社 | ... |\n|---|---|---|\n| **1位** | **Rakuten
+ *    Mobile** | ... |" (2026-09 incident - see extractTableItems' own
+ *    comment). Checked first - a table with an explicit rank column is
+ *    the least ambiguous structural signal available, more deliberate
+ *    than a heading or bold marker happening to start with a digit.
+ * 2. Markdown headings used as ranked entries, e.g. "### 1. **Notion**"
  *    (common from Gemini/ChatGPT when the answer reads more like a
  *    mini-article than a plain list).
- * 2. A bold-text rank marker with no Markdown heading/list syntax at
+ * 3. A bold-text rank marker with no Markdown heading/list syntax at
  *    all, e.g. "**1位：日本通信（合理的シンプル290）**" (2026-09 incident -
  *    see below). Checked before the generic bullet strategy specifically
  *    so its own detail lines (see that strategy's own comment) never
  *    get a chance to be miscounted first.
- * 3. Plain numbered ("1.", "2)") or bulleted ("-", "*", "•") lines that
+ * 4. Plain numbered ("1.", "2)") or bulleted ("-", "*", "•") lines that
  *    are NOT indented - indentation almost always means the line is a
  *    sub-detail of the item above it (e.g. "*   **Pros:** ...") rather
  *    than a new ranked entry, and must not be counted as one. Also
@@ -564,6 +657,9 @@ export function nameRegex(name: string, flags = "i"): RegExp {
  */
 function extractListItems(text: string): string[] {
   const lines = text.split("\n");
+
+  const tableItems = extractTableItems(lines);
+  if (tableItems.length > 0) return tableItems;
 
   const headingPattern = /^\s{0,3}#{1,6}\s*\d{1,2}[.)]\s*(.*)$/;
   const headingIndices = lines.reduce<number[]>((acc, line, i) => {
@@ -691,6 +787,45 @@ function hasDuplicateRankNumbers(items: string[]): boolean {
   return false;
 }
 
+/**
+ * The text up to (not including) the first blank line within `block` -
+ * i.e. just its own opening paragraph. Used ONLY for the LAST item in a
+ * list (see parseResponse) - never for any earlier one, which is the
+ * result of a real production regression this had at first: every item
+ * runs from its own marker line up to the NEXT item's marker, a bound
+ * that has nothing to do with paragraph breaks, so an EARLY item's own
+ * legitimate content routinely continues past a blank line (a heading
+ * followed by a blank line then its actual comparison table or
+ * description is completely ordinary Markdown, not a sign of drift -
+ * see extractListItems' own comment for the real Notion/Evernote
+ * comparison doc this broke when the cut was first applied to every
+ * item, silently losing the brand's real #1 spot to a much later,
+ * coincidental mention once its true match - inside a table separated
+ * from its own heading by a blank line - was cut away).
+ *
+ * The LAST item is different in one specific way: nothing bounds it
+ * except the end of the entire document (see extractListItems' own
+ * comment on why that's still needed - a product name right after its
+ * own heading must be captured). That absence of a real boundary is
+ * exactly what let a genuinely unrelated closing paragraph get treated
+ * as if it belonged to the last item. A real 2026-09 incident had a
+ * numbered list of plain evaluation CRITERIA ("1. **料金プラン**: ...",
+ * ..., "5. **サポート体制**: ..."), with the actual carrier names ("NTT
+ * ドコモ、au、ソフトバンク") only appearing in one closing paragraph
+ * after the whole list ends - item 5, being last, absorbed that
+ * unrelated paragraph as if it were its own content, reporting the
+ * brand at rank 5 for a document with no real per-item ranking at all.
+ * Restricting the SEARCH (not the block extraction itself, which still
+ * needs the full block for hasDuplicateRankNumbers/
+ * extractLeadingRankNumber) to the last item's own first paragraph
+ * closes this specific gap without touching the far more common case
+ * of an early item's legitimate content spanning multiple paragraphs.
+ */
+function firstParagraph(block: string): string {
+  const blankLineIndex = block.search(/\n[ \t]*\n/);
+  return blankLineIndex === -1 ? block : block.slice(0, blankLineIndex);
+}
+
 // A closing bracket/punctuation-then-"以外" run, e.g. "Shokz以外", "「Shokz」
 // 以外", "Shokz(ショックス)以外" - the extremely common Japanese "brands
 // OTHER than X" construction. Deliberately scoped to this one specific,
@@ -766,7 +901,13 @@ export function parseResponse(
   // independently by the whole-text search either way.
   if (!hasDuplicateRankNumbers(items)) {
     for (let i = 0; i < items.length; i++) {
-      const hit = names.find((name) => hasPositiveMention(items[i], name));
+      // The last item only is searched via firstParagraph instead of
+      // its full block - see that function's own comment for why only
+      // the last item (the one with no real next-item boundary) needs
+      // this, and why applying it to every item was itself a real
+      // regression.
+      const searchText = i === items.length - 1 ? firstParagraph(items[i]) : items[i];
+      const hit = names.find((name) => hasPositiveMention(searchText, name));
       if (hit) {
         rankPosition = i + 1;
         matchedName = hit;
