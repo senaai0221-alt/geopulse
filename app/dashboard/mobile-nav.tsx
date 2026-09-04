@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { useI18n } from "@/lib/i18n/context";
 import { LangToggle } from "@/components/lang-toggle";
 import { NAV_SECTIONS, isNavItemActive } from "./nav-items";
+import { useUnsavedChanges } from "./unsaved-changes-context";
 import { SignOutButton } from "./sign-out-button";
 
 /**
@@ -31,6 +32,7 @@ export function MobileNav({ email, planLabel }: { email?: string | null; planLab
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { t } = useI18n();
+  const { confirmDiscard } = useUnsavedChanges();
 
   // Same "keep whichever brand is on screen" carry-through as
   // SidebarNav - see that component for why.
@@ -66,7 +68,13 @@ export function MobileNav({ email, planLabel }: { email?: string | null; planLab
                   <Link
                     key={item.href}
                     href={href}
-                    onClick={() => setOpen(false)}
+                    onClick={(e) => {
+                      if (!confirmDiscard()) {
+                        e.preventDefault();
+                        return;
+                      }
+                      setOpen(false);
+                    }}
                     className={cn(
                       "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                       isActive

@@ -740,7 +740,17 @@ export default async function DashboardPage({
                         ? "text-destructive"
                         : alert.severity === "warning"
                         ? "text-amber-500"
-                        : "text-muted-foreground"
+                        : // "info" (rank became unknown, or the AI推奨率
+                          // gap notice - both 2026-09) - text-muted-
+                          // foreground used to blend straight into the
+                          // page next to critical/warning's saturated
+                          // red/amber, reading as barely-there rather
+                          // than "a real, lower-urgency signal" (a real-
+                          // user UX test flagged exactly this). Sky blue
+                          // keeps it clearly distinct from both danger
+                          // colors while still reading as "notice this,
+                          // it's not urgent" rather than another warning.
+                          "text-sky-500"
                     )}
                   />
                   <div className="min-w-0 flex-1">

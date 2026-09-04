@@ -7,6 +7,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useI18n } from "@/lib/i18n/context";
+import { useFormDirtyGuard } from "./unsaved-changes-context";
 import { updateSlackSettings, sendTestSlackMessage } from "./actions";
 
 const SLACK_WEBHOOK_SETUP_URL = "https://slack.com/apps/A0F7XDUAZ-incoming-webhooks";
@@ -21,6 +22,7 @@ export function SlackSettingsForm({
   initialEnabled: boolean;
 }) {
   const { t } = useI18n();
+  const { markDirty, markClean } = useFormDirtyGuard();
   const [isPending, startTransition] = useTransition();
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; code: string } | null>(null);
@@ -37,6 +39,7 @@ export function SlackSettingsForm({
     startTransition(async () => {
       await updateSlackSettings(formData);
       setSaved(true);
+      markClean();
     });
   }
 
@@ -49,7 +52,7 @@ export function SlackSettingsForm({
   }
 
   return (
-    <form action={handleSubmit} className="flex flex-col gap-4">
+    <form action={handleSubmit} onChange={markDirty} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Label htmlFor="slack_webhook_url">{t("settings.slackWebhookLabel")}</Label>
         <Input

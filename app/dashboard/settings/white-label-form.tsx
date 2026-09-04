@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/context";
+import { useFormDirtyGuard } from "../unsaved-changes-context";
 import { updateWhiteLabelSettings } from "../actions";
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/svg+xml"];
@@ -36,6 +37,7 @@ export function WhiteLabelForm({
   initialCompanyName: string | null;
 }) {
   const { t } = useI18n();
+  const { markDirty, markClean } = useFormDirtyGuard();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [isUploading, setIsUploading] = useState(false);
@@ -50,6 +52,7 @@ export function WhiteLabelForm({
     startTransition(async () => {
       await updateWhiteLabelSettings(formData);
       setSaved(true);
+      markClean();
     });
   }
 
@@ -218,7 +221,7 @@ export function WhiteLabelForm({
         <p className="text-xs text-slate-400">{t("settings.whiteLabelLogoHint")}</p>
       </div>
 
-      <form action={handleCompanySubmit} className="flex flex-col gap-4">
+      <form action={handleCompanySubmit} onChange={markDirty} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="report_company_name" className="flex items-center gap-1.5">
             <Building2 className="h-3.5 w-3.5 text-muted-foreground" />

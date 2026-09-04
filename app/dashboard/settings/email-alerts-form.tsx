@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
+import { useFormDirtyGuard } from "../unsaved-changes-context";
 import { updateEmailAlertSettings, sendTestEmailAlert } from "../actions";
 
 /**
@@ -34,6 +35,7 @@ export function EmailAlertsForm({
   highlightTestButton?: boolean;
 }) {
   const { t } = useI18n();
+  const { markDirty, markClean } = useFormDirtyGuard();
   const [isPending, startTransition] = useTransition();
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; code: string } | null>(null);
@@ -53,6 +55,7 @@ export function EmailAlertsForm({
     startTransition(async () => {
       const result = await updateEmailAlertSettings(formData);
       setSaveResult({ ok: result.ok, emailChanged: result.ok && emailChanged });
+      if (result.ok) markClean();
     });
   }
 
@@ -65,7 +68,7 @@ export function EmailAlertsForm({
   }
 
   return (
-    <form action={handleSubmit} className="flex flex-col gap-4">
+    <form action={handleSubmit} onChange={markDirty} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="notification_email" className="flex items-center gap-1.5">
           <Mail className="h-3.5 w-3.5 text-muted-foreground" />

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { useI18n } from "@/lib/i18n/context";
+import { useFormDirtyGuard } from "../unsaved-changes-context";
 import { submitFeedback } from "../actions";
 
 /**
@@ -21,6 +22,7 @@ import { submitFeedback } from "../actions";
  */
 export function FeedbackForm() {
   const { t } = useI18n();
+  const { markDirty, markClean } = useFormDirtyGuard();
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
   const [sent, setSent] = useState(false);
@@ -50,6 +52,7 @@ export function FeedbackForm() {
       if (result.ok) {
         setSent(true);
         formRef.current?.reset();
+        markClean();
       } else {
         setErrorCode(result.code ?? "feedback_save_failed");
       }
@@ -64,7 +67,7 @@ export function FeedbackForm() {
       : null;
 
   return (
-    <form ref={formRef} action={handleSubmit} noValidate className="flex flex-col gap-4">
+    <form ref={formRef} action={handleSubmit} onChange={markDirty} noValidate className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="feedback-type">{t("feedback.typeLabel")}</Label>
         <Select id="feedback-type" name="type" defaultValue="bug" className="w-full sm:w-64">

@@ -1,40 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Sparkles } from "lucide-react";
 
-// Every page whose forms hold typed-but-unsaved input a stray logo
-// click would silently discard - originally just /dashboard/settings
-// (add/edit target, plus Slack webhook before that moved out), now one
-// entry per page since the 2026-09 nav split gave each of those forms
-// its own route (see nav-items.ts's own comment on that split).
-const FORM_PAGES = ["/dashboard/settings", "/dashboard/integrations", "/dashboard/contact"];
+import { useUnsavedChanges } from "./unsaved-changes-context";
 
 /**
- * The dashboard header's logo, disabled (renders as plain text, no
- * navigation) while on one of FORM_PAGES above - a stray logo click
- * there would otherwise navigate away and lose whatever was being
- * typed. Everywhere else in the app it's a normal link home.
+ * The dashboard header's logo. Used to just disable itself entirely
+ * (render as plain text, no navigation) on /dashboard/settings, since
+ * that page held unsaved forms a stray click would silently discard -
+ * replaced (2026-09, following a real-user UX test) by the same
+ * confirmDiscard() guard every other in-app nav link now uses: still
+ * protects the same unsaved input, but as a real, working link with a
+ * confirm prompt instead of going dead on every form-bearing page
+ * (which a first-time visitor has no way to tell apart from a bug).
  */
 export function DashboardLogoLink() {
-  const pathname = usePathname();
-  const disabled = FORM_PAGES.includes(pathname);
-
-  if (disabled) {
-    return (
-      <span
-        aria-disabled="true"
-        className="flex shrink-0 cursor-default select-none items-center gap-2 font-bold text-lg"
-      >
-        <Sparkles className="h-5 w-5 text-primary" />
-        Zonostick
-      </span>
-    );
-  }
+  const { confirmDiscard } = useUnsavedChanges();
 
   return (
-    <Link href="/dashboard" className="flex shrink-0 items-center gap-2 font-bold text-lg">
+    <Link
+      href="/dashboard"
+      onClick={(e) => {
+        if (!confirmDiscard()) e.preventDefault();
+      }}
+      className="flex shrink-0 items-center gap-2 font-bold text-lg"
+    >
       <Sparkles className="h-5 w-5 text-primary" />
       Zonostick
     </Link>

@@ -11,6 +11,7 @@ import { InlineAlert } from "@/components/ui/inline-alert";
 import { AliasSuggestionHint } from "@/components/alias-suggestion-hint";
 import { useI18n } from "@/lib/i18n/context";
 import { translateActionError } from "@/lib/i18n/action-error";
+import { useFormDirtyGuard } from "./unsaved-changes-context";
 import { updateBrand, deleteBrand } from "./actions";
 
 interface Brand {
@@ -52,6 +53,7 @@ export function BrandListItem({
   autoFocus?: boolean;
 }) {
   const { t } = useI18n();
+  const { markDirty, markClean } = useFormDirtyGuard();
   const [editing, setEditing] = useState(autoFocus);
   // Controlled only because AliasSuggestionHint needs to read the live
   // name and read/write aliases while editing - every other field in
@@ -92,6 +94,7 @@ export function BrandListItem({
       try {
         await updateBrand(formData);
         setEditing(false);
+        markClean();
       } catch (err) {
         setErrorCode(err instanceof Error ? err.message : "");
       }
@@ -114,6 +117,7 @@ export function BrandListItem({
           containerRef.current = el;
         }}
         action={handleSave}
+        onChange={markDirty}
         noValidate
         className="flex flex-col gap-3 rounded-md border border-primary/40 bg-primary/5 p-3"
       >
@@ -184,7 +188,15 @@ export function BrandListItem({
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {t("settings.saveBrand")}
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={() => setEditing(false)}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setEditing(false);
+              markClean();
+            }}
+          >
             {t("settings.cancel")}
           </Button>
         </div>

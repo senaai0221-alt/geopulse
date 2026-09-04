@@ -10,6 +10,7 @@ import { InlineAlert } from "@/components/ui/inline-alert";
 import { AliasSuggestionHint } from "@/components/alias-suggestion-hint";
 import { useI18n } from "@/lib/i18n/context";
 import { translateActionError } from "@/lib/i18n/action-error";
+import { useFormDirtyGuard } from "./unsaved-changes-context";
 import { createBrand } from "./actions";
 import { PlanLimitAlert } from "./plan-limit-alert";
 
@@ -24,6 +25,7 @@ const COMPETITORS_MAX = 300;
 
 export function BrandForm({ businessPriceId }: { businessPriceId: string }) {
   const { t } = useI18n();
+  const { markDirty, markClean } = useFormDirtyGuard();
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
   // Controlled only because AliasSuggestionHint needs to read the live
@@ -66,6 +68,7 @@ export function BrandForm({ businessPriceId }: { businessPriceId: string }) {
         formRef.current?.reset();
         setName("");
         setAliases("");
+        markClean();
       } catch (err) {
         setErrorCode(err instanceof Error ? err.message : "");
       }
@@ -73,7 +76,7 @@ export function BrandForm({ businessPriceId }: { businessPriceId: string }) {
   }
 
   return (
-    <form ref={formRef} action={handleSubmit} noValidate className="flex flex-col gap-4">
+    <form ref={formRef} action={handleSubmit} onChange={markDirty} noValidate className="flex flex-col gap-4">
       {/* This card sits beside a twin card in a lg:grid-cols-2 layout
           (see settings/page.tsx), so at desktop widths it only ever gets
           HALF the page's width to work with - a plain sm:2-up grid (2x2

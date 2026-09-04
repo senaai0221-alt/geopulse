@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { NAV_SECTIONS, isNavItemActive } from "./nav-items";
+import { useUnsavedChanges } from "./unsaved-changes-context";
 
 const STORAGE_KEY = "zonostick-sidebar-collapsed";
 
@@ -32,6 +33,7 @@ export function SidebarNav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { t } = useI18n();
+  const { confirmDiscard } = useUnsavedChanges();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -87,6 +89,9 @@ export function SidebarNav() {
               const link = (
                 <Link
                   href={href}
+                  onClick={(e) => {
+                    if (!confirmDiscard()) e.preventDefault();
+                  }}
                   className={cn(
                     "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                     collapsed && "justify-center",
