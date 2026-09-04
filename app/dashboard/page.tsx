@@ -266,13 +266,18 @@ export default async function DashboardPage({
   interface DayBucket {
     providerRank: Record<LlmProvider, { sum: number; count: number }>;
     mentioned: number;
+    /** Subset of `mentioned` whose lib/geo-engine.ts sentiment judge
+     *  (judgeBrandTreatment) returned "positive" - see DailyStatsPoint's
+     *  own comment (dashboard-kpi-cards.tsx) for why AI推奨率 divides
+     *  this by `total`, not by `mentioned`. */
+    positiveMentioned: number;
     total: number;
     entityMentions: Record<string, number>;
   }
   function emptyDayBucket(): DayBucket {
     const providerRank = {} as Record<LlmProvider, { sum: number; count: number }>;
     for (const p of PROVIDERS) providerRank[p] = { sum: 0, count: 0 };
-    return { providerRank, mentioned: 0, total: 0, entityMentions: {} };
+    return { providerRank, mentioned: 0, positiveMentioned: 0, total: 0, entityMentions: {} };
   }
 
   const dayBuckets = new Map<string, DayBucket>();
@@ -289,6 +294,7 @@ export default async function DashboardPage({
     bucket.total += 1;
     if (r.mentioned) {
       bucket.mentioned += 1;
+      if (r.sentiment === "positive") bucket.positiveMentioned += 1;
       bucket.entityMentions[selectedBrand.name] = (bucket.entityMentions[selectedBrand.name] ?? 0) + 1;
     }
     for (const name of competitorNames) {
@@ -347,7 +353,14 @@ export default async function DashboardPage({
       rankSum += b.providerRank[p].sum;
       rankCount += b.providerRank[p].count;
     }
-    return { date: dateKey, mentioned: b.mentioned, total: b.total, rankSum, rankCount };
+    return {
+      date: dateKey,
+      mentioned: b.mentioned,
+      positiveMentioned: b.positiveMentioned,
+      total: b.total,
+      rankSum,
+      rankCount,
+    };
   });
 
   // Same idea for the KPI row's alert count - a separate bucket map

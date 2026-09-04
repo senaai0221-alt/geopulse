@@ -24,7 +24,7 @@ import {
 import { alertEmailSubject, buildAlertEmailHtml, FROM_ADDRESS } from "../lib/email";
 import { buildDailySummaryBlocks, buildTestMessageBlocks } from "../lib/slack";
 import type { RankingChange } from "../lib/slack";
-import { buildAnomalyMessage } from "../lib/alert-message";
+import { buildAnomalyMessage, buildRecommendGapMessage, RECOMMEND_GAP_ALERT_THRESHOLD_PT } from "../lib/alert-message";
 
 function section(title: string) {
   console.log(`\n${"=".repeat(70)}\n${title}\n${"=".repeat(70)}`);
@@ -220,6 +220,33 @@ const infoOnlyOk = infoOnlyHeaderText.startsWith("🟡") && !infoOnlyHeaderText.
 console.log(
   `\nSanity: ${infoOnlyOk ? "PASS" : "FAIL"} - info-only day header is "${infoOnlyHeaderText}" (must be the 🟡 tier, not 🚨)`
 );
+
+// Gap-only day (2026-09, AI推奨率): no per-row anomalies at all, but a
+// brand-level 露出率/推奨率 gap over RECOMMEND_GAP_ALERT_THRESHOLD_PT -
+// must still land on the 🟡 tier (not 🚨, not fold back into "✅ 正常"),
+// and the gap block itself must actually be present in the output.
+const gapMessage = buildRecommendGapMessage("Zonostick", 70, 45);
+console.log(`\nGap message (露出70% / 推奨45%, threshold ${RECOMMEND_GAP_ALERT_THRESHOLD_PT}pt): ${gapMessage}`);
+const gapOnlyOk = gapMessage.includes("70%") && gapMessage.includes("45%") && gapMessage.includes("25pt");
+console.log(`Sanity: ${gapOnlyOk ? "PASS" : "FAIL"} - gap message states both rates and the correct point gap`);
+
+const dailySummaryGapOnly = buildDailySummaryBlocks({
+  brandName: "Zonostick",
+  checkedAt: new Date("2026-08-30T06:00:00+09:00"),
+  totalPrompts: 3,
+  totalChecks: 18,
+  mentionRate: 0.7,
+  anomalies: [],
+  gapMessage,
+});
+const gapOnlyHeaderText = ((dailySummaryGapOnly[0] as { text: { text: string } }).text.text);
+const gapOnlyBlocksText = JSON.stringify(dailySummaryGapOnly);
+const gapOnlyHeaderOk = gapOnlyHeaderText.startsWith("🟡") && !gapOnlyHeaderText.includes("🚨");
+const gapOnlyBodyOk = gapOnlyBlocksText.includes(gapMessage);
+console.log(
+  `Sanity: ${gapOnlyHeaderOk ? "PASS" : "FAIL"} - gap-only day header is "${gapOnlyHeaderText}" (must be the 🟡 tier, not 🚨)`
+);
+console.log(`Sanity: ${gapOnlyBodyOk ? "PASS" : "FAIL"} - gap message text actually appears in the Slack payload`);
 
 console.log("\n--- Test-connection message blocks ---");
 console.log(JSON.stringify(buildTestMessageBlocks(), null, 2));

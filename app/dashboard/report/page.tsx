@@ -50,6 +50,16 @@ interface KpiSet {
   total: number;
   mentionedCount: number;
   mentionRate: number; // 0-100
+  /** Count of `mentioned` rows whose sentiment judge (lib/geo-engine.ts's
+   *  judgeBrandTreatment) returned "positive" - see recommendRate. */
+  recommendCount: number;
+  /** AI推奨率 (2026-09), 0-100 - deliberately divided by `total`, the
+   *  same denominator as mentionRate, not by mentionedCount. The two
+   *  are meant to be read side by side ("露出率70%のうち推奨率55%"),
+   *  which only holds if both are shares of the same whole - see
+   *  dashboard-kpi-cards.tsx's DailyStatsPoint for the identical
+   *  reasoning on the live dashboard's own version of this number. */
+  recommendRate: number;
   avgRank: number | null;
   shareOfVoice: number; // 0-100
 }
@@ -83,12 +93,15 @@ function previousMonthStr(month: string): string {
 }
 
 function computeKpis(
-  rankings: Pick<RankingRow, "mentioned" | "rank_position" | "competitors_mentioned">[],
+  rankings: Pick<RankingRow, "mentioned" | "rank_position" | "sentiment" | "competitors_mentioned">[],
   competitorNames: string[]
 ): KpiSet {
   const total = rankings.length;
   const mentionedCount = rankings.filter((r) => r.mentioned).length;
   const mentionRate = total > 0 ? Math.round((mentionedCount / total) * 100) : 0;
+
+  const recommendCount = rankings.filter((r) => r.mentioned && r.sentiment === "positive").length;
+  const recommendRate = total > 0 ? Math.round((recommendCount / total) * 100) : 0;
 
   const ranked = rankings.filter((r) => r.rank_position !== null);
   const avgRank =
@@ -103,7 +116,7 @@ function computeKpis(
   const voiceTotal = mentionedCount + competitorMentions;
   const shareOfVoice = voiceTotal > 0 ? Math.round((mentionedCount / voiceTotal) * 100) : 0;
 
-  return { total, mentionedCount, mentionRate, avgRank, shareOfVoice };
+  return { total, mentionedCount, mentionRate, recommendCount, recommendRate, avgRank, shareOfVoice };
 }
 
 /**
@@ -268,7 +281,7 @@ export default async function ReportPage({
         .order("checked_at", { ascending: false }),
       supabase
         .from("rankings")
-        .select("mentioned, rank_position, competitors_mentioned")
+        .select("mentioned, rank_position, sentiment, competitors_mentioned")
         .eq("brand_id", selectedBrand.id)
         .gte("checked_at", prevStart.toISOString())
         .lt("checked_at", prevEnd.toISOString()),
@@ -531,8 +544,9 @@ export default async function ReportPage({
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             <T k="report.execSummaryTitle" />
           </h2>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <KpiCard labelKey="dashboard.mentionRate" value={`${kpis.mentionRate}%`} delta={prevKpis ? kpis.mentionRate - prevKpis.mentionRate : null} unit="pt" />
+            <KpiCard labelKey="dashboard.recommendRate" value={`${kpis.recommendRate}%`} delta={prevKpis ? kpis.recommendRate - prevKpis.recommendRate : null} unit="pt" />
             <KpiCard
               labelKey="dashboard.avgRank"
               value={kpis.avgRank !== null ? kpis.avgRank.toFixed(1) : "-"}

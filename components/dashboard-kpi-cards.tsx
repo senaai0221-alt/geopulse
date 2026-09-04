@@ -1,6 +1,6 @@
 "use client";
 
-import { Megaphone, TrendingUp, Target, Bell } from "lucide-react";
+import { Megaphone, TrendingUp, ThumbsUp, Target, Bell } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { T } from "@/components/t";
@@ -18,6 +18,14 @@ export interface DailyStatsPoint {
    *  use, so this stays sortable/comparable regardless of locale. */
   date: string;
   mentioned: number;
+  /** Count of `mentioned` rows this day whose lib/geo-engine.ts
+   *  sentiment judge (judgeBrandTreatment) returned "positive" - the
+   *  numerator for AI推奨率 below. A subset of `mentioned`, never
+   *  counted separately from it (a positive mention is still, first,
+   *  a mention) - see `recommendRate`'s own comment for why this is
+   *  deliberately denominated over `total`, the same as `mentioned`
+   *  is, rather than over `mentioned` itself. */
+  positiveMentioned: number;
   total: number;
   rankSum: number;
   rankCount: number;
@@ -59,6 +67,21 @@ export function DashboardKpiCards({
   const totalChecks = slicedStats.reduce((sum, d) => sum + d.total, 0);
   const totalMentioned = slicedStats.reduce((sum, d) => sum + d.mentioned, 0);
   const mentionRate = totalChecks > 0 ? totalMentioned / totalChecks : 0;
+
+  // AI推奨率 (2026-09): deliberately divided by the SAME denominator as
+  // AI露出率 (totalChecks), not by totalMentioned - the two cards are
+  // meant to sit side by side and be read as "露出率70%のうち、推奨率
+  // 55%" (a direct gap), which only works if both are shares of the
+  // same whole. Dividing by totalMentioned instead would answer a
+  // different question ("of the times we WERE mentioned, how often was
+  // it positive?") and silently stop being comparable to the card next
+  // to it. See the daily-check cron's own gap-detection info alert for
+  // the other half of why this pairing exists: a brand can have a high
+  // 露出率 built mostly out of neutral/negative mentions with nothing
+  // on this card alone making that visible - the alert is what actually
+  // flags it, this card just needs to report the honest number.
+  const totalPositive = slicedStats.reduce((sum, d) => sum + d.positiveMentioned, 0);
+  const recommendRate = totalChecks > 0 ? totalPositive / totalChecks : 0;
 
   const rankSum = slicedStats.reduce((sum, d) => sum + d.rankSum, 0);
   const rankCount = slicedStats.reduce((sum, d) => sum + d.rankCount, 0);
@@ -103,7 +126,7 @@ export function DashboardKpiCards({
       )}
 
       {/* KPI cards - top row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
@@ -115,6 +138,19 @@ export function DashboardKpiCards({
           <CardContent>
             <div className="text-2xl font-bold">{Math.round(mentionRate * 100)}%</div>
             <p className="text-xs text-muted-foreground">{t("dashboard.mentionRateHint", { n: period })}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+              <T k="dashboard.recommendRate" />
+              <InfoTooltip textKey="dashboard.recommendRateTooltip" />
+            </CardTitle>
+            <ThumbsUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{Math.round(recommendRate * 100)}%</div>
+            <p className="text-xs text-muted-foreground">{t("dashboard.recommendRateHint", { n: period })}</p>
           </CardContent>
         </Card>
         <Card>

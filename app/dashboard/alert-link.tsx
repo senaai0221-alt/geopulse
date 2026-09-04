@@ -17,10 +17,17 @@ export function AlertLink({
   provider,
   children,
 }: {
-  promptId: string;
-  provider: string;
+  /** Null for a brand-level alert (e.g. the AI露出率/AI推奨率 gap
+   *  notice, 2026-09) - there's no single ranking-table cell it's
+   *  "about", so it renders as plain text below instead of a link. */
+  promptId: string | null;
+  provider: string | null;
   children: React.ReactNode;
 }) {
+  if (!promptId || !provider) {
+    return <p>{children}</p>;
+  }
+
   const targetId = `result-${promptId}-${provider}`;
 
   function handleClick(e: React.MouseEvent<HTMLAnchorElement>) {

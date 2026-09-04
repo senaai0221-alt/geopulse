@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { runGeoQuery, type LlmProvider } from "@/lib/geo-engine";
 import { sendDailySummary, sendSlackMessage, buildBudgetAlertBlocks, type RankingChange } from "@/lib/slack";
 import { sendAlertEmail } from "@/lib/email";
-import { buildAnomalyMessage } from "@/lib/alert-message";
+import { buildAnomalyMessage, buildRecommendGapMessage, RECOMMEND_GAP_ALERT_THRESHOLD_PT } from "@/lib/alert-message";
 import { findRomajiNearMiss } from "@/lib/romaji";
 import { checkMonthlyLlmBudget } from "@/lib/cost-budget";
 
@@ -100,6 +100,12 @@ async function processBrand(
   const anomalies: RankingChange[] = [];
   let totalChecks = 0;
   let mentionedCount = 0;
+  // Numerator for the brand-level "露出はあるが好意的な言及は少数派"
+  // gap check run once per brand after this function returns (see
+  // handleBrand) - same denominator (totalChecks) as mentionedCount, by
+  // design (see DailyStatsPoint/KpiSet's own comments on the dashboard/
+  // report side of this same 2026-09 AI推奨率 feature).
+  let positiveCount = 0;
 
   await Promise.all(
     prompts.map(async (prompt) => {
@@ -197,7 +203,10 @@ async function processBrand(
         for (const result of results) {
           if (result.error) continue;
           totalChecks += 1;
-          if (result.mentioned) mentionedCount += 1;
+          if (result.mentioned) {
+            mentionedCount += 1;
+            if (result.sentiment === "positive") positiveCount += 1;
+          }
 
           const previous = previousByProvider.get(result.provider);
           const wasMentioned = previous?.mentioned ?? false;
@@ -331,7 +340,7 @@ async function processBrand(
     })
   );
 
-  return { anomalies, totalChecks, mentionedCount };
+  return { anomalies, totalChecks, mentionedCount, positiveCount };
 }
 
 export async function GET(request: NextRequest) {
@@ -433,12 +442,45 @@ async function runDailyCheck(supabase: ReturnType<typeof createAdminClient>) {
 
       if (!prompts || prompts.length === 0) return;
 
-      const { anomalies, totalChecks, mentionedCount } = await processBrand(
+      const { anomalies, totalChecks, mentionedCount, positiveCount } = await processBrand(
         supabase,
         brand,
         prompts as PromptRow[],
         checkedAt
       );
+
+      // Brand-level (not per-prompt/provider) gap check, 2026-09: a
+      // brand can carry a high AI露出率 built mostly out of neutral/
+      // negative mentions with nothing on that one number making that
+      // visible - see lib/alert-message.ts's buildRecommendGapMessage
+      // for the full reasoning. Computed once per brand per run, after
+      // processBrand has the day's real totals; written straight to
+      // `alerts` (prompt_id/provider/ranking_id null - there's no
+      // single cell this is "about") rather than folded into the
+      // per-row `anomalies` array above, whose RankingChange shape
+      // assumes exactly one prompt/provider. Kept at "info" like the
+      // rank-became-unknown case: a real, worth-surfacing signal, but
+      // never urgent enough for the inbox alert (see below, and
+      // lib/email.ts's own comment on why "info" never reaches it).
+      let gapMessage: string | null = null;
+      if (totalChecks > 0) {
+        const exposureRatePct = (mentionedCount / totalChecks) * 100;
+        const recommendRatePct = (positiveCount / totalChecks) * 100;
+        if (exposureRatePct - recommendRatePct >= RECOMMEND_GAP_ALERT_THRESHOLD_PT) {
+          gapMessage = buildRecommendGapMessage(brand.name, exposureRatePct, recommendRatePct);
+          await supabase.from("alerts").insert({
+            user_id: brand.user_id,
+            brand_id: brand.id,
+            prompt_id: null,
+            provider: null,
+            severity: "info",
+            message: gapMessage,
+            previous_rank: null,
+            current_rank: null,
+            ranking_id: null,
+          });
+        }
+      }
 
       // Notify this brand's owner, if configured. Email is the default
       // channel (email_alerts_enabled defaults true - see
@@ -470,6 +512,7 @@ async function runDailyCheck(supabase: ReturnType<typeof createAdminClient>) {
             totalChecks,
             mentionRate: totalChecks > 0 ? mentionedCount / totalChecks : 0,
             anomalies,
+            gapMessage,
           });
           slackStatus = "sent";
         } catch (err) {

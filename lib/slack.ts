@@ -21,6 +21,12 @@ export interface DailySummaryInput {
   totalChecks: number;
   mentionRate: number; // 0-1
   anomalies: RankingChange[];
+  /** Brand-level "露出はあるが好意的な言及は少数派" gap notice (2026-09,
+   *  see lib/alert-message.ts's buildRecommendGapMessage) - null on a
+   *  normal day. Rendered as its own block below the per-row anomaly
+   *  list rather than folded into `anomalies`: it isn't about any one
+   *  prompt/provider, so it doesn't fit RankingChange's shape. */
+  gapMessage?: string | null;
 }
 
 // Fallback mirrors lib/email.ts's APP_URL constant - both point the
@@ -63,13 +69,15 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
     day: "numeric",
   });
   const mentionRatePct = Math.round(input.mentionRate * 100);
-  const hasAnomalies = input.anomalies.length > 0;
-  // "info" (rank became unknown, still mentioned - see daily-check/
-  // route.ts's third isAnomaly branch) is real signal but not urgent -
-  // an info-only day gets its own header tier rather than either
-  // "🚨 要確認" (overstates it - nothing actually got worse) or being
-  // silently folded into "✅ 正常" (which would bring back the exact
-  // zero-signal gap this branch exists to close).
+  const hasRowAnomalies = input.anomalies.length > 0;
+  const hasGap = !!input.gapMessage;
+  const hasAnything = hasRowAnomalies || hasGap;
+  // "info" (rank became unknown but still mentioned, or the brand-level
+  // exposure/recommend gap - see daily-check/route.ts) is real signal
+  // but not urgent - an info-only day gets its own header tier rather
+  // than either "🚨 要確認" (overstates it - nothing actually got worse)
+  // or being silently folded into "✅ 正常" (which would bring back the
+  // exact zero-signal gap the "info" tier exists to close).
   const hasUrgent = input.anomalies.some((a) => a.severity !== "info");
 
   const blocks: Record<string, unknown>[] = [
@@ -79,8 +87,8 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
         type: "plain_text",
         text: hasUrgent
           ? `🚨 要確認 - ${input.brandName}`
-          : hasAnomalies
-            ? `🟡 順位不明の項目あり - ${input.brandName}`
+          : hasAnything
+            ? `🟡 気になる点あり - ${input.brandName}`
             : `✅ ステータス: 正常 - ${input.brandName}`,
         emoji: true,
       },
@@ -91,7 +99,7 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
     },
   ];
 
-  if (!hasAnomalies) {
+  if (!hasAnything) {
     blocks.push({
       type: "section",
       fields: [
@@ -104,12 +112,12 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: hasUrgent
-          ? `*AI露出率:* ${mentionRatePct}% ・ 以下 ${input.anomalies.length}件で順位の急落・除外を検知しました:`
-          : `*AI露出率:* ${mentionRatePct}% ・ 以下 ${input.anomalies.length}件で順位が一時的に不明になりました（掲載自体は継続中）:`,
+        text: hasRowAnomalies
+          ? `*AI露出率:* ${mentionRatePct}% ・ 以下 ${input.anomalies.length}件の変動を検知しました:`
+          : `*AI露出率:* ${mentionRatePct}%`,
       },
     });
-    blocks.push({ type: "divider" });
+    if (hasRowAnomalies) blocks.push({ type: "divider" });
 
     for (const change of input.anomalies.slice(0, 20)) {
       blocks.push({
@@ -134,6 +142,14 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
         },
       });
     }
+
+    if (hasGap) {
+      if (hasRowAnomalies) blocks.push({ type: "divider" });
+      blocks.push({
+        type: "section",
+        text: { type: "mrkdwn", text: `🟡 ${input.gapMessage}` },
+      });
+    }
   }
 
   blocks.push({ type: "divider" });
@@ -144,7 +160,7 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
         type: "button",
         text: { type: "plain_text", text: "ダッシュボードを開く", emoji: true },
         url: `${APP_URL}/dashboard`,
-        style: hasAnomalies ? "primary" : undefined,
+        style: hasAnything ? "primary" : undefined,
       },
     ],
   });

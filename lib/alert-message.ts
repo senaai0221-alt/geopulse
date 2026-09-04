@@ -110,3 +110,30 @@ export function buildAnomalyMessage(change: RankingChange): string {
   }
   return base;
 }
+
+/** How far AI露出率 must exceed AI推奨率 (percentage points, both over
+ *  the same totalChecks denominator - see KpiSet/DailyStatsPoint's own
+ *  comments) before daily-check/route.ts's brand-level gap check fires.
+ *  Exported so the cron job and its own verify script assert against
+ *  the same number rather than two copies that could drift apart. */
+export const RECOMMEND_GAP_ALERT_THRESHOLD_PT = 20;
+
+/**
+ * A brand-level (not per-prompt/provider) "info" alert, 2026-09: high
+ * exposure built mostly out of neutral/negative mentions is invisible
+ * on AI露出率 alone - a brand could look healthy on that one number
+ * while actually surfacing in a risky context (e.g. "壊れやすいのは？"-
+ * style queries) most of the time. Distinct from buildAnomalyMessage
+ * above (a specific prompt/provider's rank changed) - this reports on
+ * the whole day's aggregate for one brand, so it carries no
+ * prompt/provider/rank fields and is written to `alerts` with all of
+ * those columns null (see daily-check/route.ts's handleBrand).
+ */
+export function buildRecommendGapMessage(brandName: string, exposureRatePct: number, recommendRatePct: number): string {
+  const gap = Math.round(exposureRatePct - recommendRatePct);
+  return (
+    `${brandName} は露出は高めですが、好意的な言及は少数派です` +
+    `（AI露出率${Math.round(exposureRatePct)}% / AI推奨率${Math.round(recommendRatePct)}%、差${gap}pt）。` +
+    `中立・否定的な文脈での言及が混ざっている可能性があります。ダッシュボードで実際のAI回答をご確認ください。`
+  );
+}
