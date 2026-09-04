@@ -46,9 +46,37 @@ export function RankBadge({ mentioned, rank }: { mentioned: boolean; rank: numbe
  * reasonably, "it's the first time, there's no previous result" - the
  * tooltip now says so instead of asserting a history that doesn't
  * exist.
+ *
+ * `consecutiveFailures` (2026-09, a second fix in the same spirit as
+ * the one above): the standard copy also claims this is transient and
+ * "多くの場合、翌朝の自動チェックで自然に復帰します" (usually clears up
+ * by tomorrow) - true for an actual one-off provider hiccup, but false
+ * and quietly misleading for a genuinely broken credential/config on
+ * OUR side, which won't resolve on its own no matter how many
+ * "tomorrow"s pass. Found via a real walkthrough where a provider's
+ * API key had been invalid for 4 straight days and every cell still
+ * calmly promised an overnight fix that could never come without the
+ * operator noticing and rotating the key. At 2+ consecutive failures
+ * for the same (prompt, provider), the copy switches to naming this as
+ * likely needing attention rather than repeating a "should clear up
+ * soon" promise that has now been wrong for multiple days running.
  */
-export function CheckErrorBadge({ isFirstCheck = false }: { isFirstCheck?: boolean }) {
+export function CheckErrorBadge({
+  isFirstCheck = false,
+  consecutiveFailures = 1,
+}: {
+  isFirstCheck?: boolean;
+  /** How many checks in a row (most recent first, unbroken) have
+   *  failed for this exact (prompt, provider) - including today's. 1
+   *  for an isolated failure with a successful check right before it. */
+  consecutiveFailures?: number;
+}) {
   const { t } = useI18n();
+  const tooltipKey = isFirstCheck
+    ? "dashboard.checkErrorTooltipFirstCheck"
+    : consecutiveFailures >= 2
+      ? "dashboard.checkErrorTooltipPersistent"
+      : "dashboard.checkErrorTooltip";
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -56,9 +84,7 @@ export function CheckErrorBadge({ isFirstCheck = false }: { isFirstCheck?: boole
           <AlertTriangle className="h-3.5 w-3.5" />
         </span>
       </TooltipTrigger>
-      <TooltipContent>
-        {t(isFirstCheck ? "dashboard.checkErrorTooltipFirstCheck" : "dashboard.checkErrorTooltip")}
-      </TooltipContent>
+      <TooltipContent>{t(tooltipKey, { n: consecutiveFailures })}</TooltipContent>
     </Tooltip>
   );
 }

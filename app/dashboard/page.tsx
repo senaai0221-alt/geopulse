@@ -194,11 +194,32 @@ export default async function DashboardPage({
   // needs to distinguish "exactly one" from "more than one," not count
   // precisely - but a Map of counts is just as simple to build as a Set.
   const checkCountByKey = new Map<string, number>();
+  // How many checks IN A ROW, most-recent-first, have failed for a
+  // given (prompt, provider) - used by CheckErrorBadge to stop
+  // promising "usually clears up by tomorrow" once that promise has
+  // already been wrong for multiple days straight (see that
+  // component's own comment for the real incident this fixes: an
+  // invalid provider API key doesn't self-heal, but the old copy never
+  // said so no matter how many consecutive mornings it failed).
+  // `allRankings` is already ordered newest-first, so walking it once
+  // and stopping each key's count the first time a SUCCESSFUL row is
+  // hit for that key gives exactly "the current unbroken failure
+  // streak, most recent backward" - no second pass/sort needed.
+  const consecutiveFailuresByKey = new Map<string, number>();
+  const failureStreakEndedByKey = new Set<string>();
   for (const r of allRankings) {
     const key = `${r.prompt_id}-${r.provider}`;
     if (!latestByKey.has(key)) latestByKey.set(key, r);
     checkCountByKey.set(key, (checkCountByKey.get(key) ?? 0) + 1);
     promptsWithAnyData.add(r.prompt_id);
+
+    if (!failureStreakEndedByKey.has(key)) {
+      if (r.error) {
+        consecutiveFailuresByKey.set(key, (consecutiveFailuresByKey.get(key) ?? 0) + 1);
+      } else {
+        failureStreakEndedByKey.add(key);
+      }
+    }
   }
 
   const latestList = Array.from(latestByKey.values());
@@ -551,6 +572,7 @@ export default async function DashboardPage({
                             const key = `${prompt.id}-${provider}`;
                             const r = latestByKey.get(key);
                             const isFirstCheck = (checkCountByKey.get(key) ?? 0) <= 1;
+                            const consecutiveFailures = consecutiveFailuresByKey.get(key) ?? 1;
                             return (
                               <TableCell
                                 key={provider}
@@ -567,7 +589,9 @@ export default async function DashboardPage({
                                 {r ? (
                                   <div className="flex flex-nowrap items-center gap-1.5">
                                     <RankBadge mentioned={r.mentioned} rank={r.rank_position} />
-                                    {r.error && <CheckErrorBadge isFirstCheck={isFirstCheck} />}
+                                    {r.error && (
+                                      <CheckErrorBadge isFirstCheck={isFirstCheck} consecutiveFailures={consecutiveFailures} />
+                                    )}
                                     <SentimentDot sentiment={r.sentiment} />
                                     {r.citations && r.citations.length > 0 && (
                                       <span
