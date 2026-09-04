@@ -46,7 +46,14 @@ export function buildAlertEmailHtml(input: AlertEmailInput): string {
   const rows = input.anomalies
     .slice(0, 20)
     .map((change) => {
-      const emoji = !change.mentioned ? "🔴" : "🟠";
+      // "info" (rank became unknown, not confirmed worse) is filtered
+      // out before this ever gets called - see daily-check/route.ts's
+      // urgentAnomalies - but this stays severity-driven rather than
+      // re-deriving from mentioned/rank shape, matching lib/slack.ts's
+      // severityEmoji, so a future caller can't reintroduce an
+      // undifferentiated 🟠 for a case this table was never written to
+      // explain.
+      const emoji = change.severity === "critical" ? "🔴" : change.severity === "warning" ? "🟠" : "🟡";
       return `
         <tr>
           <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#0f172a;">

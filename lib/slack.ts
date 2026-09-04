@@ -31,15 +31,9 @@ export interface DailySummaryInput {
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.zonostick.com";
 
 function severityEmoji(change: RankingChange): string {
-  if (!change.mentioned) return "🔴";
-  if (
-    change.previousRank !== null &&
-    change.currentRank !== null &&
-    change.currentRank > change.previousRank
-  ) {
-    return "🟠";
-  }
-  return "🟡";
+  if (change.severity === "critical") return "🔴";
+  if (change.severity === "warning") return "🟠";
+  return "🟡"; // "info" - rank became unknown, not confirmed worse
 }
 
 /**
@@ -70,15 +64,24 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
   });
   const mentionRatePct = Math.round(input.mentionRate * 100);
   const hasAnomalies = input.anomalies.length > 0;
+  // "info" (rank became unknown, still mentioned - see daily-check/
+  // route.ts's third isAnomaly branch) is real signal but not urgent -
+  // an info-only day gets its own header tier rather than either
+  // "🚨 要確認" (overstates it - nothing actually got worse) or being
+  // silently folded into "✅ 正常" (which would bring back the exact
+  // zero-signal gap this branch exists to close).
+  const hasUrgent = input.anomalies.some((a) => a.severity !== "info");
 
   const blocks: Record<string, unknown>[] = [
     {
       type: "header",
       text: {
         type: "plain_text",
-        text: hasAnomalies
+        text: hasUrgent
           ? `🚨 要確認 - ${input.brandName}`
-          : `✅ ステータス: 正常 - ${input.brandName}`,
+          : hasAnomalies
+            ? `🟡 順位不明の項目あり - ${input.brandName}`
+            : `✅ ステータス: 正常 - ${input.brandName}`,
         emoji: true,
       },
     },
@@ -101,7 +104,9 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*AI露出率:* ${mentionRatePct}% ・ 以下 ${input.anomalies.length}件で順位の急落・除外を検知しました:`,
+        text: hasUrgent
+          ? `*AI露出率:* ${mentionRatePct}% ・ 以下 ${input.anomalies.length}件で順位の急落・除外を検知しました:`
+          : `*AI露出率:* ${mentionRatePct}% ・ 以下 ${input.anomalies.length}件で順位が一時的に不明になりました（掲載自体は継続中）:`,
       },
     });
     blocks.push({ type: "divider" });

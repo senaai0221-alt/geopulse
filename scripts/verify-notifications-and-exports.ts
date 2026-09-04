@@ -108,6 +108,7 @@ const sampleAnomalies: RankingChange[] = [
     previousRank: 2,
     currentRank: null,
     mentioned: false,
+    severity: "critical",
   },
   {
     brandName: "Zonostick",
@@ -116,8 +117,25 @@ const sampleAnomalies: RankingChange[] = [
     previousRank: 1,
     currentRank: 4,
     mentioned: true,
+    severity: "warning",
   },
 ];
+
+// "info" - still mentioned, but a real rank number became unknown (see
+// daily-check/route.ts's third isAnomaly branch, 2026-09). Never passed
+// to buildAlertEmailHtml in production (route.ts filters these out
+// before calling sendAlertEmail), but exercised here directly so a
+// future change to the emoji/table rendering can't silently regress it
+// back to an undifferentiated 🟠 "worsened" icon for a case that isn't.
+const infoAnomaly: RankingChange = {
+  brandName: "Zonostick",
+  promptText: "ワイヤレスイヤホン 比較",
+  provider: "perplexity",
+  previousRank: 3,
+  currentRank: null,
+  mentioned: true,
+  severity: "info",
+};
 
 // Same instant used for the Slack section below - 06:00 JST on
 // 2026-08-30, given with an explicit +09:00 offset so this test means
@@ -182,6 +200,26 @@ const dailySummaryNoAnomalies = buildDailySummaryBlocks({
 });
 console.log("\n--- Daily summary blocks (no anomalies - the 'all clear' path) ---");
 console.log(JSON.stringify(dailySummaryNoAnomalies, null, 2));
+
+// Info-only day (2026-09): the header must land on the new quieter 🟡
+// tier, never the 🚨 wording written for an actual drop/disappearance -
+// that's the whole point of carrying `severity` explicitly instead of
+// just checking `anomalies.length > 0`.
+const dailySummaryInfoOnly = buildDailySummaryBlocks({
+  brandName: "Zonostick",
+  checkedAt: new Date("2026-08-30T06:00:00+09:00"),
+  totalPrompts: 3,
+  totalChecks: 18,
+  mentionRate: 0.67,
+  anomalies: [infoAnomaly],
+});
+const infoOnlyHeaderText = (
+  (dailySummaryInfoOnly[0] as { text: { text: string } }).text.text
+);
+const infoOnlyOk = infoOnlyHeaderText.startsWith("🟡") && !infoOnlyHeaderText.includes("🚨");
+console.log(
+  `\nSanity: ${infoOnlyOk ? "PASS" : "FAIL"} - info-only day header is "${infoOnlyHeaderText}" (must be the 🟡 tier, not 🚨)`
+);
 
 console.log("\n--- Test-connection message blocks ---");
 console.log(JSON.stringify(buildTestMessageBlocks(), null, 2));
@@ -321,6 +359,7 @@ const mismatchChange: RankingChange = {
   previousRank: 3,
   currentRank: null,
   mentioned: false,
+  severity: "critical",
   possibleMismatch: "docomo",
 };
 const mismatchMsg = buildAnomalyMessage(mismatchChange);

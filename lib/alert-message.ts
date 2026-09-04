@@ -40,6 +40,18 @@ export interface RankingChange {
   currentRank: number | null;
   mentioned: boolean;
   /**
+   * "critical" (disappeared entirely), "warning" (numeric rank worsened
+   * by >= the brand's threshold), or "info" (still mentioned, but a rank
+   * that used to be a real number is now unknown - see daily-check/
+   * route.ts's third isAnomaly branch, added 2026-09 once real data
+   * showed this transition happening dozens of times/day with zero
+   * signal anywhere). Carried explicitly rather than re-derived from
+   * previousRank/currentRank shape downstream (Slack/email used to each
+   * guess this from the numbers, which is exactly the kind of duplicated
+   * judgment this module exists to avoid - see the file-level comment).
+   */
+  severity: "info" | "warning" | "critical";
+  /**
    * A Latin-letter word found in the raw response that's a close-but-
    * not-exact match for the brand's mechanically-derived romaji
    * spelling (lib/romaji.ts's findRomajiNearMiss) - e.g. "docomo" found
@@ -73,10 +85,15 @@ export function rankLabel(rank: number | null, mentioned: boolean): string {
  * Branches on `mentioned` first, not just on whether `currentRank`
  * happens to be null - a mention that dropped out of a ranked list but
  * is still present in the response reads differently from one that
- * vanished outright, and the caller (app/api/cron/daily-check/route.ts)
- * only ever constructs a RankingChange for one of those two cases to
- * begin with, so this stays a plain, non-branching description rather
- * than a decision the caller has already made twice.
+ * vanished outright. The caller (app/api/cron/daily-check/route.ts)
+ * constructs a RankingChange for three cases (severity "critical":
+ * mentioned -> not; "warning": a real rank number got worse by >=
+ * threshold; "info": still mentioned, but a real rank number became
+ * unknown) - this function doesn't need to know which, since `mentioned`
+ * plus the two rank fields already says everything the wording depends
+ * on; the "info" case falls straight out of the same two branches
+ * ("圏内(順位なし)" via the `mentioned` arm) with no third branch needed
+ * here.
  */
 export function buildAnomalyMessage(change: RankingChange): string {
   const provider = PROVIDER_LABELS[change.provider];

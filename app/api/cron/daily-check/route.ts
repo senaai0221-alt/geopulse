@@ -227,6 +227,29 @@ async function processBrand(
           ) {
             isAnomaly = true;
             severity = "warning";
+          } else if (wasMentioned && result.mentioned && previousRank !== null && result.rankPosition === null) {
+            // Still mentioned, but a real rank number became unknown -
+            // e.g. the brand moved from a ranked list into unranked
+            // prose, or a response this session's stricter, no-
+            // fabrication parsing (lib/geo-engine.ts's extractListItems/
+            // firstParagraph scoping, the "17位" incident fix) now
+            // correctly reports as "can't determine a position" instead
+            // of guessing one. Before this branch existed, this
+            // transition fired neither branch above and produced
+            // literally zero signal anywhere (2026-09 audit: 41 real
+            // occurrences over 8 days, accelerating - 18 in the most
+            // recent single day - as those same parsing fixes shipped).
+            // That silence was the intended, deliberate consequence of
+            // this codebase's "never fabricate a number" design
+            // philosophy for the rank ITSELF, but it left the operator
+            // with no way to even notice the rank had gone from known to
+            // unknown, which is a real, separate signal worth surfacing
+            // - just not at the same urgency as a genuine disappearance
+            // or a measured worsening (see buildDailySummaryBlocks/
+            // sendAlertEmail's own severity-based gating for how "info"
+            // is kept quieter than "critical"/"warning").
+            isAnomaly = true;
+            severity = "info";
           }
 
           if (isAnomaly) {
@@ -251,18 +274,25 @@ async function processBrand(
               previousRank,
               currentRank: result.rankPosition,
               mentioned: result.mentioned,
+              severity,
               possibleMismatch,
             };
 
             // A "critical" (disappeared) anomaly must never carry a
-            // current rank number, and a "warning" (worsened) one must
-            // always carry both - if either invariant is ever violated
-            // (a future edit above changes what triggers isAnomaly
-            // without updating this), fail loudly in Sentry rather than
-            // silently writing/sending a message that names a rank
-            // number the underlying data doesn't actually support.
+            // current rank number; a "warning" (worsened) one must
+            // always carry both; an "info" (rank became unknown) one
+            // must carry a real previous rank but no current one - if
+            // any invariant is ever violated (a future edit above
+            // changes what triggers isAnomaly without updating this),
+            // fail loudly in Sentry rather than silently writing/sending
+            // a message that names a rank number the underlying data
+            // doesn't actually support.
             const invariantOk =
-              severity === "critical" ? change.currentRank === null : change.previousRank !== null && change.currentRank !== null;
+              severity === "critical"
+                ? change.currentRank === null
+                : severity === "warning"
+                  ? change.previousRank !== null && change.currentRank !== null
+                  : change.previousRank !== null && change.currentRank === null;
             if (!invariantOk) {
               Sentry.captureMessage("daily-check: anomaly rank invariant violated", {
                 level: "error",
@@ -454,10 +484,22 @@ async function runDailyCheck(supabase: ReturnType<typeof createAdminClient>) {
       // is reserved for the cases the request specifically calls out.
       // notification_email overrides the account's own sign-in address
       // when the user has pointed alerts somewhere else (settings page).
+      //
+      // "info" anomalies (rank went from a real number to unknown, but
+      // the brand is still mentioned - see the third isAnomaly branch
+      // above) are deliberately excluded here: buildAlertEmailHtml's
+      // subject/copy ("重要な変動を検知しました") is written for a real
+      // drop or disappearance, and sending that same urgent wording for
+      // "we just don't know the position anymore" would train the
+      // reader to stop trusting/opening this email - exactly the outcome
+      // the Slack digest's quieter 🟡 treatment (buildDailySummaryBlocks)
+      // is meant to avoid. Info anomalies are still written to `alerts`
+      // above and visible on the dashboard either way.
+      const urgentAnomalies = anomalies.filter((a) => a.severity !== "info");
       const alertTo = profile?.notification_email || profile?.email;
-      if (anomalies.length > 0 && profile?.email_alerts_enabled !== false && alertTo) {
+      if (urgentAnomalies.length > 0 && profile?.email_alerts_enabled !== false && alertTo) {
         try {
-          await sendAlertEmail(alertTo, { brandName: brand.name, anomalies, checkedAt });
+          await sendAlertEmail(alertTo, { brandName: brand.name, anomalies: urgentAnomalies, checkedAt });
           emailStatus = "sent";
         } catch (err) {
           emailStatus = "error";
