@@ -154,6 +154,7 @@
     "trendTabRank": "Position",
     "trendTabVoice": "Share of Voice",
     "trendPeriodDays": "{n}d",
+    "trendPeriodReadOnly": "Showing: last {n} days",
     "positionAxisLabel": "Position",
     "shareOfVoice": "Share of Voice",
     "shareOfVoiceDesc": "Recent mention share for {name} vs. competitors",

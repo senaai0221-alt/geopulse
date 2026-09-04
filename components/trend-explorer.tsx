@@ -12,7 +12,7 @@ import { VoiceTrendChart, type VoiceTrendPoint } from "@/components/voice-trend-
 import type { ActionMarker } from "@/components/action-markers";
 import { MarketingActionDialog } from "@/app/dashboard/marketing-action-dialog";
 import type { MarketingAction } from "@/lib/marketing-actions";
-import { PERIODS, useDashboardPeriod } from "@/components/dashboard-period-context";
+import { useDashboardPeriod } from "@/components/dashboard-period-context";
 
 type Metric = "exposure" | "rank" | "voice";
 const METRICS: { id: Metric; icon: typeof TrendingUp; labelKey: string }[] = [
@@ -42,6 +42,15 @@ const METRICS: { id: Metric; icon: typeof TrendingUp; labelKey: string }[] = [
  * own comment), not local state here - the KPI cards further up the
  * page (dashboard-kpi-cards.tsx) need to report the same window this
  * graph is showing, and they're rendered nowhere near each other.
+ *
+ * The period toggle buttons themselves used to live here - moved to
+ * dashboard-period-selector.tsx, now rendered once at the top of the
+ * dashboard (2026-09, operator's own UX report: changing the period
+ * meant scrolling all the way down to this card, clicking, then
+ * scrolling back up to see the KPI cards actually change). This card
+ * only reads the shared period now, via a plain label, never sets it -
+ * a second control here would just be a second place to click for the
+ * exact same state the top one already owns.
  */
 export function TrendExplorer({
   brandId,
@@ -64,7 +73,7 @@ export function TrendExplorer({
 }) {
   const { t } = useI18n();
   const [metric, setMetric] = useState<Metric>("exposure");
-  const { period, setPeriod } = useDashboardPeriod();
+  const { period } = useDashboardPeriod();
 
   const slicedRank = rankData.slice(-period);
   const slicedExposure = exposureData.slice(-period);
@@ -107,23 +116,11 @@ export function TrendExplorer({
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex gap-0.5 rounded-md border border-border p-0.5">
-            {PERIODS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPeriod(p)}
-                className={cn(
-                  "rounded px-2.5 py-1 text-xs font-medium transition-colors",
-                  period === p
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {t("dashboard.trendPeriodDays", { n: p })}
-              </button>
-            ))}
-          </div>
+          {/* Read-only - the global control lives at the top of the
+              dashboard now (dashboard-period-selector.tsx); this just
+              confirms which window the chart below is honoring, since
+              it's rendered nowhere near that control. */}
+          <span className="text-xs text-muted-foreground">{t("dashboard.trendPeriodReadOnly", { n: period })}</span>
           <MarketingActionDialog brandId={brandId} actions={actions} />
         </div>
       </div>

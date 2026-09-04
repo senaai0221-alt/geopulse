@@ -26,6 +26,7 @@ import { type VoiceTrendPoint } from "@/components/voice-trend-chart";
 import { TrendExplorer } from "@/components/trend-explorer";
 import { DashboardKpiCards, type DailyStatsPoint, type DailyAlertPoint } from "@/components/dashboard-kpi-cards";
 import { DashboardPeriodProvider } from "@/components/dashboard-period-context";
+import { DashboardPeriodSelector } from "@/components/dashboard-period-selector";
 import { getMarketingActions } from "@/lib/marketing-actions";
 import { ShareOfVoice, type ShareOfVoiceEntry } from "@/components/share-of-voice";
 import { T } from "@/components/t";
@@ -400,6 +401,18 @@ export default async function DashboardPage({
             {b.name}
           </Link>
         ))}
+      </div>
+
+      {/* Global period toggle (2026-09, operator's own UX report from a
+          screen recording): used to live ONLY inside TrendExplorer, the
+          trend-graph card far down the page - even though it also
+          drives the KPI cards right below this. Changing the period
+          meant scrolling all the way down, clicking, then scrolling
+          back up to see the KPI numbers actually change. One control
+          here, right above everything it drives, removes that round
+          trip - see dashboard-period-selector.tsx's own comment. */}
+      <div className="flex items-center justify-end">
+        <DashboardPeriodSelector />
       </div>
 
       {/* Zero-mention warning + KPI cards (露出率/平均順位/アラート),

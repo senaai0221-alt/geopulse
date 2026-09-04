@@ -154,6 +154,7 @@
     "trendTabRank": "掲載順位",
     "trendTabVoice": "Share of Voice",
     "trendPeriodDays": "{n}日",
+    "trendPeriodReadOnly": "対象期間: 過去{n}日間",
     "positionAxisLabel": "掲載ポジション",
     "shareOfVoice": "AI露出シェア (Share of Voice)",
     "shareOfVoiceDesc": "{name}と競合の、直近の言及割合",
