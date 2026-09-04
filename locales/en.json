@@ -444,6 +444,11 @@
     "promptPlaceholder2": "e.g. What do people say about [Your Product]? Any reviews?",
     "promptPlaceholder3": "e.g. What's the best system for the [Your Industry] industry?",
     "promptLabel": "Question {n}",
+    "categoryFillHint": "Tap a tag to fill in an example question - into the focused field, or the first empty one from the top.",
+    "categoryFillRecommend": "What are the best CRM tools for small businesses?",
+    "categoryFillReviews": "What do people say about [Your Product]? Any reviews?",
+    "categoryFillComparison": "How is [Your Product] different from competitors?",
+    "categoryFillPriceFeatures": "What are [Your Product]'s pricing plans and features?",
     "submitButton": "Finish setup and start tracking",
     "submitting": "Saving your setup and running the first check…",
     "saveFailed": "Failed to save. Please try again."

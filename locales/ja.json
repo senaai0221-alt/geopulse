@@ -444,6 +444,11 @@
     "promptPlaceholder2": "例: ◯◯（自社サービス名）の評判や口コミは？",
     "promptPlaceholder3": "例: ◯◯業界でおすすめのシステムは？",
     "promptLabel": "質問 {n}",
+    "categoryFillHint": "タグをタップすると、質問例を自動入力します（フォーカス中の欄、なければ上から順に空欄へ入力されます）",
+    "categoryFillRecommend": "中小企業におすすめのCRMツールは？",
+    "categoryFillReviews": "◯◯（自社サービス名）の評判や口コミは？",
+    "categoryFillComparison": "◯◯（自社サービス名）と他社の違いは？",
+    "categoryFillPriceFeatures": "◯◯（自社サービス名）の料金プランや機能は？",
     "submitButton": "設定を完了して自動計測を開始する",
     "submitting": "設定を保存し、初回の計測を実行しています…",
     "saveFailed": "保存に失敗しました。もう一度お試しください。"

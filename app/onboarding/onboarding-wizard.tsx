@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { CategoryChipGroup } from "@/components/category-chip-group";
 import { AliasSuggestionHint } from "@/components/alias-suggestion-hint";
+import { CATEGORY_CHIPS } from "@/lib/category-chips";
+import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 import { translateActionError } from "@/lib/i18n/action-error";
 import { completeOnboarding } from "./actions";
@@ -43,6 +45,22 @@ const COMPETITOR_PLACEHOLDER_KEYS = {
   2: "onboarding.competitorPlaceholder2",
   3: "onboarding.competitorPlaceholder3",
 } as const;
+
+/**
+ * One-tap question fill (2026-09): keyed by CATEGORY_CHIPS' own plain-
+ * Japanese `value` strings (never i18n-keyed at the value level - see
+ * that module's own comment for why), not by chip index, so this stays
+ * correct even if CATEGORY_CHIPS' order or membership ever changes.
+ * Distinct from PROMPT_PLACEHOLDER_KEYS above - those are greyed-out
+ * placeholder text (never actually submitted unless typed), these are
+ * real strings written into the field on click.
+ */
+const CATEGORY_FILL_TEXT_KEY: Record<string, string> = {
+  "選び方・おすすめ": "onboarding.categoryFillRecommend",
+  "評判・口コミ": "onboarding.categoryFillReviews",
+  "他社との比較": "onboarding.categoryFillComparison",
+  "価格・機能": "onboarding.categoryFillPriceFeatures",
+};
 
 const NAME_MAX = 100;
 const DOMAIN_MAX = 200;
@@ -78,7 +96,30 @@ export function OnboardingWizard() {
   const [domain, setDomain] = useState("");
   const [competitors, setCompetitors] = useState<Record<number, string>>({ 1: "", 2: "", 3: "" });
   const [prompts, setPrompts] = useState<Record<number, PromptDraft>>(emptyPrompts());
+  // Which question slot (if any) currently has focus - read (not
+  // reacted to) only inside fillPromptFromChip below, so a chip click
+  // targets whichever field the visitor was just about to type into.
+  const [focusedPromptSlot, setFocusedPromptSlot] = useState<(typeof PROMPT_SLOTS)[number] | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
+
+  /**
+   * One click both fills a real example question (not just a greyed-
+   * out placeholder) and tags its category - into whichever slot the
+   * visitor was just focused on, or the first empty slot from the top
+   * if none was focused. Never throws even with all three slots full
+   * and nothing focused: falls back to slot 1, an explicit, harmless
+   * overwrite rather than a silent no-op that would look like the tap
+   * did nothing.
+   */
+  function fillPromptFromChip(category: string) {
+    const textKey = CATEGORY_FILL_TEXT_KEY[category];
+    const text = textKey ? t(textKey) : "";
+    setPrompts((prev) => {
+      const target =
+        focusedPromptSlot ?? PROMPT_SLOTS.find((slot) => !prev[slot].text.trim()) ?? PROMPT_SLOTS[0];
+      return { ...prev, [target]: { text, category } };
+    });
+  }
 
   const error =
     !errorCode
@@ -218,6 +259,46 @@ export function OnboardingWizard() {
           <CardDescription>{t("onboarding.step3Desc")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
+          {/* One-tap fill (2026-09): a single shared row instead of a
+              copy under each slot - it routes to whichever slot makes
+              sense (focused, else first empty from the top) rather than
+              being tied to one specific field, so it only needs to
+              exist once. The per-slot CategoryChipGroup further below
+              is unchanged and still there for tagging a question the
+              visitor typed themselves without replacing its text. */}
+          <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
+            <p className="text-xs text-muted-foreground">{t("onboarding.categoryFillHint")}</p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {CATEGORY_CHIPS.map((chip) => (
+                <button
+                  key={chip.value}
+                  type="button"
+                  // Without this, clicking the chip while a prompt
+                  // input is focused fires that input's onBlur (mouse-
+                  // down moves focus first) BEFORE this button's own
+                  // onClick runs - focusedPromptSlot would already be
+                  // cleared back to null by the time fillPromptFromChip
+                  // reads it, so a click would always fall through to
+                  // the "first empty slot" branch and never actually
+                  // fill the field the visitor was just typing into.
+                  // preventDefault on mousedown keeps the input focused
+                  // right through the click (the same technique
+                  // toolbar buttons over a focused text field always
+                  // need), so onBlur never fires and the state is still
+                  // correct when onClick reads it.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => fillPromptFromChip(chip.value)}
+                  className={cn(
+                    "rounded-full border border-input bg-background px-3 py-1 text-xs font-medium text-muted-foreground",
+                    "transition-colors hover:border-primary/50 hover:bg-accent hover:text-foreground"
+                  )}
+                >
+                  {t(chip.labelKey)}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {PROMPT_SLOTS.map((slot) => (
             <div key={slot} className="flex flex-col gap-2">
               <Label htmlFor={`onboarding-prompt-${slot}`} className="text-xs text-muted-foreground">
@@ -229,6 +310,13 @@ export function OnboardingWizard() {
                 onChange={(e) =>
                   setPrompts((prev) => ({ ...prev, [slot]: { ...prev[slot], text: e.target.value } }))
                 }
+                onFocus={() => setFocusedPromptSlot(slot)}
+                // Only clears if this exact slot is still the recorded
+                // one - without that check, tabbing straight from slot
+                // 1 into slot 2 fires slot 2's onFocus (sets 2) BEFORE
+                // slot 1's onBlur (which would otherwise clear it right
+                // back to null a tick later).
+                onBlur={() => setFocusedPromptSlot((current) => (current === slot ? null : current))}
                 placeholder={t(PROMPT_PLACEHOLDER_KEYS[slot])}
                 maxLength={PROMPT_MAX}
               />
