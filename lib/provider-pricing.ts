@@ -39,21 +39,27 @@
 // page on 2026-09-04 - see the date on this comment before trusting
 // these blindly months later.
 const RATE_PER_MILLION_TOKENS = {
-  // https://developers.openai.com/api/docs/pricing - "gpt-4o" standard
-  // tier (OpenAI calls this grandfathered/legacy pricing; still billed
-  // at these rates as of the verification date above, no announced
-  // retirement).
-  "gpt-4o": { input: 2.5, output: 10.0 },
+  // https://openai.com/index/gpt-5-6/ + real-call pricing search
+  // (2026-09) - GPT-5.6 Luna, the cost-optimized tier of the current
+  // GPT-5.6 generation (see geo-engine.ts's DEFAULT_OPENAI_MODEL for
+  // why this replaced gpt-4o's legacy pricing).
+  "gpt-5.6-luna": { input: 0.2, output: 1.2 },
   // gpt-4o-mini, used only by judgeBrandTreatment's sentiment call, not
   // a daily-check provider itself - kept in the same table since it's
-  // the same OpenAI account/budget either way.
+  // the same OpenAI account/budget either way. Deliberately NOT swept
+  // to a GPT-5.6 tier alongside the main chat model above - "mini" is
+  // still on OpenAI's current pricing page (unlike gpt-4o's grandfathered
+  // full-size listing), so it doesn't carry the same staleness risk;
+  // revisit only if that changes.
   "gpt-4o-mini": { input: 0.15, output: 0.6 },
   // https://claude.com/pricing - Claude Haiku 4.5.
   "claude-haiku-4-5": { input: 1.0, output: 5.0 },
-  // https://ai.google.dev/gemini-api/docs/pricing - Gemini 3.6 Flash,
-  // "through December 31, 2026" introductory rate; rises to $1.50/$7.50
-  // on 2027-01-01 - this table needs a manual bump then.
-  "gemini-3.6-flash": { input: 0.75, output: 3.75 },
+  // https://ai.google.dev/gemini-api/docs/pricing - Gemini 3.8 Flash,
+  // "through December 31, 2026" introductory rate (identical to 3.6
+  // Flash's own rate - a pure generation bump, not a price change);
+  // rises to $1.50/$7.50 on 2027-01-01 - this table needs a manual
+  // bump then.
+  "gemini-3.8-flash": { input: 0.75, output: 3.75 },
   // https://api-docs.deepseek.com/quick_start/pricing - deepseek-v4-flash
   // (what "deepseek-chat" is actually served by as of the verification
   // date), OFF-PEAK cache-miss rate. Peak hours (01:00-04:00 and
@@ -81,7 +87,7 @@ function tokenCost(rateKey: RateKey, inputTokens: number, outputTokens: number):
  *  "gpt-4o". */
 export function costFromOpenAiUsage(
   data: { usage?: { prompt_tokens?: number; completion_tokens?: number } },
-  rateKey: "gpt-4o" | "gpt-4o-mini"
+  rateKey: "gpt-5.6-luna" | "gpt-4o-mini"
 ): number | null {
   const usage = data.usage;
   if (!usage || typeof usage.prompt_tokens !== "number" || typeof usage.completion_tokens !== "number") return null;
@@ -108,7 +114,7 @@ export function costFromGeminiUsage(data: {
   const usage = data.usageMetadata;
   if (!usage || typeof usage.promptTokenCount !== "number") return null;
   const outputTokens = (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0);
-  return tokenCost("gemini-3.6-flash", usage.promptTokenCount, outputTokens);
+  return tokenCost("gemini-3.8-flash", usage.promptTokenCount, outputTokens);
 }
 
 export function costFromDeepSeekUsage(data: {

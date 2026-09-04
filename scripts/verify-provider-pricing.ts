@@ -32,13 +32,23 @@ function check(label: string, actual: number | null, expected: number | null, to
   }
 }
 
-// --- ChatGPT (gpt-4o) - real response from a live test call ---
+// --- ChatGPT (gpt-5.6-luna) - real response from a live test call
+// (2026-09 model-currency sweep - see geo-engine.ts DEFAULT_OPENAI_MODEL) ---
 {
   const data = {
-    usage: { prompt_tokens: 19, completion_tokens: 291, total_tokens: 310 },
+    usage: {
+      prompt_tokens: 18,
+      completion_tokens: 451,
+      total_tokens: 469,
+      completion_tokens_details: { reasoning_tokens: 153 },
+    },
   };
-  // 19*2.50/1e6 + 291*10/1e6 = 0.0000475 + 0.00291 = 0.0029575
-  check("ChatGPT (gpt-4o) real usage", costFromOpenAiUsage(data, "gpt-4o"), 0.0029575);
+  // reasoning_tokens is a SUBSET of completion_tokens here (unlike
+  // Grok's separate reasoning_tokens field, which sits outside
+  // completion_tokens) - OpenAI's own completion_tokens is already the
+  // full billable output count, so no separate addition needed.
+  // 18*0.20/1e6 + 451*1.20/1e6 = 0.0000036 + 0.0005412 = 0.0005448
+  check("ChatGPT (gpt-5.6-luna) real usage", costFromOpenAiUsage(data, "gpt-5.6-luna"), 0.0005448);
 }
 {
   // judgeBrandTreatment's own model - same helper, different rate key.
@@ -46,7 +56,7 @@ function check(label: string, actual: number | null, expected: number | null, to
   // 100*0.15/1e6 + 20*0.6/1e6 = 0.000015 + 0.000012 = 0.000027
   check("ChatGPT (gpt-4o-mini judge) synthetic usage", costFromOpenAiUsage(data, "gpt-4o-mini"), 0.000027);
 }
-check("ChatGPT missing usage returns null (never silently 0)", costFromOpenAiUsage({}, "gpt-4o"), null);
+check("ChatGPT missing usage returns null (never silently 0)", costFromOpenAiUsage({}, "gpt-5.6-luna"), null);
 
 // --- Claude (Haiku 4.5) - real response ---
 {

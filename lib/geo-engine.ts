@@ -140,6 +140,21 @@ async function throwOnError(res: Response, provider: string) {
 // Provider calls
 // ---------------------------------------------------------------------
 
+// gpt-5.6-luna, not gpt-4o (2026-09 model-currency sweep - see the
+// git log entry that added this comment for the full cost audit).
+// gpt-4o was still answering 200 OK, but only as "grandfathered
+// legacy pricing" no longer listed on OpenAI's own current pricing
+// page - the exact same silent-staleness risk that already bit this
+// codebase once for real (Perplexity's sonar-pro Chat Completions API
+// was retired on a fixed date with no runtime warning beforehand; see
+// callPerplexity's own comment). Luna is OpenAI's cost-optimized tier
+// of the current GPT-5.6 generation - $0.20/$1.20 per 1M tokens vs.
+// gpt-4o's $2.50/$10, about 5x cheaper on a real measured call - the
+// same cost/accuracy tradeoff already made for Claude (Haiku over
+// Sonnet) applied consistently to the provider whose legacy pricing
+// happened to be the least urgent of the three stale models found.
+const DEFAULT_OPENAI_MODEL = "gpt-5.6-luna";
+
 async function callChatGPT(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
@@ -151,19 +166,29 @@ async function callChatGPT(prompt: string): Promise<ProviderResponse> {
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || "gpt-4o",
+      model: process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
       messages: [
         {
           role: "user",
           content: prompt,
         },
       ],
-      temperature: 0.3,
+      // No `temperature` override (2026-09) - gpt-5.6-luna's API
+      // rejects any value other than its own default (1) with a 400
+      // ("Unsupported value... Only the default (1) value is
+      // supported"), confirmed against a real call. gpt-4o accepted
+      // 0.3 fine; a reasoning-tier model like this one apparently
+      // doesn't expose sampling temperature as a caller-tunable knob
+      // at all. If OPENAI_MODEL is ever pointed at a model that DOES
+      // support temperature again, this has no way to know that and
+      // will keep omitting it - acceptable, since omitting a
+      // supported temperature just falls back to that model's own
+      // default rather than erroring.
     }),
   });
   await throwOnError(res, "OpenAI");
   const data = await res.json();
-  return { text: data.choices?.[0]?.message?.content ?? "", costUsd: costFromOpenAiUsage(data, "gpt-4o") };
+  return { text: data.choices?.[0]?.message?.content ?? "", costUsd: costFromOpenAiUsage(data, "gpt-5.6-luna") };
 }
 
 // Haiku, not Sonnet (2026-09) - at this app's real prompt/brand volume
@@ -275,11 +300,19 @@ async function callPerplexity(prompt: string): Promise<ProviderResponse> {
   };
 }
 
+// gemini-3.8-flash, not gemini-3.6-flash (2026-09 model-currency
+// sweep) - 3.6 was still a real, current-pricing model (not stale like
+// the other three found), just one generation behind the "New Stable"
+// Flash release. Same $0.75/$3.75 per 1M rate either way - a pure
+// generation bump, not a cost decision like the other three provider
+// changes in this same sweep.
+const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
+
 async function callGemini(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
 
-  const model = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+  const model = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
   const res = await fetchWithRateLimitRetry(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
@@ -297,6 +330,19 @@ async function callGemini(prompt: string): Promise<ProviderResponse> {
   return { text: parts.map((p: { text?: string }) => p.text ?? "").join("\n"), costUsd: costFromGeminiUsage(data) };
 }
 
+// grok-4.3, not grok-4 (2026-09 model-currency sweep) - "grok-4" had
+// already quietly stopped being a real model: xAI's own docs list no
+// such id, and a live call requesting it came back with
+// `"model": "grok-4.3"` in the response - the account was being
+// silently rerouted to a different (and, per xAI's own docs, cheaper:
+// $1.25/$2.50 vs the $3/$15 this app's old cost estimate assumed for
+// "grok-4") model the whole time, with nothing surfacing that fact
+// anywhere. Naming grok-4.3 explicitly - not xAI's current flagship
+// grok-4.6 ($2-4/$6-12, notably pricier) - keeps exactly the model
+// this account was already actually being served, just no longer by
+// silent accident.
+const DEFAULT_GROK_MODEL = "grok-4.3";
+
 async function callGrok(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.XAI_API_KEY;
   if (!apiKey) throw new Error("XAI_API_KEY is not set");
@@ -308,7 +354,7 @@ async function callGrok(prompt: string): Promise<ProviderResponse> {
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: process.env.GROK_MODEL || "grok-4",
+      model: process.env.GROK_MODEL || DEFAULT_GROK_MODEL,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
     }),
@@ -317,6 +363,14 @@ async function callGrok(prompt: string): Promise<ProviderResponse> {
   const data = await res.json();
   return { text: data.choices?.[0]?.message?.content ?? "", costUsd: costFromGrokUsage(data) };
 }
+
+// deepseek-v4-flash, not deepseek-chat (2026-09 model-currency sweep) -
+// same silent-rerouting situation as Grok above: "deepseek-chat" isn't
+// listed as a valid model id in DeepSeek's own current docs at all, and
+// a live call requesting it came back `"model": "deepseek-v4-flash"` -
+// naming that explicitly now, not deepseek-v4-pro (notably pricier),
+// keeps the exact model this account was already being served.
+const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash";
 
 async function callDeepSeek(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.DEEPSEEK_API_KEY;
@@ -329,7 +383,7 @@ async function callDeepSeek(prompt: string): Promise<ProviderResponse> {
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+      model: process.env.DEEPSEEK_MODEL || DEFAULT_DEEPSEEK_MODEL,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
     }),
