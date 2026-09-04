@@ -20,7 +20,7 @@ export interface DailyStatsPoint {
   mentioned: number;
   /** Count of `mentioned` rows this day whose lib/geo-engine.ts
    *  sentiment judge (judgeBrandTreatment) returned "positive" - the
-   *  numerator for AI推奨率 below. A subset of `mentioned`, never
+   *  numerator for AIおすすめ率 below. A subset of `mentioned`, never
    *  counted separately from it (a positive mention is still, first,
    *  a mention) - see `recommendRate`'s own comment for why this is
    *  deliberately denominated over `total`, the same as `mentioned`
@@ -37,7 +37,7 @@ export interface DailyAlertPoint {
 }
 
 /**
- * The dashboard's top KPI row (AI露出率 / 平均掲載ポジション / アラート)
+ * The dashboard's top KPI row (AIでの表示率 / 平均表示順位 / アラート)
  * plus the zero-mention warning card above it - both scoped to the
  * SAME selectable period (see dashboard-period-context.tsx) the trend
  * graph further down the page uses, instead of the plain snapshot of
@@ -68,8 +68,8 @@ export function DashboardKpiCards({
   const totalMentioned = slicedStats.reduce((sum, d) => sum + d.mentioned, 0);
   const mentionRate = totalChecks > 0 ? totalMentioned / totalChecks : 0;
 
-  // AI推奨率 (2026-09): deliberately divided by the SAME denominator as
-  // AI露出率 (totalChecks), not by totalMentioned - the two cards are
+  // AIおすすめ率 (2026-09): deliberately divided by the SAME denominator as
+  // AIでの表示率 (totalChecks), not by totalMentioned - the two cards are
   // meant to sit side by side and be read as "露出率70%のうち、推奨率
   // 55%" (a direct gap), which only works if both are shares of the
   // same whole. Dividing by totalMentioned instead would answer a

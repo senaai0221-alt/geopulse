@@ -70,7 +70,7 @@ function buildPrompt(input: ReportInsightsInput): string {
   const providerLines = input.providerStats
     .map(
       (p) =>
-        `- ${PROVIDER_LABELS[p.provider]}: 露出率${p.mentionRate}%、平均掲載順位${
+        `- ${PROVIDER_LABELS[p.provider]}: 表示率${p.mentionRate}%、平均表示順位${
           p.avgRank !== null ? `${p.avgRank.toFixed(1)}位` : "圏外のため算出不可"
         }`
     )
@@ -86,11 +86,11 @@ function buildPrompt(input: ReportInsightsInput): string {
 
   const categoryLines =
     input.categoryStats.length > 1
-      ? input.categoryStats.map((c) => `- ${c.category}: 露出率${c.mentionRate}%`).join("\n")
+      ? input.categoryStats.map((c) => `- ${c.category}: 表示率${c.mentionRate}%`).join("\n")
       : "(カテゴリ分類なし)";
 
   const vsLastMonth = input.prevKpis
-    ? `前月比: 露出率 ${input.kpis.mentionRate - input.prevKpis.mentionRate >= 0 ? "+" : ""}${
+    ? `前月比: 表示率 ${input.kpis.mentionRate - input.prevKpis.mentionRate >= 0 ? "+" : ""}${
         input.kpis.mentionRate - input.prevKpis.mentionRate
       }pt`
     : "前月データなし(今月が初回計測)";
@@ -102,7 +102,7 @@ function buildPrompt(input: ReportInsightsInput): string {
           .map((a) => {
             const beforeAfter =
               a.mentionRateBefore !== null && a.mentionRateAfter !== null
-                ? ` (施策実施前の露出率${a.mentionRateBefore}% → 実施後${a.mentionRateAfter}%)`
+                ? ` (施策実施前の表示率${a.mentionRateBefore}% → 実施後${a.mentionRateAfter}%)`
                 : "";
             return `- ${a.date} [${a.category}] ${a.title}${beforeAfter}`;
           })
@@ -115,9 +115,9 @@ function buildPrompt(input: ReportInsightsInput): string {
   const marketingActionInstruction =
     marketingActions.length > 0
       ? `【施策との相関 - 客観的評価】\n` +
-        `「要因分析」の記述内で、上記の当月実施施策のうち施策実施前後の露出率データが提示されている` +
+        `「要因分析」の記述内で、上記の当月実施施策のうち施策実施前後の表示率データが提示されている` +
         `ものについて、数値に変化が見られる場合はその施策名・日付・数値を具体的に挙げて言及すること` +
-        `(例:「9/5のプレスリリース配信後、露出率が32%→58%に上昇しており、施策の効果である可能性が` +
+        `(例:「9/5のプレスリリース配信後、表示率が32%→58%に上昇しており、施策の効果である可能性が` +
         `示唆される」)。ただし相関を示すに留め、「〜のおかげで」「〜が原因で」のような因果関係を断定` +
         `する表現は使わず、「可能性がある」「示唆される」等の慎重な表現にすること。施策前後の数値に` +
         `目立った変化が無い場合は、その施策については無理に相関へ触れず、変化が無かった旨を客観的に` +
@@ -131,13 +131,13 @@ function buildPrompt(input: ReportInsightsInput): string {
     `KPIの数値そのものは絶対に捏造せず、与えられたデータの範囲内で厳密に記述すること` +
     `(ただし次月アクションの期限・担当は【厳守】の指示に従うこと)。\n\n` +
     `【全体指標】\n` +
-    `- AI露出率: ${input.kpis.mentionRate}%\n` +
-    `- 平均掲載順位: ${input.kpis.avgRank !== null ? `${input.kpis.avgRank.toFixed(1)}位` : "圏外のため算出不可"}\n` +
-    `- Share of Voice(自社シェア): ${input.kpis.shareOfVoice}%\n` +
+    `- AIでの表示率: ${input.kpis.mentionRate}%\n` +
+    `- 平均表示順位: ${input.kpis.avgRank !== null ? `${input.kpis.avgRank.toFixed(1)}位` : "圏外のため算出不可"}\n` +
+    `- AI回答での自社シェア: ${input.kpis.shareOfVoice}%\n` +
     `- ${vsLastMonth}\n\n` +
     `【LLM別内訳】\n${providerLines}\n\n` +
     `【競合とのシェア比較】\n${competitorLines}\n\n` +
-    `【カテゴリ別露出率】\n${categoryLines}\n\n` +
+    `【カテゴリ別表示率】\n${categoryLines}\n\n` +
     `【当月実施したGEO施策】\n${marketingActionLines}\n\n` +
     `以下のJSONのみを返答してください。他のテキストは一切含めないでください。\n` +
     `{"commentary": string, "next_actions_table": string}\n\n` +
@@ -151,7 +151,7 @@ function buildPrompt(input: ReportInsightsInput): string {
     `例:「Claudeでの順位下落が見られ要対策」。好調要因が無い場合や課題が無い場合も、` +
     `データから読み取れる最も注意すべき点を必ず1つ挙げること)\n\n` +
     `【客観性とクリティカルな評価 - 厳守】\n` +
-    `  * 一部のLLMの露出率が高くても、他のLLMの露出率が著しく低い(特に0%)場合は、` +
+    `  * 一部のLLMの表示率が高くても、他のLLMの表示率が著しく低い(特に0%)場合は、` +
     `全体を「好調」「良好」等の総括的な高評価で締めくくることを絶対に禁止する。` +
     `必ず「(LLM名)が0%である重大な課題がある」のように、対象LLM名と数値を名指しした` +
     `クリティカルな指摘を含めること。全LLMが高水準でない限り、無条件の高評価は許可しない\n` +
@@ -164,8 +164,8 @@ function buildPrompt(input: ReportInsightsInput): string {
     `| --- | --- | --- | --- | --- |\n` +
     `| (施策) | (施策) | (期限) | (施策) | (施策) |\n\n` +
     `  各列のルール:\n` +
-    `  * 「具体的対策」は上記データの弱点(露出率が低いLLM、競合に劣後している点、` +
-    `露出率が低いカテゴリなど)に直接紐づく、固有名詞を含む実行可能な施策にすること` +
+    `  * 「具体的対策」は上記データの弱点(表示率が低いLLM、競合に劣後している点、` +
+    `表示率が低いカテゴリなど)に直接紐づく、固有名詞を含む実行可能な施策にすること` +
     `(例:「◯◯ページへの構造化データ(FAQスキーマ)の追加」「PR TIMESでのプレスリリース配信」)。\n` +
     `    【抽象表現の禁止 - 厳守】「〜を検討する」「〜の見直しを図る」「〜を強化する」だけで終わる` +
     `文、「対応する」「取り組む」のような主語・目的語のない先送り表現は一切禁止する。` +

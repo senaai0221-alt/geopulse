@@ -100,11 +100,11 @@ async function processBrand(
   const anomalies: RankingChange[] = [];
   let totalChecks = 0;
   let mentionedCount = 0;
-  // Numerator for the brand-level "露出はあるが好意的な言及は少数派"
+  // Numerator for the brand-level "表示はあるが好意的な言及は少数派"
   // gap check run once per brand after this function returns (see
   // handleBrand) - same denominator (totalChecks) as mentionedCount, by
   // design (see DailyStatsPoint/KpiSet's own comments on the dashboard/
-  // report side of this same 2026-09 AI推奨率 feature).
+  // report side of this same 2026-09 AIおすすめ率 feature).
   let positiveCount = 0;
 
   await Promise.all(
@@ -450,7 +450,7 @@ async function runDailyCheck(supabase: ReturnType<typeof createAdminClient>) {
       );
 
       // Brand-level (not per-prompt/provider) gap check, 2026-09: a
-      // brand can carry a high AI露出率 built mostly out of neutral/
+      // brand can carry a high AIでの表示率 built mostly out of neutral/
       // negative mentions with nothing on that one number making that
       // visible - see lib/alert-message.ts's buildRecommendGapMessage
       // for the full reasoning. Computed once per brand per run, after

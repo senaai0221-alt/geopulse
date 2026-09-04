@@ -221,12 +221,12 @@ console.log(
   `\nSanity: ${infoOnlyOk ? "PASS" : "FAIL"} - info-only day header is "${infoOnlyHeaderText}" (must be the 🟡 tier, not 🚨)`
 );
 
-// Gap-only day (2026-09, AI推奨率): no per-row anomalies at all, but a
-// brand-level 露出率/推奨率 gap over RECOMMEND_GAP_ALERT_THRESHOLD_PT -
-// must still land on the 🟡 tier (not 🚨, not fold back into "✅ 正常"),
+// Gap-only day (2026-09, AIおすすめ率): no per-row anomalies at all, but
+// a brand-level 表示率/おすすめ率 gap over RECOMMEND_GAP_ALERT_THRESHOLD_PT
+// - must still land on the 🟡 tier (not 🚨, not fold back into "✅ 正常"),
 // and the gap block itself must actually be present in the output.
 const gapMessage = buildRecommendGapMessage("Zonostick", 70, 45);
-console.log(`\nGap message (露出70% / 推奨45%, threshold ${RECOMMEND_GAP_ALERT_THRESHOLD_PT}pt): ${gapMessage}`);
+console.log(`\nGap message (表示70% / おすすめ45%, threshold ${RECOMMEND_GAP_ALERT_THRESHOLD_PT}pt): ${gapMessage}`);
 const gapOnlyOk = gapMessage.includes("70%") && gapMessage.includes("45%") && gapMessage.includes("25pt");
 console.log(`Sanity: ${gapOnlyOk ? "PASS" : "FAIL"} - gap message states both rates and the correct point gap`);
 
@@ -315,8 +315,14 @@ const redesignChecks: [string, boolean][] = [
   ],
   ["no-anomaly message has a dashboard button", hasDashboardButton(dailySummaryNoAnomalies)],
   ["anomaly message has a dashboard button", hasDashboardButton(dailySummaryBlocks)],
-  ["展示に AI露出率 が使われている", jsonOf(dailySummaryNoAnomalies).includes("AI露出率")],
-  ["旧表記「言及率」が完全に消えている", !jsonOf(dailySummaryNoAnomalies).includes("言及率") && !jsonOf(dailySummaryBlocks).includes("言及率")],
+  ["表示に AIでの表示率 が使われている", jsonOf(dailySummaryNoAnomalies).includes("AIでの表示率")],
+  [
+    "旧表記「言及率」「AI露出率」が完全に消えている",
+    !jsonOf(dailySummaryNoAnomalies).includes("言及率") &&
+      !jsonOf(dailySummaryBlocks).includes("言及率") &&
+      !jsonOf(dailySummaryNoAnomalies).includes("AI露出率") &&
+      !jsonOf(dailySummaryBlocks).includes("AI露出率"),
+  ],
   ["「総チェック数」フィールドが削除されている", !jsonOf(dailySummaryNoAnomalies).includes("総チェック数") && !jsonOf(dailySummaryBlocks).includes("総チェック数")],
 ];
 

@@ -21,7 +21,7 @@ export interface DailySummaryInput {
   totalChecks: number;
   mentionRate: number; // 0-1
   anomalies: RankingChange[];
-  /** Brand-level "露出はあるが好意的な言及は少数派" gap notice (2026-09,
+  /** Brand-level "表示はあるが好意的な言及は少数派" gap notice (2026-09,
    *  see lib/alert-message.ts's buildRecommendGapMessage) - null on a
    *  normal day. Rendered as its own block below the per-row anomaly
    *  list rather than folded into `anomalies`: it isn't about any one
@@ -49,7 +49,7 @@ function severityEmoji(change: RankingChange): string {
  * one thing a reader needs before anything else - is this brand fine
  * today, or does it need attention - since a header renders as the
  * largest, boldest text Slack has. Everything below either confirms
- * that ("正常" + the two numbers that actually matter, AI露出率 and
+ * that ("正常" + the two numbers that actually matter, AIでの表示率 and
  * how many prompts were behind them) or explains it (the anomaly list,
  * each one showing exactly which prompt/LLM moved and from what to
  * what). Internal operational counts that don't change what the reader
@@ -103,7 +103,7 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
     blocks.push({
       type: "section",
       fields: [
-        { type: "mrkdwn", text: `*AI露出率:*\n${mentionRatePct}%` },
+        { type: "mrkdwn", text: `*AIでの表示率:*\n${mentionRatePct}%` },
         { type: "mrkdwn", text: `*計測プロンプト数:*\n${input.totalPrompts}` },
       ],
     });
@@ -113,8 +113,8 @@ export function buildDailySummaryBlocks(input: DailySummaryInput) {
       text: {
         type: "mrkdwn",
         text: hasRowAnomalies
-          ? `*AI露出率:* ${mentionRatePct}% ・ 以下 ${input.anomalies.length}件の変動を検知しました:`
-          : `*AI露出率:* ${mentionRatePct}%`,
+          ? `*AIでの表示率:* ${mentionRatePct}% ・ 以下 ${input.anomalies.length}件の変動を検知しました:`
+          : `*AIでの表示率:* ${mentionRatePct}%`,
       },
     });
     if (hasRowAnomalies) blocks.push({ type: "divider" });
@@ -300,6 +300,6 @@ export async function sendDailySummary(
   const fallbackText =
     input.anomalies.length > 0
       ? `🚨 要確認 - ${input.brandName}: ${input.anomalies.length}件の変動を検知しました`
-      : `✅ ステータス: 正常 - ${input.brandName} (AI露出率 ${Math.round(input.mentionRate * 100)}%)`;
+      : `✅ ステータス: 正常 - ${input.brandName} (AIでの表示率 ${Math.round(input.mentionRate * 100)}%)`;
   await sendSlackMessage(webhookUrl, blocks, fallbackText);
 }

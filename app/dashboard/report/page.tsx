@@ -53,9 +53,9 @@ interface KpiSet {
   /** Count of `mentioned` rows whose sentiment judge (lib/geo-engine.ts's
    *  judgeBrandTreatment) returned "positive" - see recommendRate. */
   recommendCount: number;
-  /** AI推奨率 (2026-09), 0-100 - deliberately divided by `total`, the
+  /** AIおすすめ率 (2026-09), 0-100 - deliberately divided by `total`, the
    *  same denominator as mentionRate, not by mentionedCount. The two
-   *  are meant to be read side by side ("露出率70%のうち推奨率55%"),
+   *  are meant to be read side by side ("表示率70%のうちおすすめ率55%"),
    *  which only holds if both are shares of the same whole - see
    *  dashboard-kpi-cards.tsx's DailyStatsPoint for the identical
    *  reasoning on the live dashboard's own version of this number. */

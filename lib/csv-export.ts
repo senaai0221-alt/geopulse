@@ -50,7 +50,7 @@ export const FLAT_CSV_HEADERS = [
   "カテゴリ/タグ",
   "LLM名",
   "言及フラグ(1/0)",
-  "推奨順位",
+  "表示順位",
   "論調",
   "言及スニペット",
   "参照URL(citations)",

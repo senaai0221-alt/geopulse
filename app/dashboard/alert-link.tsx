@@ -17,7 +17,7 @@ export function AlertLink({
   provider,
   children,
 }: {
-  /** Null for a brand-level alert (e.g. the AI露出率/AI推奨率 gap
+  /** Null for a brand-level alert (e.g. the AIでの表示率/AIおすすめ率 gap
    *  notice, 2026-09) - there's no single ranking-table cell it's
    *  "about", so it renders as plain text below instead of a link. */
   promptId: string | null;

@@ -268,7 +268,7 @@ export default async function DashboardPage({
     mentioned: number;
     /** Subset of `mentioned` whose lib/geo-engine.ts sentiment judge
      *  (judgeBrandTreatment) returned "positive" - see DailyStatsPoint's
-     *  own comment (dashboard-kpi-cards.tsx) for why AI推奨率 divides
+     *  own comment (dashboard-kpi-cards.tsx) for why AIおすすめ率 divides
      *  this by `total`, not by `mentioned`. */
     positiveMentioned: number;
     total: number;
@@ -740,7 +740,7 @@ export default async function DashboardPage({
                         ? "text-destructive"
                         : alert.severity === "warning"
                         ? "text-amber-500"
-                        : // "info" (rank became unknown, or the AI推奨率
+                        : // "info" (rank became unknown, or the AIおすすめ率
                           // gap notice - both 2026-09) - text-muted-
                           // foreground used to blend straight into the
                           // page next to critical/warning's saturated

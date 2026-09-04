@@ -5,7 +5,7 @@ import { createContext, useContext, useState } from "react";
 /**
  * Shared "which period is selected" state for the dashboard's KPI
  * cards (components/dashboard-kpi-cards.tsx) and trend graph
- * (components/trend-explorer.tsx) - added because "AI露出率" (and
+ * (components/trend-explorer.tsx) - added because "AIでの表示率" (and
  * avg. position) previously had no stated time window at all: the KPI
  * cards showed a plain snapshot of the single latest measurement per
  * prompt/provider, with no way to tell whether a viewer was looking at
@@ -24,7 +24,7 @@ export const PERIODS = [7, 30, 90] as const;
 export type Period = (typeof PERIODS)[number];
 
 // 7 days, not the trend graph's old default of 30: short enough that
-// "AI露出率" reflects recent reality (an operator who just fixed
+// "AIでの表示率" reflects recent reality (an operator who just fixed
 // something wants to see that improvement show up quickly, not have it
 // diluted across a month of history) while still smoothing out a
 // single bad/lucky day's noise - see the operator's own reasoning
