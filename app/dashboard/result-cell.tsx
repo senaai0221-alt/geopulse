@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FileText, X, AlertTriangle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 
@@ -28,13 +28,20 @@ export function RankBadge({ mentioned, rank }: { mentioned: boolean; rank: numbe
  *  only visible sign that today's measurement didn't actually succeed
  *  and what's shown is carried forward from the last good check. */
 /**
- * Warning icon shown when a check failed (a provider API error). Uses
- * the same rich Tooltip as InfoTooltip rather than a native `title`
- * attribute - a one-line browser tooltip isn't enough room to explain
- * that this is normally transient and when it's actually worth
- * worrying about, which matters here specifically: a customer seeing
- * this icon several mornings in a row with no explanation reads it as
- * "the product is broken," not "an AI provider had a bad moment."
+ * Warning icon shown when a check failed (a provider API error). Built
+ * on Popover (see info-tooltip.tsx's own comment), not the hover-only
+ * Tooltip primitive this used before (2026-09 mobile walkthrough fix) -
+ * on a phone, tapping the icon fired Radix Tooltip's hover-open
+ * heuristic and a near-simultaneous blur-like event closed it again
+ * almost instantly, exactly the "flashes open then vanishes before you
+ * can read it" bug reported from real mobile testing. Popover is
+ * click/tap-toggled by design on every input type, so there's no
+ * heuristic to fight - a one-line browser tooltip wouldn't have this
+ * problem but also isn't enough room to explain that this is normally
+ * transient and when it's actually worth worrying about, which matters
+ * here specifically: a customer seeing this icon several mornings in a
+ * row with no explanation reads it as "the product is broken," not "an
+ * AI provider had a bad moment."
  *
  * `isFirstCheck` (2026-09 fix): the standard copy claims "表示は前回の
  * 正常な計測値のままです" (showing the last known-good value) - true for
@@ -78,14 +85,18 @@ export function CheckErrorBadge({
       ? "dashboard.checkErrorTooltipPersistent"
       : "dashboard.checkErrorTooltip";
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span tabIndex={0} className="inline-flex cursor-help items-center text-amber-500 outline-none">
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={t(tooltipKey, { n: consecutiveFailures })}
+          className="inline-flex cursor-help items-center text-amber-500 outline-none"
+        >
           <AlertTriangle className="h-3.5 w-3.5" />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent>{t(tooltipKey, { n: consecutiveFailures })}</TooltipContent>
-    </Tooltip>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent>{t(tooltipKey, { n: consecutiveFailures })}</PopoverContent>
+    </Popover>
   );
 }
 
@@ -99,18 +110,22 @@ export function CheckErrorBadge({
  * "paused because of a plan downgrade, resumes automatically on
  * upgrade") rather than a prompt-specific duplicate - the mechanism and
  * the fix are identical either way.
+ *
+ * Built on Popover, not Tooltip (2026-09 mobile fix, same reasoning as
+ * CheckErrorBadge above and info-tooltip.tsx) - a hover-only Tooltip
+ * has no real touch-device story.
  */
 export function PromptPausedBadge() {
   const { t } = useI18n();
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
+    <Popover>
+      <PopoverTrigger asChild>
         <Badge variant="secondary" tabIndex={0} className="shrink-0 cursor-help text-[11px] outline-none">
           {t("settings.brandPaused")}
         </Badge>
-      </TooltipTrigger>
-      <TooltipContent>{t("settings.brandPausedHint")}</TooltipContent>
-    </Tooltip>
+      </PopoverTrigger>
+      <PopoverContent>{t("settings.brandPausedHint")}</PopoverContent>
+    </Popover>
   );
 }
 

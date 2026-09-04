@@ -51,7 +51,21 @@ export function MobileNav({ email, planLabel }: { email?: string | null; planLab
 
         <nav className="flex flex-col gap-1">
           {items.map((item) => {
-            const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href.split("#")[0]);
+            // A hashed item (MOBILE_BILLING_ITEM, "#billing") is a
+            // shortcut to a section of the settings page, not a
+            // separate "current location" - it must never highlight as
+            // active itself. Before this check, splitting the hash off
+            // for the startsWith comparison (needed so /dashboard/
+            // settings#billing still matches while navigating there)
+            // also silently made it match "設定・連携"'s own href
+            // (both reduce to the same "/dashboard/settings" prefix),
+            // so opening Settings lit up BOTH entries at once - a real
+            // mobile screenshot reported exactly this (2026-09).
+            const isActive = item.href.includes("#")
+              ? false
+              : item.exact
+                ? pathname === item.href
+                : pathname.startsWith(item.href.split("#")[0]);
             const href = brand && !item.href.includes("#") ? `${item.href}?brand=${encodeURIComponent(brand)}` : item.href;
             return (
               <Link

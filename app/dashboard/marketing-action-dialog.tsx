@@ -136,8 +136,17 @@ export function MarketingActionDialog({ brandId, actions }: { brandId: string; a
         </DialogHeader>
 
         <div className="flex flex-col gap-3">
+          {/* min-w-0 on both cells (2026-09 mobile fix): a CSS grid
+              item's default min-width is `auto` - its own content's
+              intrinsic minimum, not the track's share of the grid. A
+              native `type="date"` input's minimum width (the day/month/
+              year segments + calendar icon, particularly on iOS Safari)
+              routinely exceeds half this dialog's width, so without this
+              the date field refused to shrink to its 1fr track and
+              pushed into - visually overlapping - the category field
+              beside it. */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="ma-date">{t("marketingActions.dateLabel")}</Label>
               <Input
                 id="ma-date"
@@ -147,7 +156,7 @@ export function MarketingActionDialog({ brandId, actions }: { brandId: string; a
                 onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="ma-category">{t("marketingActions.categoryLabel")}</Label>
               <Select
                 id="ma-category"
