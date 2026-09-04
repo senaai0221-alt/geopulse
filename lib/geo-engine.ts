@@ -10,6 +10,14 @@
  */
 
 import { katakanaToHepburn } from "./romaji";
+import {
+  costFromOpenAiUsage,
+  costFromAnthropicUsage,
+  costFromGeminiUsage,
+  costFromGrokUsage,
+  costFromDeepSeekUsage,
+  costFromPerplexityUsage,
+} from "./provider-pricing";
 
 export type LlmProvider = "chatgpt" | "claude" | "perplexity" | "gemini" | "grok" | "deepseek";
 
@@ -59,6 +67,14 @@ export interface GeoQueryResult {
    *  providers that return them (currently Perplexity), merged with any
    *  URLs found directly in the response text. */
   citations: string[];
+  /** Real $ cost of this check - the provider's own call plus, when the
+   *  brand was mentioned, judgeBrandTreatment's sentiment call (a
+   *  second, separate OpenAI charge). null only when the provider's
+   *  response didn't include enough usage data to compute a cost (a
+   *  malformed/unexpected response shape) - never defaults to 0, which
+   *  would silently under-count the real total instead of making the
+   *  gap visible. See lib/provider-pricing.ts and lib/cost-budget.ts. */
+  costUsd: number | null;
   error?: string;
 }
 
@@ -66,6 +82,7 @@ export interface GeoQueryResult {
 interface ProviderResponse {
   text: string;
   citations?: string[];
+  costUsd: number | null;
 }
 
 // Perplexity's Agent API (see callPerplexity) runs an actual multi-step
@@ -146,7 +163,7 @@ async function callChatGPT(prompt: string): Promise<ProviderResponse> {
   });
   await throwOnError(res, "OpenAI");
   const data = await res.json();
-  return { text: data.choices?.[0]?.message?.content ?? "" };
+  return { text: data.choices?.[0]?.message?.content ?? "", costUsd: costFromOpenAiUsage(data, "gpt-4o") };
 }
 
 // Haiku, not Sonnet (2026-09) - at this app's real prompt/brand volume
@@ -188,7 +205,7 @@ async function callClaude(prompt: string): Promise<ProviderResponse> {
     .filter((block: { type: string }) => block.type === "text")
     .map((block: { text: string }) => block.text)
     .join("\n");
-  return { text };
+  return { text, costUsd: costFromAnthropicUsage(data) };
 }
 
 /**
@@ -254,6 +271,7 @@ async function callPerplexity(prompt: string): Promise<ProviderResponse> {
   return {
     text: outputTextBlocks.map((block) => block.text ?? "").join("\n"),
     citations: [...new Set(citations)],
+    costUsd: costFromPerplexityUsage(data),
   };
 }
 
@@ -276,7 +294,7 @@ async function callGemini(prompt: string): Promise<ProviderResponse> {
   await throwOnError(res, "Gemini");
   const data = await res.json();
   const parts = data.candidates?.[0]?.content?.parts ?? [];
-  return { text: parts.map((p: { text?: string }) => p.text ?? "").join("\n") };
+  return { text: parts.map((p: { text?: string }) => p.text ?? "").join("\n"), costUsd: costFromGeminiUsage(data) };
 }
 
 async function callGrok(prompt: string): Promise<ProviderResponse> {
@@ -297,7 +315,7 @@ async function callGrok(prompt: string): Promise<ProviderResponse> {
   });
   await throwOnError(res, "Grok");
   const data = await res.json();
-  return { text: data.choices?.[0]?.message?.content ?? "" };
+  return { text: data.choices?.[0]?.message?.content ?? "", costUsd: costFromGrokUsage(data) };
 }
 
 async function callDeepSeek(prompt: string): Promise<ProviderResponse> {
@@ -318,7 +336,7 @@ async function callDeepSeek(prompt: string): Promise<ProviderResponse> {
   });
   await throwOnError(res, "DeepSeek");
   const data = await res.json();
-  return { text: data.choices?.[0]?.message?.content ?? "" };
+  return { text: data.choices?.[0]?.message?.content ?? "", costUsd: costFromDeepSeekUsage(data) };
 }
 
 const PROVIDER_CALLERS: Record<LlmProvider, (prompt: string) => Promise<ProviderResponse>> = {
@@ -894,7 +912,7 @@ export function parseResponse(
   brandName: string,
   brandAliases: string[],
   competitors: string[]
-): Omit<GeoQueryResult, "provider" | "rawResponse" | "citations" | "sentiment"> & {
+): Omit<GeoQueryResult, "provider" | "rawResponse" | "citations" | "sentiment" | "costUsd"> & {
   /** Whichever of `brandName`/`brandAliases` actually matched - null if
    *  none did. Passed through to judgeBrandTreatment (see buildResult)
    *  so its own "is this string really in the text" framing stays
@@ -965,6 +983,13 @@ interface JudgeResult {
   // for a response that never contained any ranking at all. `mentioned`
   // was never trusted from this judge for exactly this class of
   // failure mode; rank position now gets the same treatment.
+  /** This call's own real $ cost (2026-09) - a second, separate OpenAI
+   *  charge on top of whichever provider's own call this is judging, and
+   *  easy to forget entirely when adding up what a check "really costs"
+   *  since it only fires for mentioned=true results. 0 (not null) when
+   *  the call never ran at all (missing key/empty text) - genuinely no
+   *  charge, same reasoning as emptyResult's own costUsd. */
+  costUsd: number;
 }
 
 const JUDGE_TIMEOUT_MS = 15_000;
@@ -985,7 +1010,7 @@ const JUDGE_TIMEOUT_MS = 15_000;
  * pipeline never breaks because of this extra step.
  */
 async function judgeBrandTreatment(rawResponse: string, brandName: string): Promise<JudgeResult> {
-  const empty: JudgeResult = { sentiment: null };
+  const empty: JudgeResult = { sentiment: null, costUsd: 0 };
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey || !rawResponse.trim()) return empty;
@@ -1025,17 +1050,25 @@ async function judgeBrandTreatment(rawResponse: string, brandName: string): Prom
     if (!res.ok) return empty;
 
     const data = await res.json();
+    // Computed as soon as `data` exists, even if the content parsing
+    // below fails - the call was still billed either way, and losing
+    // track of that would silently under-count the real total.
+    const costUsd = costFromOpenAiUsage(data, "gpt-4o-mini") ?? 0;
     const content = data.choices?.[0]?.message?.content;
-    if (typeof content !== "string") return empty;
+    if (typeof content !== "string") return { sentiment: null, costUsd };
 
     const parsed = JSON.parse(content);
     const sentiment: Sentiment | null = ["positive", "neutral", "negative"].includes(parsed.sentiment)
       ? parsed.sentiment
       : null;
 
-    return { sentiment };
+    return { sentiment, costUsd };
   } catch {
-    // Network error, timeout, or malformed JSON - degrade gracefully.
+    // Network error, timeout, or malformed JSON response body - degrade
+    // gracefully. A malformed-JSON case technically was still billed
+    // (costUsd lost here, unlike the two checked cases above that
+    // capture it before anything can throw) - accepted as the rare
+    // edge case this catch-all exists for in the first place.
     return empty;
   } finally {
     clearTimeout(timeout);
@@ -1051,6 +1084,11 @@ function emptyResult(provider: LlmProvider, error: unknown): GeoQueryResult {
     sentiment: null,
     competitorsMentioned: [],
     citations: [],
+    // A call that threw (network error, timeout, 4xx/5xx) was never
+    // billed - genuinely 0, not "unknown," since no tokens were ever
+    // generated. Distinct from a malformed-but-200 response, where
+    // costFromXUsage returning null means "we don't actually know."
+    costUsd: 0,
     error: error instanceof Error ? error.message : String(error),
   };
 }
@@ -1114,7 +1152,7 @@ async function buildResult(
   const judge =
     parsed.mentioned && parsed.matchedName
       ? await judgeBrandTreatment(response.text, parsed.matchedName)
-      : { sentiment: null };
+      : { sentiment: null, costUsd: 0 };
 
   return {
     provider,
@@ -1124,6 +1162,13 @@ async function buildResult(
     rankPosition: parsed.rankPosition,
     mentioned: parsed.mentioned,
     competitorsMentioned: parsed.competitorsMentioned,
+    // The provider's own call plus the judge's own separate charge (0
+    // when the judge never ran, e.g. mentioned=false) - null only
+    // propagates when the PROVIDER call's own cost couldn't be computed
+    // at all, since that's the dominant charge and losing track of it
+    // entirely is worth surfacing as "unknown," not silently flooring to
+    // just the judge's much smaller cost.
+    costUsd: response.costUsd === null ? null : response.costUsd + judge.costUsd,
   };
 }
 

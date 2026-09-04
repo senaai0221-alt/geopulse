@@ -174,13 +174,26 @@ create table if not exists public.rankings (
   sentiment text check (sentiment in ('positive', 'neutral', 'negative')),
   raw_response text,
   error text,
+  -- Real $ cost of this one check (the provider's own call plus, when
+  -- mentioned=true, the sentiment judge's separate OpenAI charge) - see
+  -- lib/provider-pricing.ts. 0 for a call that threw (never billed),
+  -- null only when a 200 response's usage data couldn't be parsed (see
+  -- GeoQueryResult.costUsd's own comment) - lib/cost-budget.ts's
+  -- monthly SUM treats null as "unknown, excluded," never as free.
+  -- Added 2026-09 after ANTHROPIC_API_KEY silently expired mid-month
+  -- with nobody watching the Anthropic console closely enough to
+  -- notice the workspace credit draining first - this is the
+  -- structural fix: track real spend inside the app itself instead of
+  -- trusting six separate providers' own dashboards to be watched.
+  cost_usd numeric,
   checked_at timestamptz not null default now()
 );
 
--- Adds the citations/sentiment columns for databases created before
--- these fields existed; safe to re-run.
+-- Adds the citations/sentiment/cost_usd columns for databases created
+-- before these fields existed; safe to re-run.
 alter table public.rankings add column if not exists citations text[] not null default '{}';
 alter table public.rankings add column if not exists sentiment text;
+alter table public.rankings add column if not exists cost_usd numeric;
 do $$ begin
   alter table public.rankings add constraint rankings_sentiment_check
     check (sentiment in ('positive', 'neutral', 'negative'));

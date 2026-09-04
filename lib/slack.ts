@@ -193,6 +193,54 @@ export function buildFeedbackBlocks(input: FeedbackInput) {
   ];
 }
 
+/**
+ * Builds the Slack Block Kit payload for a monthly LLM-spend budget
+ * warning/breach - sent to the operator's own admin webhook
+ * (FEEDBACK_SLACK_WEBHOOK_URL), never a customer's, since this is
+ * about the operator's own provider-account spend, not any one
+ * customer's data. See lib/cost-budget.ts for the check this reports.
+ *
+ * Sent on EVERY daily-check run while level stays warning/critical, not
+ * just once when the threshold is first crossed - deliberately: the
+ * whole incident this exists to prevent (2026-09, ANTHROPIC_API_KEY
+ * silently expired after the Anthropic workspace ran dry) went
+ * unnoticed for 4 days precisely because nothing kept reminding anyone
+ * it was still a live problem. A daily nag until it's actually
+ * resolved is the intended behavior, not a bug to dedupe away.
+ */
+export function buildBudgetAlertBlocks(status: { budgetUsd: number; spentUsd: number; fraction: number; level: "warning" | "critical" }) {
+  const pct = Math.round(status.fraction * 100);
+  const headerText =
+    status.level === "critical"
+      ? "🔴 月間LLM予算を超過しました"
+      : "🟠 月間LLM予算が閾値に近づいています";
+  return [
+    {
+      type: "header",
+      text: { type: "plain_text", text: headerText, emoji: true },
+    },
+    {
+      type: "section",
+      fields: [
+        { type: "mrkdwn", text: `*今月の使用額:*\n$${status.spentUsd.toFixed(2)}` },
+        { type: "mrkdwn", text: `*設定予算:*\n$${status.budgetUsd.toFixed(2)} (${pct}%使用)` },
+      ],
+    },
+    {
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text:
+            status.level === "critical"
+              ? "各社の残高・利用上限も別途ご確認ください。この通知は解消するまで日次チェックのたびに届きます。"
+              : "このペースが続くと予算超過の見込みです。この通知は解消するまで日次チェックのたびに届きます。",
+        },
+      ],
+    },
+  ];
+}
+
 export function buildTestMessageBlocks() {
   return [
     {

@@ -91,6 +91,7 @@ export async function runPromptCheckNow(
           citations: [],
           raw_response: null,
           error: result.error,
+          cost_usd: result.costUsd,
           checked_at: checkedAt,
         };
       }
@@ -105,6 +106,7 @@ export async function runPromptCheckNow(
         citations: result.citations,
         raw_response: result.rawResponse || null,
         error: null,
+        cost_usd: result.costUsd,
         checked_at: checkedAt,
       };
     })

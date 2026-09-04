@@ -3,10 +3,11 @@ import * as Sentry from "@sentry/nextjs";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runGeoQuery, type LlmProvider } from "@/lib/geo-engine";
-import { sendDailySummary, type RankingChange } from "@/lib/slack";
+import { sendDailySummary, sendSlackMessage, buildBudgetAlertBlocks, type RankingChange } from "@/lib/slack";
 import { sendAlertEmail } from "@/lib/email";
 import { buildAnomalyMessage } from "@/lib/alert-message";
 import { findRomajiNearMiss } from "@/lib/romaji";
+import { checkMonthlyLlmBudget } from "@/lib/cost-budget";
 
 export const dynamic = "force-dynamic";
 // With Fluid compute (on by default for new projects, ours included),
@@ -150,6 +151,11 @@ async function processBrand(
               citations: [],
               raw_response: null,
               error: result.error,
+              // A thrown call is genuinely $0 (see emptyResult's own
+              // comment) - explicit rather than falling through to
+              // null, which lib/cost-budget.ts's monthly SUM treats as
+              // "unknown" and excludes rather than counting as free.
+              cost_usd: result.costUsd,
               checked_at: checkedAt.toISOString(),
             };
           }
@@ -164,6 +170,7 @@ async function processBrand(
             citations: result.citations,
             raw_response: result.rawResponse || null,
             error: null,
+            cost_usd: result.costUsd,
             checked_at: checkedAt.toISOString(),
           };
         });
@@ -482,6 +489,33 @@ async function runDailyCheck(supabase: ReturnType<typeof createAdminClient>) {
     console.warn(`daily-check: ${skipped.length} brand(s) skipped this run (time budget):`, skipped);
   }
 
+  // Checked once, after every brand this run has already written its
+  // rankings (cost_usd included) - never gates or delays any brand's
+  // own check, only reports on what already happened. See
+  // lib/cost-budget.ts for why this silently no-ops until
+  // MONTHLY_LLM_BUDGET_USD is actually configured, and its own comment
+  // for why a real budget number can't have a safe built-in default.
+  let budgetStatus: Awaited<ReturnType<typeof checkMonthlyLlmBudget>> = null;
+  try {
+    budgetStatus = await checkMonthlyLlmBudget(supabase);
+    const adminWebhook = process.env.FEEDBACK_SLACK_WEBHOOK_URL;
+    if (budgetStatus && budgetStatus.level !== "ok" && adminWebhook) {
+      const level = budgetStatus.level;
+      await sendSlackMessage(
+        adminWebhook,
+        buildBudgetAlertBlocks({ ...budgetStatus, level }),
+        level === "critical"
+          ? `🔴 月間LLM予算を超過しました ($${budgetStatus.spentUsd.toFixed(2)} / $${budgetStatus.budgetUsd.toFixed(2)})`
+          : `🟠 月間LLM予算が閾値に近づいています ($${budgetStatus.spentUsd.toFixed(2)} / $${budgetStatus.budgetUsd.toFixed(2)})`
+      );
+    }
+  } catch (err) {
+    // Never let the budget check itself take down an otherwise-
+    // successful run - same isolation principle as every per-brand
+    // try/catch above.
+    console.error("daily-check: budget check failed:", err);
+  }
+
   return {
     ok: true,
     checkedAt: checkedAt.toISOString(),
@@ -489,5 +523,6 @@ async function runDailyCheck(supabase: ReturnType<typeof createAdminClient>) {
     brandsProcessed: summary.length,
     summary,
     skipped,
+    budgetStatus,
   };
 }
