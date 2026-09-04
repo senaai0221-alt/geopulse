@@ -149,6 +149,22 @@ async function callChatGPT(prompt: string): Promise<ProviderResponse> {
   return { text: data.choices?.[0]?.message?.content ?? "" };
 }
 
+// Haiku, not Sonnet (2026-09) - at this app's real prompt/brand volume
+// (29 active prompts across 10 brands and growing), Sonnet's per-call
+// cost burned through the whole Anthropic workspace's small starter
+// credit in about a week (37 calls, ~$0.11/call observed) - extrapolated
+// to steady-state daily-cron volume, that's roughly $90+/month against a
+// $20 monthly cap, guaranteeing the exact silent multi-day outage this
+// fallback constant's own history (see the git log around 2026-09) was
+// otherwise unrelated to: the credential wasn't wrong, the workspace
+// just couldn't afford to keep answering. Haiku is the deliberate cost/
+// accuracy tradeoff for what this task actually needs - mention/rank
+// detection from a markdown-formatted answer, not open-ended reasoning
+// - not a temporary stopgap; only reconsider with a real accuracy
+// regression in hand, not preemptively. Matches ANTHROPIC_MODEL's
+// default in .env.example - keep both in sync if this ever changes.
+const DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
+
 async function callClaude(prompt: string): Promise<ProviderResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set");
@@ -161,7 +177,7 @@ async function callClaude(prompt: string): Promise<ProviderResponse> {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: process.env.ANTHROPIC_MODEL || "claude-sonnet-5",
+      model: process.env.ANTHROPIC_MODEL || DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }],
     }),
