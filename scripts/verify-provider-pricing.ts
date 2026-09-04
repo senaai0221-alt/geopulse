@@ -66,21 +66,30 @@ check("ChatGPT missing usage returns null (never silently 0)", costFromOpenAiUsa
 }
 check("Claude missing usage returns null", costFromAnthropicUsage({}), null);
 
-// --- Gemini (3.6 Flash) - real response, INCLUDING the hidden thinking tokens ---
+// --- Gemini (3.8 Flash) - real response from BEFORE thinkingLevel:
+// "low" was added to callGemini, INCLUDING the hidden thinking tokens
+// this whole fix exists to shrink ---
 {
   const data = {
-    usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 961, thoughtsTokenCount: 1415 },
+    usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 967, thoughtsTokenCount: 964 },
   };
-  // output billed = candidates + thoughts = 2376
-  // 10*0.75/1e6 + 2376*3.75/1e6 = 0.0000075 + 0.00891 = 0.0089175
-  check("Gemini real usage (thinking tokens billed as output)", costFromGeminiUsage(data), 0.0089175);
+  // output billed = candidates + thoughts = 1931
+  // 10*0.75/1e6 + 1931*3.75/1e6 = 0.0000075 + 0.00724125 = 0.00724875
+  check("Gemini real usage, default thinking (no thinkingLevel set)", costFromGeminiUsage(data), 0.00724875);
 }
 {
-  // No thoughtsTokenCount at all (a non-thinking response) - must not
-  // throw or treat the missing field as anything other than 0 extra.
-  const data = { usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 100 } };
-  // 5*0.75/1e6 + 100*3.75/1e6 = 0.00000375 + 0.000375 = 0.00037875
-  check("Gemini usage with no thinking tokens", costFromGeminiUsage(data), 0.00037875);
+  // The SAME prompt, same real call, WITH thinkingLevel: "low" (see
+  // geo-engine.ts callGemini's own comment) - Gemini's response omits
+  // thoughtsTokenCount entirely once thinking drops to ~0, rather than
+  // sending an explicit 0; this case is also the general "no
+  // thoughtsTokenCount field at all" regression guard - must not throw
+  // or treat the missing field as anything other than 0 extra. About
+  // half the cost of the default-thinking case above for the same
+  // question, confirming this fix actually works end to end, not just
+  // in isolation.
+  const data = { usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 1007 } };
+  // 10*0.75/1e6 + 1007*3.75/1e6 = 0.0000075 + 0.00377625 = 0.00378375
+  check("Gemini real usage, thinkingLevel: low (no thoughtsTokenCount field)", costFromGeminiUsage(data), 0.00378375);
 }
 check("Gemini missing usage returns null", costFromGeminiUsage({}), null);
 

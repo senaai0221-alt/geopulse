@@ -320,7 +320,22 @@ async function callGemini(prompt: string): Promise<ProviderResponse> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3 },
+        // thinkingConfig.thinkingLevel: "low" (2026-09) - Gemini 3.x
+        // Flash models think by default even for a plain factual
+        // question, and bill every one of those invisible reasoning
+        // tokens at the same rate as the visible answer (see
+        // costFromGeminiUsage's own comment) - confirmed on a real
+        // call that this alone was the single most expensive line item
+        // of all six providers per check. "low" is the minimum this
+        // model actually supports for Gemini 3.x ("minimal" errors
+        // outright on 3.8 Flash specifically, confirmed against a real
+        // call - do not "simplify" this to minimal without re-testing
+        // against whatever Gemini model is current then) and, on a
+        // real side-by-side call, dropped thoughtsTokenCount from 964
+        // to effectively 0 (~48% cheaper end to end) with the visible
+        // answer if anything slightly LONGER, not shorter - no
+        // accuracy tradeoff observed for what this task needs.
+        generationConfig: { temperature: 0.3, thinkingConfig: { thinkingLevel: "low" } },
       }),
     }
   );
