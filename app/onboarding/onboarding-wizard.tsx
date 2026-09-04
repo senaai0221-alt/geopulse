@@ -18,6 +18,32 @@ import { completeOnboarding } from "./actions";
 const COMPETITOR_SLOTS = [1, 2, 3] as const;
 const PROMPT_SLOTS = [1, 2, 3] as const;
 
+// One distinct example per slot instead of the same placeholder
+// repeated three times - a single, industry-specific example ("...best
+// baby mobile for a newborn?") read as unrelated to whatever the
+// visitor was actually about to track, and gave no sense that the
+// three slots are meant to cover different kinds of questions (a
+// recommendation search, a reviews/reputation search, a category-wide
+// search) rather than three interchangeable blanks (2026-09).
+const PROMPT_PLACEHOLDER_KEYS = {
+  1: "onboarding.promptPlaceholder1",
+  2: "onboarding.promptPlaceholder2",
+  3: "onboarding.promptPlaceholder3",
+} as const;
+
+// Same idea as PROMPT_PLACEHOLDER_KEYS above, but for a different
+// reason: these three slots ARE genuinely interchangeable (just "up to
+// 3 rivals"), so one shared placeholder was never actually wrong the
+// way the prompt one was - A/B/C just makes that "these are 3 separate
+// slots, not 3 copies of the same field" reading unambiguous at a
+// glance (2026-09, flagged from a screenshot of all three showing the
+// identical "A社の商品").
+const COMPETITOR_PLACEHOLDER_KEYS = {
+  1: "onboarding.competitorPlaceholder1",
+  2: "onboarding.competitorPlaceholder2",
+  3: "onboarding.competitorPlaceholder3",
+} as const;
+
 const NAME_MAX = 100;
 const DOMAIN_MAX = 200;
 const ALIASES_MAX = 300;
@@ -175,7 +201,7 @@ export function OnboardingWizard() {
                 id={`onboarding-competitor-${slot}`}
                 value={competitors[slot]}
                 onChange={(e) => setCompetitors((prev) => ({ ...prev, [slot]: e.target.value }))}
-                placeholder={t("onboarding.competitorPlaceholder")}
+                placeholder={t(COMPETITOR_PLACEHOLDER_KEYS[slot])}
                 maxLength={COMPETITOR_MAX}
               />
             </div>
@@ -203,7 +229,7 @@ export function OnboardingWizard() {
                 onChange={(e) =>
                   setPrompts((prev) => ({ ...prev, [slot]: { ...prev[slot], text: e.target.value } }))
                 }
-                placeholder={t("onboarding.promptPlaceholder")}
+                placeholder={t(PROMPT_PLACEHOLDER_KEYS[slot])}
                 maxLength={PROMPT_MAX}
               />
               <CategoryChipGroup
