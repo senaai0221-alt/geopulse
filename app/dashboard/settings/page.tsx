@@ -1,4 +1,4 @@
-import { Target, Bell, ShieldCheck, Palette, Mail, Settings2 } from "lucide-react";
+import { Target, Palette, Mail } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,17 +7,8 @@ import { cn } from "@/lib/utils";
 
 import { BrandForm } from "../brand-form";
 import { BrandListItem } from "../brand-list-item";
-import { SlackSettingsForm } from "../slack-settings-form";
-import { UpgradePrompt } from "../upgrade-button";
-import { ManageSubscriptionButton } from "../manage-subscription-button";
 import { WhiteLabelForm } from "./white-label-form";
 import { EmailAlertsForm } from "./email-alerts-form";
-
-const PLAN_LABELS: Record<string, string | null> = {
-  free: null, // rendered via <T k="dashboard.notSubscribed" /> instead
-  pro: "Pro",
-  business: "Business",
-};
 
 export default async function SettingsPage({
   searchParams,
@@ -141,67 +132,6 @@ export default async function SettingsPage({
             </CardContent>
           </Card>
         )}
-
-        {/* Plan / upgrade - id targeted by the mobile drawer's "プラン・
-            お支払い" link (see app/dashboard/nav-items.ts), same anchor
-            pattern as id="email-alerts" above. */}
-        <Card id="billing">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-primary" />
-              <T k="dashboard.plan" />
-            </CardTitle>
-            <CardDescription>
-              <T k="settings.currentPlan" />:{" "}
-              {PLAN_LABELS[profile?.plan ?? "free"] ?? profile?.plan ?? <T k="dashboard.notSubscribed" />}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {(profile?.plan ?? "free") === "free" && (
-              <UpgradePrompt
-                proPriceId={process.env.STRIPE_PRICE_ID_PRO ?? ""}
-                businessPriceId={process.env.STRIPE_PRICE_ID_BUSINESS ?? ""}
-              />
-            )}
-            {(profile?.plan ?? "free") !== "free" && (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  <T k="settings.subscribedThanks" />
-                </p>
-                <ManageSubscriptionButton />
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Advanced/optional integrations - deliberately separated from the
-          main settings grid above and pushed to the very bottom: Slack
-          is an additional channel now, not the primary one (see
-          EmailAlertsForm above), so it shouldn't compete for attention
-          with the settings most people actually need. */}
-      <div>
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-          <Settings2 className="h-4 w-4" />
-          <T k="settings.advancedSectionTitle" />
-        </h2>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="h-4 w-4 text-primary" />
-              <T k="settings.slackSettings" />
-            </CardTitle>
-            <CardDescription>
-              <T k="settings.slackSettingsDesc" />
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <SlackSettingsForm
-              initialWebhookUrl={profile?.slack_webhook_url ?? null}
-              initialEnabled={profile?.slack_enabled ?? false}
-            />
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

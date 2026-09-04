@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useI18n } from "@/lib/i18n/context";
 import { LangToggle } from "@/components/lang-toggle";
-import { NAV_ITEMS, MOBILE_BILLING_ITEM } from "./nav-items";
+import { NAV_SECTIONS, isNavItemActive } from "./nav-items";
 import { SignOutButton } from "./sign-out-button";
 
 /**
@@ -35,7 +35,6 @@ export function MobileNav({ email, planLabel }: { email?: string | null; planLab
   // Same "keep whichever brand is on screen" carry-through as
   // SidebarNav - see that component for why.
   const brand = searchParams.get("brand");
-  const items = [...NAV_ITEMS, MOBILE_BILLING_ITEM];
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -50,40 +49,38 @@ export function MobileNav({ email, planLabel }: { email?: string | null; planLab
         {email && <p className="truncate text-sm text-muted-foreground">{email}</p>}
 
         <nav className="flex flex-col gap-1">
-          {items.map((item) => {
-            // A hashed item (MOBILE_BILLING_ITEM, "#billing") is a
-            // shortcut to a section of the settings page, not a
-            // separate "current location" - it must never highlight as
-            // active itself. Before this check, splitting the hash off
-            // for the startsWith comparison (needed so /dashboard/
-            // settings#billing still matches while navigating there)
-            // also silently made it match "設定・連携"'s own href
-            // (both reduce to the same "/dashboard/settings" prefix),
-            // so opening Settings lit up BOTH entries at once - a real
-            // mobile screenshot reported exactly this (2026-09).
-            const isActive = item.href.includes("#")
-              ? false
-              : item.exact
-                ? pathname === item.href
-                : pathname.startsWith(item.href.split("#")[0]);
-            const href = brand && !item.href.includes("#") ? `${item.href}?brand=${encodeURIComponent(brand)}` : item.href;
-            return (
-              <Link
-                key={item.href}
-                href={href}
-                onClick={() => setOpen(false)}
-                className={cn(
-                  "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                )}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {t(item.labelKey)}
-              </Link>
-            );
-          })}
+          {NAV_SECTIONS.map((section) => (
+            <div key={section.titleKey ?? "main"} className="flex flex-col gap-1">
+              {section.titleKey && (
+                <p className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground/70 first:pt-0">
+                  {t(section.titleKey)}
+                </p>
+              )}
+              {section.items.map((item) => {
+                // Single source of truth shared with SidebarNav - see
+                // nav-items.ts's own comment for the double-highlight
+                // bug this exists to keep from coming back.
+                const isActive = isNavItemActive(pathname, item);
+                const href = brand ? `${item.href}?brand=${encodeURIComponent(brand)}` : item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={href}
+                    onClick={() => setOpen(false)}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    )}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    {t(item.labelKey)}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="mt-auto flex flex-col gap-3 border-t border-border pt-4">

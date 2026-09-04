@@ -40,7 +40,12 @@ export async function POST(request: NextRequest) {
   try {
     const session = await stripe.billingPortal.sessions.create({
       customer: profile.stripe_customer_id,
-      return_url: `${appUrl}/dashboard/settings`,
+      // The plan/billing card that opens this portal now lives on its
+      // own page (2026-09 nav split) - a bare /dashboard/settings
+      // return_url would drop the user back on general settings with
+      // no billing card in sight, exactly the "CTA that forgets why it
+      // was clicked" class of bug (see CLAUDE.md).
+      return_url: `${appUrl}/dashboard/plan`,
     });
 
     return NextResponse.json({ url: session.url });

@@ -1,10 +1,9 @@
 "use client";
 
-import { UserPlus, MessageSquarePlus, Sparkles, ChevronDown, Rocket, Sliders, HelpCircle, MessageSquareWarning } from "lucide-react";
+import { UserPlus, MessageSquarePlus, Sparkles, Rocket, Sliders } from "lucide-react";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useI18n } from "@/lib/i18n/context";
-import { FeedbackForm } from "./feedback-form";
 
 const QUICK_START = [
   { icon: UserPlus, titleKey: "help.quickStart1Title", descKey: "help.quickStart1Desc" },
@@ -18,16 +17,14 @@ const METRICS = [
   { titleKey: "help.metricsShareTitle", descKey: "help.metricsShareDesc" },
 ] as const;
 
-const FAQS = [
-  { qKey: "help.faqQ1", aKey: "help.faqA1" },
-  { qKey: "help.faqQ2", aKey: "help.faqA2" },
-  { qKey: "help.faqQ3", aKey: "help.faqA3" },
-  { qKey: "help.faqQ4", aKey: "help.faqA4" },
-] as const;
-
-/** Self-serve guide/FAQ - lets a non-engineer answer their own "how do
- *  I..." and "what does this number mean" questions without emailing
- *  support, and doubles as onboarding for a brand-new subscriber. */
+/** Self-serve usage guide - lets a non-engineer answer their own "how
+ *  do I..." and "what does this number mean" questions without
+ *  emailing support, and doubles as onboarding for a brand-new
+ *  subscriber. FAQ (/dashboard/faq) and the feedback form
+ *  (/dashboard/contact) used to live on this same page - split into
+ *  their own routes (2026-09, "ナビゲーション・タブの独立・再構築") so
+ *  each is a real, independently-reachable destination from the nav
+ *  instead of a scroll-down section of a combined "ガイド・Q&A" page. */
 export default function HelpPage() {
   const { t } = useI18n();
 
@@ -77,42 +74,6 @@ export default function HelpPage() {
               <p className="text-xs text-muted-foreground">{t(metric.descKey)}</p>
             </div>
           ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <HelpCircle className="h-4 w-4 text-primary" />
-            {t("help.faqTitle")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          {FAQS.map((faq) => (
-            <details key={faq.qKey} className="group rounded-lg border border-border px-4 py-3">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-medium text-slate-900 marker:content-none">
-                <span className="flex items-center gap-2">
-                  <HelpCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  {t(faq.qKey)}
-                </span>
-                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
-              </summary>
-              <p className="mt-2 text-sm text-muted-foreground">{t(faq.aKey)}</p>
-            </details>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquareWarning className="h-4 w-4 text-primary" />
-            {t("feedback.title")}
-          </CardTitle>
-          <CardDescription>{t("feedback.subtitle")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FeedbackForm />
         </CardContent>
       </Card>
     </div>

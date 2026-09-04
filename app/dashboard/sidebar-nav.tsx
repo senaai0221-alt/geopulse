@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { NAV_ITEMS } from "./nav-items";
+import { NAV_SECTIONS, isNavItemActive } from "./nav-items";
 
 const STORAGE_KEY = "zonostick-sidebar-collapsed";
 
@@ -70,40 +70,50 @@ export function SidebarNav() {
         collapsed ? "w-16" : "w-52"
       )}
     >
-      <div className="sticky top-8 flex flex-col gap-2">
-        <nav className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => {
-            const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
-            const href = brand ? `${item.href}?brand=${encodeURIComponent(brand)}` : item.href;
-            const link = (
-              <Link
-                href={href}
-                className={cn(
-                  "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  collapsed && "justify-center",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                )}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {!collapsed && t(item.labelKey)}
-              </Link>
-            );
-            // Only bother with a hover tooltip once the label itself is
-            // hidden - expanded already shows the screen name as plain
-            // text right next to the icon.
-            if (!collapsed) {
-              return <div key={item.href}>{link}</div>;
-            }
-            return (
-              <Tooltip key={item.href}>
-                <TooltipTrigger asChild>{link}</TooltipTrigger>
-                <TooltipContent side="right">{t(item.labelKey)}</TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </nav>
+      <div className="sticky top-8 flex flex-col gap-3">
+        {NAV_SECTIONS.map((section, sectionIndex) => (
+          <nav key={section.titleKey ?? "main"} className="flex flex-col gap-1">
+            {section.titleKey && !collapsed && (
+              <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">
+                {t(section.titleKey)}
+              </p>
+            )}
+            {section.titleKey && collapsed && sectionIndex > 0 && (
+              <div className="my-1 border-t border-border" />
+            )}
+            {section.items.map((item) => {
+              const isActive = isNavItemActive(pathname, item);
+              const href = brand ? `${item.href}?brand=${encodeURIComponent(brand)}` : item.href;
+              const link = (
+                <Link
+                  href={href}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    collapsed && "justify-center",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  {!collapsed && t(item.labelKey)}
+                </Link>
+              );
+              // Only bother with a hover tooltip once the label itself is
+              // hidden - expanded already shows the screen name as plain
+              // text right next to the icon.
+              if (!collapsed) {
+                return <div key={item.href}>{link}</div>;
+              }
+              return (
+                <Tooltip key={item.href}>
+                  <TooltipTrigger asChild>{link}</TooltipTrigger>
+                  <TooltipContent side="right">{t(item.labelKey)}</TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </nav>
+        ))}
 
         <button
           type="button"
