@@ -320,6 +320,7 @@
     "notesGenerating": "AIが当月データから自動生成中…",
     "notesAiDisclaimer": "✨ AIが当月データから自動生成した初期分析です。内容をご確認のうえ自由に編集してください。",
     "notesGenerateFailed": "自動生成に失敗しました。時間をおいて再度お試しください。",
+    "notesBudgetExceeded": "月間システム利用予算に達したため、AIによる自動生成を一時的に制限しています。テキストボックスに直接ご記入いただけます。",
     "pageLabel": "ページ {n} / 3"
   },
   "pricing": {

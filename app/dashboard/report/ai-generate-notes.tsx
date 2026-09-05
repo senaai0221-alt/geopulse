@@ -39,6 +39,11 @@ export function AiGenerateNotes({
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
   const [failed, setFailed] = useState(false);
+  // Set only for the monthly-budget circuit breaker (see actions.ts's
+  // generateReportNotes) - distinct from the generic `failed` state so
+  // the reader sees why, rather than a plain "generation failed" that
+  // reads like a transient error worth retrying.
+  const [budgetExceeded, setBudgetExceeded] = useState(false);
   const autoFired = useRef(false);
 
   useEffect(() => {
@@ -49,6 +54,8 @@ export function AiGenerateNotes({
       setIsGenerating(false);
       if (result.ok) {
         router.refresh();
+      } else if (result.errorCode === "budget_exceeded") {
+        setBudgetExceeded(true);
       } else {
         setFailed(true);
       }
@@ -59,7 +66,7 @@ export function AiGenerateNotes({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandId, month, hasNotesRow, hasData]);
 
-  if (!hasData || (!isGenerating && !failed && hasNotesRow)) return null;
+  if (!hasData || (!isGenerating && !failed && !budgetExceeded && hasNotesRow)) return null;
 
   return (
     <div className="flex flex-col gap-1 print:hidden">
@@ -69,7 +76,8 @@ export function AiGenerateNotes({
           {t("report.notesGenerating")}
         </p>
       )}
-      {failed && <p className="text-xs text-destructive">{t("report.notesGenerateFailed")}</p>}
+      {budgetExceeded && <p className="text-xs text-destructive">{t("report.notesBudgetExceeded")}</p>}
+      {failed && !budgetExceeded && <p className="text-xs text-destructive">{t("report.notesGenerateFailed")}</p>}
       {!hasNotesRow && <p className="text-xs text-muted-foreground">{t("report.notesAiDisclaimer")}</p>}
     </div>
   );

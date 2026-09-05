@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sendSlackMessage, buildTestMessageBlocks, buildFeedbackBlocks, type FeedbackInput } from "@/lib/slack";
 import { sendTestAlertEmail } from "@/lib/email";
 import { assertCanAddBrand, assertCanAddPrompt } from "@/lib/plan-limits";
 import { generateReportInsights, type ReportInsightsInput } from "@/lib/report-insights";
 import { isMarketingActionCategory } from "@/lib/marketing-actions";
+import { checkMonthlyLlmBudget } from "@/lib/cost-budget";
 
 // Defense-in-depth against pathological input (a multi-thousand-character
 // name/prompt, hundreds of "competitors", etc.) that could otherwise
@@ -285,9 +287,11 @@ export async function upsertReportNotes(formData: FormData): Promise<{ ok: boole
 
 /**
  * Writes both report_notes fields at once from an LLM-generated first
- * draft (see lib/report-insights.ts) - either the report page's
- * auto-generate-on-first-view trigger for a month with no saved notes
- * yet, or the "Regenerate with AI" button next to either textarea.
+ * draft (see lib/report-insights.ts) - today, the only caller is the
+ * report page's own auto-generate-on-first-view trigger for a month
+ * with no saved notes row yet (see ai-generate-notes.tsx's own comment
+ * for why there is deliberately no manual "regenerate" button in the
+ * UI); this function stays reusable for one if that changes later.
  *
  * `data` is the same aggregate numbers the report page itself already
  * computed and rendered for this brand/month (KPIs, per-LLM stats,
@@ -297,16 +301,39 @@ export async function upsertReportNotes(formData: FormData): Promise<{ ok: boole
  * next to it on the page.
  *
  * Ownership is verified explicitly (not just left to the report_notes
- * upsert's own RLS) before the paid OpenAI call runs, so an arbitrary
+ * write's own RLS) before the paid OpenAI call runs, so an arbitrary
  * brandId can't be used to spend API credits against a brand that
  * doesn't belong to the caller even if the eventual write would fail
  * anyway.
+ *
+ * Two safeguards added 2026-09, after a report noting that a rapid page
+ * reload could re-arm the auto-generate trigger before the first
+ * attempt's own write had landed:
+ *
+ * 1. Claim-before-work via report_notes' own unique(brand_id, month)
+ *    constraint (see supabase/schema.sql) - a plain insert() of a null
+ *    placeholder row, never an upsert, is the atomic claim: a
+ *    concurrent call (or a reload racing this one) gets a unique-
+ *    violation and bails out before ever calling the paid API, which a
+ *    plain upsert (always succeeds, insert-or-update) could never
+ *    detect. The placeholder is deleted again if the API call itself
+ *    fails or the final write fails, so a transient failure doesn't
+ *    permanently block a later, legitimate retry - this still can't
+ *    become a real retry storm, since each attempt costs a full round
+ *    trip to OpenAI (up to report-insights.ts's own GENERATE_TIMEOUT_MS)
+ *    before the slot reopens, not an instant, free failure.
+ * 2. A monthly LLM-budget circuit breaker (see lib/cost-budget.ts) -
+ *    refuses to spend at all once the operator's own configured ceiling
+ *    is already hit, mirroring the same check on check-now's manual
+ *    prompt check (app/api/prompts/check-now/route.ts) - the daily cron
+ *    is deliberately NOT gated by this same check and keeps running
+ *    regardless, since that's the paid service's own core promise.
  */
 export async function generateReportNotes(
   brandId: string,
   month: string,
   data: ReportInsightsInput
-): Promise<{ ok: boolean; commentary?: string; nextActions?: string }> {
+): Promise<{ ok: boolean; commentary?: string; nextActions?: string; errorCode?: string }> {
   const { supabase } = await requireUser();
 
   if (!brandId || !/^\d{4}-\d{2}$/.test(month)) return { ok: false };
@@ -314,23 +341,55 @@ export async function generateReportNotes(
   const { data: brand } = await supabase.from("brands").select("id").eq("id", brandId).single();
   if (!brand) return { ok: false };
 
+  // checkMonthlyLlmBudget needs the admin client (it sums cost_usd
+  // across every customer's rankings, which no RLS-scoped client could
+  // ever see) and silently returns null - no gate at all - until
+  // MONTHLY_LLM_BUDGET_USD is actually configured.
+  const admin = createAdminClient();
+  const budgetStatus = await checkMonthlyLlmBudget(admin);
+  if (budgetStatus?.level === "critical") {
+    return { ok: false, errorCode: "budget_exceeded" };
+  }
+
+  // Claim this (brand, month) slot before spending anything - see this
+  // function's own doc comment. A unique-violation here means someone
+  // else (a concurrent request, or an earlier reload) already claimed
+  // or already finished this slot; either way, stop here rather than
+  // calling the paid API a second time for the same row.
+  const { data: claimed, error: claimError } = await supabase
+    .from("report_notes")
+    .insert({ brand_id: brandId, month, commentary: null, next_actions: null })
+    .select("id")
+    .single();
+  if (claimError || !claimed) return { ok: false };
+
   const insights = await generateReportInsights(data);
-  if (!insights) return { ok: false };
+  if (!insights) {
+    // Release the claim so a later, legitimate view (once OpenAI
+    // recovers) isn't permanently blocked by our own now-useless
+    // placeholder row.
+    await supabase.from("report_notes").delete().eq("id", claimed.id);
+    return { ok: false };
+  }
 
   const commentary = truncate(insights.commentary, 4000);
   const nextActions = truncate(insights.nextActions, 4000);
 
-  const { error } = await supabase.from("report_notes").upsert(
-    {
-      brand_id: brandId,
-      month,
+  const { error } = await supabase
+    .from("report_notes")
+    .update({
       commentary: commentary || null,
       next_actions: nextActions || null,
       updated_at: new Date().toISOString(),
-    },
-    { onConflict: "brand_id,month" }
-  );
-  if (error) return { ok: false };
+    })
+    .eq("id", claimed.id);
+  if (error) {
+    // The generation itself succeeded (and was already billed) but the
+    // write didn't - release the claim anyway so a retry only has to
+    // repeat the API call, not stay stuck behind a permanently-empty row.
+    await supabase.from("report_notes").delete().eq("id", claimed.id);
+    return { ok: false };
+  }
 
   revalidatePath("/dashboard/report");
   return { ok: true, commentary, nextActions };

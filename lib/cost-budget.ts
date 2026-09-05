@@ -91,3 +91,40 @@ export async function checkMonthlyLlmBudget(
 
   return { budgetUsd, spentUsd, fraction, level };
 }
+
+/**
+ * Count of "manual" (source='manual') check executions one account has
+ * triggered so far this JST calendar month, across every brand it owns -
+ * the per-tenant counterpart to checkMonthlyLlmBudget's company-wide
+ * total (2026-09). Deliberately COUNT(DISTINCT checked_at), not a plain
+ * row count: runPromptCheckNow (lib/prompt-check.ts) inserts one row
+ * per provider (6) sharing the exact same `checked_at` for a single
+ * check event, so a plain row count would inflate the real "how many
+ * times did this account trigger a paid check" figure 6x. Only
+ * source='manual' rows count - the daily cron's own rows (source=
+ * 'cron', the default) never do, since this exists specifically to cap
+ * on-demand/discretionary spend, not the plan-limited daily cost every
+ * paying account already expects.
+ *
+ * Needs the admin client for the same reason getMonthToDateSpendUsd
+ * does - reading across every brand an account owns via rankings.
+ * brand_id, not a single RLS-scoped row at a time.
+ */
+export async function getMonthlyManualCheckCount(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string
+): Promise<number> {
+  const { data: brands } = await supabase.from("brands").select("id").eq("user_id", userId);
+  const brandIds = (brands ?? []).map((b) => b.id as string);
+  if (brandIds.length === 0) return 0;
+
+  const monthStart = currentJstMonthStart();
+  const { data } = await supabase
+    .from("rankings")
+    .select("checked_at")
+    .eq("source", "manual")
+    .in("brand_id", brandIds)
+    .gte("checked_at", monthStart.toISOString());
+
+  return new Set((data ?? []).map((row) => row.checked_at)).size;
+}

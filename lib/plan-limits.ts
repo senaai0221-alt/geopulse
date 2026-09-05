@@ -14,6 +14,19 @@ export interface PlanLimits {
   maxBrands: number | null;
   /** Max number of prompts across ALL of a user's brands combined (not per brand). */
   maxPromptsTotal: number | null;
+  /** Max number of "manual" (source='manual') check executions per
+   *  calendar month (JST), across the whole account regardless of how
+   *  many brands/prompts it spans - see lib/cost-budget.ts's
+   *  getMonthlyManualCheckCount. `null` means unlimited.
+   *
+   *  Exists specifically to close a real gap the per-prompt cooldown
+   *  (prompts.last_checked_at, checked in app/api/prompts/check-now)
+   *  can't: that cooldown resets the instant a prompt is deleted and an
+   *  identical one recreated, so a single account could otherwise
+   *  trigger unbounded paid checks by cycling through that loop - this
+   *  caps the ACCOUNT's total for the month regardless of how many
+   *  distinct prompt rows it cycles through to get there. */
+  maxManualChecksPerMonth: number | null;
 }
 
 // There is no free tier: the daily check calls paid LLM APIs on the
@@ -22,9 +35,9 @@ export interface PlanLimits {
 // (see supabase/schema.sql handle_new_user) only until the user
 // subscribes via Stripe; until then they cannot add any brand/prompt.
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
-  free: { maxBrands: 0, maxPromptsTotal: 0 },
-  pro: { maxBrands: 3, maxPromptsTotal: 20 },
-  business: { maxBrands: 10, maxPromptsTotal: 80 },
+  free: { maxBrands: 0, maxPromptsTotal: 0, maxManualChecksPerMonth: 0 },
+  pro: { maxBrands: 3, maxPromptsTotal: 20, maxManualChecksPerMonth: 50 },
+  business: { maxBrands: 10, maxPromptsTotal: 80, maxManualChecksPerMonth: 200 },
 };
 
 /** Normalizes whatever is stored in profiles.plan into a known PlanTier. */

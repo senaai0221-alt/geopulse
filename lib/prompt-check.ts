@@ -92,6 +92,11 @@ export async function runPromptCheckNow(
           raw_response: null,
           error: result.error,
           cost_usd: result.costUsd,
+          // Every row this function writes is an on-demand check, never
+          // the daily cron - see rankings.source's own comment and
+          // lib/cost-budget.ts's getMonthlyManualCheckCount, which
+          // counts exactly this tag to cap an account's monthly total.
+          source: "manual",
           checked_at: checkedAt,
         };
       }
@@ -107,6 +112,7 @@ export async function runPromptCheckNow(
         raw_response: result.rawResponse || null,
         error: null,
         cost_usd: result.costUsd,
+        source: "manual",
         checked_at: checkedAt,
       };
     })

@@ -186,17 +186,35 @@ create table if not exists public.rankings (
   -- structural fix: track real spend inside the app itself instead of
   -- trusting six separate providers' own dashboards to be watched.
   cost_usd numeric,
+  -- Who/what triggered this one check - 'cron' (the daily batch job) or
+  -- 'manual' (an on-demand check-now call, whether from PromptForm's
+  -- own first-check-on-create or the onboarding wizard's equivalent;
+  -- see lib/prompt-check.ts). Added 2026-09 alongside a per-account
+  -- monthly cap on manual checks (lib/cost-budget.ts's
+  -- getMonthlyManualCheckCount) - closes a real gap where deleting and
+  -- recreating a prompt resets prompts.last_checked_at's own 1-hour
+  -- cooldown, letting a single account trigger unbounded paid checks by
+  -- cycling through that loop; counting only 'manual' rows here (never
+  -- 'cron') is what makes that account-level cap possible at all.
+  -- Defaults to 'cron' so every existing row, and the cron job's own
+  -- insert path, needs no code change.
+  source text not null default 'cron' check (source in ('cron', 'manual')),
   checked_at timestamptz not null default now()
 );
 
--- Adds the citations/sentiment/cost_usd columns for databases created
--- before these fields existed; safe to re-run.
+-- Adds the citations/sentiment/cost_usd/source columns for databases
+-- created before these fields existed; safe to re-run.
 alter table public.rankings add column if not exists citations text[] not null default '{}';
 alter table public.rankings add column if not exists sentiment text;
 alter table public.rankings add column if not exists cost_usd numeric;
+alter table public.rankings add column if not exists source text not null default 'cron';
 do $$ begin
   alter table public.rankings add constraint rankings_sentiment_check
     check (sentiment in ('positive', 'neutral', 'negative'));
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter table public.rankings add constraint rankings_source_check
+    check (source in ('cron', 'manual'));
 exception when duplicate_object then null; end $$;
 
 create index if not exists rankings_brand_checked_idx on public.rankings (brand_id, checked_at desc);

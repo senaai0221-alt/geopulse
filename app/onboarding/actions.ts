@@ -4,8 +4,9 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { assertCanAddBrand, assertCanAddPrompt } from "@/lib/plan-limits";
+import { assertCanAddBrand, assertCanAddPrompt, PLAN_LIMITS, normalizePlan } from "@/lib/plan-limits";
 import { runPromptCheckNow } from "@/lib/prompt-check";
+import { getMonthlyManualCheckCount } from "@/lib/cost-budget";
 
 // Same caps as app/dashboard/actions.ts's own LIMITS, except
 // competitorCount - the wizard only ever renders 3 competitor inputs
@@ -143,20 +144,36 @@ export async function completeOnboarding(formData: FormData): Promise<{ ok: bool
   // a failed check here just means tomorrow's cron covers it normally.
   if (createdPrompts.length > 0) {
     const admin = createAdminClient();
-    await Promise.all(
-      createdPrompts.map((prompt) =>
-        runPromptCheckNow(admin, {
-          promptId: prompt.id,
-          promptText: prompt.text,
-          brandId: brand.id,
-          brandName,
-          brandAliases: aliases,
-          competitors,
-        }).catch((err) => {
-          console.error(`onboarding: first-time check failed for prompt ${prompt.id}:`, err);
-        })
-      )
-    );
+
+    // Same per-tenant monthly cap as app/api/prompts/check-now/route.ts
+    // (see that file's own comment) - checked once here rather than per
+    // prompt, since the cap is account-wide, not per-request. A
+    // brand-new account is essentially never near this limit already,
+    // but a returning user re-running onboarding (or any account this
+    // otherwise applies to) gets the exact same protection. Skipping
+    // this instant batch never blocks prompt creation itself - it just
+    // means tomorrow's cron covers these prompts normally instead.
+    const { maxManualChecksPerMonth } = PLAN_LIMITS[normalizePlan(profile?.plan)];
+    const withinManualCheckLimit =
+      maxManualChecksPerMonth === null ||
+      (await getMonthlyManualCheckCount(admin, user.id)) < maxManualChecksPerMonth;
+
+    if (withinManualCheckLimit) {
+      await Promise.all(
+        createdPrompts.map((prompt) =>
+          runPromptCheckNow(admin, {
+            promptId: prompt.id,
+            promptText: prompt.text,
+            brandId: brand.id,
+            brandName,
+            brandAliases: aliases,
+            competitors,
+          }).catch((err) => {
+            console.error(`onboarding: first-time check failed for prompt ${prompt.id}:`, err);
+          })
+        )
+      );
+    }
   }
 
   return { ok: true };
