@@ -40,6 +40,7 @@ const PLANS = [
       "landing.businessFeature1",
       "landing.businessFeature2",
       "landing.businessFeature3",
+      "landing.businessFeature3Note",
       "landing.businessFeature4",
     ],
     priceIdEnv: "STRIPE_PRICE_ID_BUSINESS",
@@ -48,6 +49,13 @@ const PLANS = [
     highlighted: false,
   },
 ] as const;
+
+// Same muted-caveat-line treatment (no checkmark) as app/page.tsx's own
+// NOTE_FEATURE_KEYS - see that file's comment. Kept as a separate
+// constant rather than a shared import since this is the only other
+// place PLANS/featureKeys is rendered, and duplicating one line here
+// avoids a cross-route import just for a Set literal.
+const NOTE_FEATURE_KEYS = new Set(["landing.businessFeature3Note", "landing.businessFeature4"]);
 
 /**
  * Plan-selection screen shown to any logged-in user who isn't on a paid
@@ -179,7 +187,7 @@ export default async function PricingPage({
                         <Layers className="h-4 w-4 shrink-0 text-primary" />
                         <T k={key} />
                       </li>
-                    ) : key === "landing.businessFeature4" ? (
+                    ) : NOTE_FEATURE_KEYS.has(key) ? (
                       // A caveat/note, not a feature - no checkmark, muted.
                       <li key={key} className="pl-6 text-xs text-muted-foreground">
                         <T k={key} />
