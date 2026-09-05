@@ -691,12 +691,27 @@ function extractTableItems(lines: string[]): string[] {
  *    see below). Checked before the generic bullet strategy specifically
  *    so its own detail lines (see that strategy's own comment) never
  *    get a chance to be miscounted first.
- * 4. Plain numbered ("1.", "2)") or bulleted ("-", "*", "•") lines that
- *    are NOT indented - indentation almost always means the line is a
- *    sub-detail of the item above it (e.g. "*   **Pros:** ...") rather
- *    than a new ranked entry, and must not be counted as one. Also
- *    excludes a bulleted "**ラベル**：値" attribute line (e.g.
- *    "- **料金**：月額2,178円") for the same reason - see LABEL_DETAIL_LINE.
+ * 4. Plain NUMBERED ("1.", "2)") lines that are not indented -
+ *    indentation almost always means the line is a sub-detail of the
+ *    item above it (e.g. "   1. サブ項目") rather than a new ranked
+ *    entry, and must not be counted as one.
+ *
+ *    Deliberately does NOT include a plain "-"/"*"/"•" bullet with no
+ *    digit at all (2026-09, explicit operator request, following a
+ *    real-user report of a bulleted-but-unordered response being read
+ *    as an implicit 1st/2nd/3rd-place ranking): whether "the AI listed
+ *    several options" means "this is a ranking" is not something bullet
+ *    characters alone can answer, only an actual stated number can. A
+ *    response whose only structure is an unordered bullet list now
+ *    simply has no rank-position source (same as prose with no list
+ *    structure at all) - `mentioned` is entirely unaffected, decided
+ *    independently by the whole-text search below regardless. This also
+ *    retires the LABEL_DETAIL_LINE/insideNumberedItem machinery a
+ *    previous version of this function needed: every real incident that
+ *    machinery guarded against (see git history) was a "- **label**：
+ *    value" BULLET line being miscounted as a new top-level entry -
+ *    impossible now that bullets are never rank-entry candidates in the
+ *    first place, so there is nothing left to disambiguate.
  *
  * Returns `[]` (not a rank-position source) when NONE of the three
  * structures is present - there used to be a fallback here, splitting
@@ -729,9 +744,12 @@ function extractTableItems(lines: string[]): string[] {
  * negation guard (see hasPositiveMention) fixes the second half for
  * any case where a "○○以外" section is genuinely the only match.
  *
- * A THIRD 2026-09 incident (the one strategy 2 above and
- * LABEL_DETAIL_LINE directly address, found running a deliberately
- * large real-brand-name demo): a response with structure
+ * A THIRD 2026-09 incident (the one strategy 3 above directly
+ * addresses, found running a deliberately large real-brand-name demo -
+ * the LABEL_DETAIL_LINE/insideNumberedItem machinery this incident
+ * originally motivated was later retired entirely once bullets stopped
+ * being rank-entry candidates at all, see strategy 4's own comment):
+ * a response with structure
  *   **1位：日本通信（...）**
  *   - **料金**：月額2,178円（税込）
  *   - **特徴**：...
@@ -782,61 +800,19 @@ function extractListItems(text: string): string[] {
   }, []);
   if (boldRankIndices.length > 0) return blocksFromIndices(lines, boldRankIndices);
 
-  // Only lines with zero leading whitespace count as top-level list
-  // entries; an indented "*"/"-" is a nested sub-bullet, not a new rank.
-  //
-  // LABEL_DETAIL_LINE is only actually a "detail line" when it sits
-  // inside a numbered item's own block ("1. **ブランドA**" followed by
-  // "- **料金**：..." lines) - it must NOT be excluded just because it
-  // happens to match the "- **label**：value" shape on its own, since
-  // that shape is also how a perfectly ordinary standalone bullet list
-  // reads (e.g. "- **一番おすすめ**：ドコモ", "- **料金を最優先**：楽天
-  // モバイル" - a response with no ranking at all, just labeled
-  // takeaways). Two real 2026-09 production rows were found reparsing
-  // WORSE after LABEL_DETAIL_LINE started excluding unconditionally -
-  // rank 1→2 and rank 3→4, both from exactly this: a document with no
-  // numbered list anywhere had its only standalone bullets wiped out
-  // (case 1), or had an unrelated LATER numbered list ("### 乗り換え前
-  // に注意すること") retroactively swallow an EARLIER, unrelated
-  // "- **label**：value" bullet section into a merged block that pulled
-  // in a stray brand mention from the doc's closing paragraph (case 2).
-  // `insideNumberedItem` tracks whether we are currently inside a block
-  // that was actually opened by a real numbered entry ("\d{1,2}[.)]"),
-  // resetting at every markdown heading (a heading always starts a new
-  // section, ending any numbered list above it) - only inside such a
-  // block does a "- **label**：value" line get treated as that item's
-  // own detail rather than a new top-level entry.
-  const topLevelPattern = /^(?:\d{1,2}[.)]|[-*•])\s+(.*)$/;
-  const numberedLinePattern = /^\s{0,3}\d{1,2}[.)]\s+/;
-  const headingLinePattern = /^\s{0,3}#{1,6}\s/;
-  let insideNumberedItem = false;
+  // Only a genuinely NUMBERED, zero-indented line counts as a new
+  // ranked entry (2026-09 - see this function's own doc comment for
+  // why plain "-"/"*"/"•" bullets no longer qualify at all, regardless
+  // of indentation or shape). Indentation still disqualifies a numbered
+  // line as a nested sub-item ("   1. サブ項目") rather than a new
+  // top-level rank.
+  const topLevelPattern = /^\d{1,2}[.)]\s+/;
   const topLevelIndices = lines.reduce<number[]>((acc, line, i) => {
-    if (headingLinePattern.test(line)) insideNumberedItem = false;
-    if (topLevelPattern.test(line)) {
-      const isNumbered = numberedLinePattern.test(line);
-      const isLabelDetail = LABEL_DETAIL_LINE.test(line);
-      if (!(isLabelDetail && insideNumberedItem && !isNumbered)) acc.push(i);
-      if (isNumbered) insideNumberedItem = true;
-      else if (!isLabelDetail) insideNumberedItem = false;
-    }
+    if (topLevelPattern.test(line)) acc.push(i);
     return acc;
   }, []);
   return blocksFromIndices(lines, topLevelIndices);
 }
-
-// A bulleted "**ラベル**：値" attribute line - "- **料金**：月額2,178円",
-// "- **特徴**：...", "* **注意点**: ..." - shaped like it COULD be
-// describing an already-listed item's own attribute rather than a new
-// ranked entry, even though it's an un-indented "-"/"*"/"•" line that
-// would otherwise match topLevelPattern above. Matching this shape is
-// necessary but not sufficient - extractListItems' own `insideNumberedItem`
-// gate is what decides whether a given match is actually treated as a
-// detail line (only true while we're still inside a numbered entry's
-// block) versus an ordinary standalone bullet (a document with no
-// numbered list at all, e.g. "- **一番おすすめ**：ドコモ", is never
-// treated as detail lines - see extractListItems' own comment for two
-// real 2026-09 regressions this distinction fixes).
-const LABEL_DETAIL_LINE = /^(?:\d{1,2}[.)]|[-*•])\s+\*\*[^*\n]{1,20}\*\*\s*[:：]/;
 
 /** For each line index in `starts` (the start of one ranked entry),
  *  joins every line from there up to (not including) the next index in

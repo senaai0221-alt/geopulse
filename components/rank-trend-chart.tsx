@@ -48,6 +48,27 @@ const PROVIDER_LABEL: Record<LlmProvider, string> = {
   deepseek: "DeepSeek",
 };
 
+// Recharts' own auto-generated ticks (letting it pick from just
+// domain={[1, "dataMax"]}) don't reliably land on the domain's own
+// edges - reported live (2026-09): with the real data's max rank at 4,
+// it drew 2/3/4 and silently dropped 1, the single most important
+// value on this axis (rank #1 is literally the best possible result,
+// always the top gridline). An explicit ticks array is the only way
+// Recharts guarantees a specific value renders - this always starts
+// at 1 and always ends at the real max, evenly stepped in between so
+// a wide range (rank into the teens/twenties) still gets a handful of
+// ticks rather than one per integer.
+const MAX_RANK_TICKS = 6;
+function computeRankTicks(maxRank: number): number[] {
+  const top = Math.max(1, Math.ceil(maxRank));
+  if (top === 1) return [1];
+  const step = Math.max(1, Math.ceil((top - 1) / (MAX_RANK_TICKS - 1)));
+  const ticks: number[] = [];
+  for (let v = 1; v < top; v += step) ticks.push(v);
+  ticks.push(top);
+  return ticks;
+}
+
 function TrendTooltip({
   active,
   payload,
@@ -102,6 +123,12 @@ export function RankTrendChart({ data, actions = [] }: { data: TrendPoint[]; act
     return <p className="text-sm text-muted-foreground">{t("dashboard.trendNoRankData")}</p>;
   }
 
+  const rankValues = data
+    .flatMap((point) => PROVIDER_ORDER.map((p) => point[p]))
+    .filter((v): v is number => v !== null && v !== undefined);
+  const maxRank = rankValues.length > 0 ? Math.max(...rankValues) : 1;
+  const rankTicks = computeRankTicks(maxRank);
+
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -124,6 +151,16 @@ export function RankTrendChart({ data, actions = [] }: { data: TrendPoint[]; act
             // 0 tick this replaces) that no real rank_position value
             // ever takes.
             domain={[1, "dataMax"]}
+            ticks={rankTicks}
+            // Recharts' own tick-density thinning (its default interval
+            // logic) was found - live, after the ticks prop above alone
+            // still silently dropped "1" - to still prune ticks even
+            // when an explicit `ticks` array is given, and it prunes
+            // from the axis ends first. interval={0} is what actually
+            // forces every entry in `ticks` to render, matching what
+            // the array asked for instead of what Recharts decided was
+            // "dense enough."
+            interval={0}
             allowDecimals={false}
             tick={{ fontSize: 11, fill: "hsl(215 16% 47%)" }}
             axisLine={false}

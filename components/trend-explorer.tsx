@@ -13,6 +13,7 @@ import type { ActionMarker } from "@/components/action-markers";
 import { MarketingActionDialog } from "@/app/dashboard/marketing-action-dialog";
 import type { MarketingAction } from "@/lib/marketing-actions";
 import { useDashboardPeriod } from "@/components/dashboard-period-context";
+import { InfoTooltip } from "@/components/info-tooltip";
 
 type Metric = "exposure" | "rank" | "voice";
 const METRICS: { id: Metric; icon: typeof TrendingUp; labelKey: string }[] = [
@@ -59,6 +60,7 @@ export function TrendExplorer({
   voiceData,
   voiceEntities,
   actions,
+  plan,
 }: {
   brandId: string;
   rankData: TrendPoint[];
@@ -70,6 +72,13 @@ export function TrendExplorer({
    *  card's full lookback window (see dashboard/page.tsx) - also reused
    *  as-is for MarketingActionDialog's "recently logged" list. */
   actions: MarketingAction[];
+  /** Gates the "施策を記録する" button to Business only (2026-09) - the
+   *  action-vs-effect correlation it feeds (marketing-action-dialog.tsx,
+   *  and the AI-generated monthly report's own 施策との相関 section, see
+   *  lib/report-insights.ts) is itself a Business-only report feature,
+   *  so showing the button on Pro let a subscriber log actions that
+   *  never surfaced anywhere they could actually see. */
+  plan: string;
 }) {
   const { t } = useI18n();
   const [metric, setMetric] = useState<Metric>("exposure");
@@ -121,7 +130,14 @@ export function TrendExplorer({
               confirms which window the chart below is honoring, since
               it's rendered nowhere near that control. */}
           <span className="text-xs text-muted-foreground">{t("dashboard.trendPeriodReadOnly", { n: period })}</span>
-          <MarketingActionDialog brandId={brandId} actions={actions} />
+          {/* Business-only (2026-09) - see this component's own `plan`
+              prop comment for why. */}
+          {plan === "business" && (
+            <div className="flex items-center gap-1">
+              <MarketingActionDialog brandId={brandId} actions={actions} />
+              <InfoTooltip textKey="marketingActions.addButtonTooltip" />
+            </div>
+          )}
         </div>
       </div>
 

@@ -208,7 +208,16 @@ export function RawResponseButton({
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <pre className="overflow-y-auto whitespace-pre-wrap break-words p-5 pt-3 text-xs leading-relaxed text-foreground">
+            {/* max-w-full + overflow-x-auto is the safety net, not the
+                primary fix - whitespace-pre-wrap/break-words already
+                wrap ordinary prose, but Perplexity (and occasionally
+                others) routinely return long unbroken citation URLs or
+                fenced code blocks with no natural break point, which
+                widen a plain <pre> past the dialog's own max-w-lg and
+                either get clipped or force the whole modal to scroll
+                sideways. overflow-x-auto scopes any residual overflow
+                to this element alone, never the page. */}
+            <pre className="max-w-full overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words p-5 pt-3 text-xs leading-relaxed text-foreground">
               {rawResponse}
             </pre>
           </div>

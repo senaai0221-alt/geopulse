@@ -11,10 +11,17 @@ const QUICK_START = [
   { icon: Sparkles, titleKey: "help.quickStart3Title", descKey: "help.quickStart3Desc" },
 ] as const;
 
+// Kept in sync with every (i) tooltip actually shown on the dashboard
+// (dashboard-kpi-cards.tsx's 4 KPI cards, plus the alerts list's two
+// severity tiers) - a guide that only explained some of them read as
+// incomplete the moment a reader hit one it didn't cover (2026-09).
 const METRICS = [
   { titleKey: "help.metricsMentionTitle", descKey: "help.metricsMentionDesc" },
+  { titleKey: "help.metricsRecommendTitle", descKey: "help.metricsRecommendDesc" },
   { titleKey: "help.metricsRankTitle", descKey: "help.metricsRankDesc" },
   { titleKey: "help.metricsShareTitle", descKey: "help.metricsShareDesc" },
+  { titleKey: "help.metricsAlertsTitle", descKey: "help.metricsAlertsDesc" },
+  { titleKey: "help.metricsGapAlertTitle", descKey: "help.metricsGapAlertDesc" },
 ] as const;
 
 /** Self-serve usage guide - lets a non-engineer answer their own "how

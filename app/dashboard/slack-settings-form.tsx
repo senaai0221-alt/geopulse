@@ -83,6 +83,12 @@ export function SlackSettingsForm({
               <ExternalLink className="h-3.5 w-3.5" />
               {t("settings.slackOpenSetup")}
             </a>
+            {/* Landing on Slack's own setup page with zero context on
+                what to actually do there is where a non-engineer visitor
+                got stuck (2026-09 real-user report) - the numbered steps
+                below explain what happens back HERE after that page, but
+                nothing explained the page itself once it opened. */}
+            <p className="text-xs text-muted-foreground">{t("settings.slackOpenSetupHint")}</p>
             <ol className="flex flex-col gap-2 text-xs text-muted-foreground">
               {STEP_KEYS.map((key, i) => (
                 <li key={key} className="flex items-start gap-2">

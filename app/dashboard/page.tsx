@@ -692,6 +692,7 @@ export default async function DashboardPage({
               voiceData={voiceTrendData}
               voiceEntities={voiceEntities}
               actions={marketingActions}
+              plan={plan}
             />
           </CardContent>
         </Card>
@@ -704,6 +705,7 @@ export default async function DashboardPage({
             <CardTitle className="flex items-center gap-2">
               <PieChart className="h-4 w-4 text-primary" />
               <T k="dashboard.shareOfVoice" />
+              <InfoTooltip textKey="dashboard.shareOfVoiceTooltip" />
             </CardTitle>
             <CardDescription>
               <T k="dashboard.shareOfVoiceDesc" vars={{ name: selectedBrand.name }} />

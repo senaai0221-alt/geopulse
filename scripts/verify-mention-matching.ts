@@ -226,7 +226,13 @@ const cases: Case[] = [
   {
     // The exact "ELFBAR" incident, reproduced from the real stored
     // raw_response's structure: registered as one word, every provider
-    // wrote it as two ("Elf Bar").
+    // wrote it as two ("Elf Bar"). expectRankPosition used to be 1 here
+    // (the bullet's own position in an unordered "-" list) - now null,
+    // since this response never actually states a rank number anywhere
+    // (2026-09: plain "-"/"*"/"•" bullets stopped being treated as
+    // implicit rank markers at all - see extractListItems' own comment).
+    // What this case actually exists to cover - the ELFBAR/"Elf Bar"
+    // mention-matching itself - is unaffected either way.
     name: 'ELFBAR incident: registered as one word, response writes it as two ("Elf Bar")',
     rawResponse:
       "-   **Elf Bar（エルフバー）**\n" +
@@ -236,7 +242,7 @@ const cases: Case[] = [
     brandName: "ELFBAR",
     competitors: ["Geek Bar"],
     expectMentioned: true,
-    expectRankPosition: 1,
+    expectRankPosition: null,
     expectCompetitors: ["Geek Bar"],
   },
   {

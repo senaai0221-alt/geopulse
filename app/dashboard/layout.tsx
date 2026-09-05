@@ -52,8 +52,18 @@ export default async function DashboardLayout({
                 screen entirely (see MobileNav's own comment). */}
             <div className="hidden min-w-0 items-center gap-3 md:flex">
               <LangToggle />
-              <span className="max-w-[16rem] truncate text-sm text-muted-foreground">
-                {profile?.email} · <T k="dashboard.plan" />: {planLabel ?? <T k="dashboard.notSubscribed" />}
+              {/* email and the plan name used to share one truncating
+                  span - a long address (e.g. a Gmail "+alias") could eat
+                  the whole 16rem budget on its own, clipping "プラン:
+                  Business" off the end entirely (2026-09, reported after
+                  switching plans and returning to the dashboard). Only
+                  the email half truncates now; the plan half is
+                  shrink-0/nowrap so it's always shown in full. */}
+              <span className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
+                <span className="min-w-0 truncate">{profile?.email}</span>
+                <span className="shrink-0 whitespace-nowrap">
+                  · <T k="dashboard.plan" />: {planLabel ?? <T k="dashboard.notSubscribed" />}
+                </span>
               </span>
               <SignOutButton />
             </div>

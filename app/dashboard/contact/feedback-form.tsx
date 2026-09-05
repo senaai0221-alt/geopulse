@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { CheckCircle2, Loader2, Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,14 @@ export function FeedbackForm() {
   const { t } = useI18n();
   const { markDirty, markClean } = useFormDirtyGuard();
   const formRef = useRef<HTMLFormElement>(null);
+  // The success message renders just above the submit button - on a
+  // short viewport (mobile, or this page reached via a deep scroll) a
+  // visitor whose eyes were on the button they just pressed could
+  // plausibly miss it appearing one line up, read as "did that actually
+  // send?" (2026-09, "送信完了フィードバックの明確化" report). Scrolled
+  // into view explicitly on success rather than relying on it already
+  // being on-screen.
+  const sentRef = useRef<HTMLDivElement>(null);
   const [isPending, startTransition] = useTransition();
   const [sent, setSent] = useState(false);
   const [errorCode, setErrorCode] = useState<string | null>(null);
@@ -59,6 +67,10 @@ export function FeedbackForm() {
     });
   }
 
+  useEffect(() => {
+    if (sent) sentRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [sent]);
+
   const errorText =
     errorCode === "validation.required"
       ? t("validation.required")
@@ -88,7 +100,10 @@ export function FeedbackForm() {
       </div>
       {errorText && <InlineAlert>{errorText}</InlineAlert>}
       {sent && (
-        <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+        <div
+          ref={sentRef}
+          className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
+        >
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {t("feedback.sent")}
         </div>

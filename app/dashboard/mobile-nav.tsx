@@ -94,7 +94,7 @@ export function MobileNav({ email, planLabel }: { email?: string | null; planLab
         <div className="mt-auto flex flex-col gap-3 border-t border-border pt-4">
           <div className="flex items-center justify-between">
             <LangToggle />
-            <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium uppercase text-muted-foreground">
+            <span className="shrink-0 whitespace-nowrap rounded-full bg-muted px-2.5 py-1 text-xs font-medium uppercase text-muted-foreground">
               {planLabel}
             </span>
           </div>

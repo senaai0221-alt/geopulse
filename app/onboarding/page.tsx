@@ -65,10 +65,10 @@ export default async function OnboardingPage() {
       <div className="container flex flex-1 justify-center py-10">
         <div className="w-full max-w-2xl">
           <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            <h1 className="text-balance break-keep text-2xl font-bold tracking-tight sm:text-3xl">
               <T k="onboarding.title" />
             </h1>
-            <p className="mt-3 text-sm text-muted-foreground sm:text-base">
+            <p className="mt-3 text-balance break-keep text-sm text-muted-foreground sm:text-base">
               <T k="onboarding.subtitle" />
             </p>
           </div>

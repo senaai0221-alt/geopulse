@@ -335,6 +335,30 @@ export function OnboardingWizard() {
         {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
         {isPending ? t("onboarding.submitting") : t("onboarding.submitButton")}
       </Button>
+
+      {/* The button's own "設定を保存し、初回の計測を実行しています…"
+          label is easy to miss (small text, easy to scroll past once
+          the page hasn't visibly moved in a while) - a real first-time
+          user reported exactly this reading as a frozen/broken page
+          during the real ~1-2 minute wait while every registered
+          prompt's first check runs across all 6 providers (see
+          app/onboarding/page.tsx's own maxDuration comment). A full-
+          screen overlay that states the expected wait up front removes
+          the ambiguity a spinner alone leaves - "is this stuck, or is
+          it just slow" - for as long as the wait actually lasts. */}
+      {isPending && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        >
+          <div className="flex max-w-sm flex-col items-center gap-3 rounded-lg bg-card p-6 text-center shadow-xl">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm font-semibold text-foreground">{t("onboarding.submittingOverlayTitle")}</p>
+            <p className="text-xs text-muted-foreground">{t("onboarding.submittingOverlayDesc")}</p>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
