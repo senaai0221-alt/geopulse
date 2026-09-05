@@ -455,6 +455,97 @@ const cases: Case[] = [
     brandName: "A(B)[C]{D}*E+F?G^H$I|J\\K",
     expectMentioned: false,
   },
+  {
+    // A general defensive case (2026-09, found while investigating the
+    // real FLEXISPOT incident below, but not itself what that incident
+    // turned out to be): a comparison table with no rank column (no
+    // cell satisfies RANK_CELL) plus a single, sibling-less trailing
+    // numbered sentence naming the brand - exactly the kind of lone "1."
+    // that used to be enough to fabricate a full rank position on its
+    // own. See MIN_TRUSTED_LIST_LENGTH in lib/geo-engine.ts.
+    name: "Comparison table (no rank column) + one trailing solitary numbered sentence must not fabricate a rank",
+    rawResponse:
+      "| 比較項目 | ブランドX | 競合Y |\n" +
+      "|---|---|---|\n" +
+      "| 主な強み | 選択肢が多い | 価格とのバランスがよい |\n\n" +
+      "1. まとめると、拡張性を重視するならブランドXが選択肢に入ります。",
+    brandName: "ブランドX",
+    competitors: ["競合Y"],
+    expectMentioned: true,
+    expectRankPosition: null,
+  },
+  {
+    // The ACTUAL FLEXISPOT incident (2026-09), reproduced from the real
+    // stored raw_response after the user shared the full text: a
+    // deliberately non-ranking, comparison-style prompt
+    // ("FLEXISPOTと他社の違いは？") answered with a comparison table (no
+    // rank column - unaffected either way), followed by a section
+    // headed "### FLEXISPOTの具体的な違い" ("FLEXISPOT's own specific
+    // differences") containing a genuine 4-item bold-numbered list -
+    // well past MIN_TRUSTED_LIST_LENGTH, so that guard alone does NOT
+    // catch this. Every item is FLEXISPOT's own feature (tabletop
+    // choice, load capacity, height memory, a caveat), not a ranking of
+    // competing products - FLEXISPOT is genuinely mentioned inside two
+    // of the four items (describing its own strengths from different
+    // angles), which is exactly what let the old positional search
+    // report rank #1 for a response that never ranked anything. See
+    // preambleMentionsTrackedBrand in lib/geo-engine.ts for the fix.
+    name: 'FLEXISPOT incident 1: a numbered breakdown of the brand\'s OWN features (headed "FLEXISPOTの具体的な違い"), not a competing-entity ranking, must not fabricate a rank',
+    rawResponse:
+      "| 比較項目 | FLEXISPOT | ニトリ | IKEA |\n" +
+      "|---|---|---|---|\n" +
+      "| 主な強み | 電動昇降デスク専門に近く、モデル・天板の選択肢が多い | 購入しやすく価格とのバランスがよい | 店舗・家具との統一感 |\n" +
+      "| 耐荷重 | 最大200kgをうたうモデルがある | モデルにより異なる | デュアルモーター搭載 |\n\n" +
+      "### FLEXISPOTの具体的な違い\n\n" +
+      "**1. 天板を自分で選びやすい**\n" +
+      "FLEXISPOTは脚フレーム単体でも販売しているため、無垢材、集成材、既存の天板などを取り付けやすいのが特徴です。\n" +
+      "一方、ニトリやIKEAは、購入時に天板と脚がセットになった製品を選ぶほうが簡単です。\n\n" +
+      "**2. 重いPC機材に強い**\n" +
+      "大型モニター、モニターアーム、デスクトップPC、スピーカーなどを載せる人にはFLEXISPOTが向いています。\n\n" +
+      "**3. 高さ調整機能が充実している**\n" +
+      "座り・立ち姿勢をボタンで切り替えられ、高さを複数登録できるモデルがあります。\n\n" +
+      "**4. ただし、家具としての完成度や購入の簡単さでは他社が有利な場合もある**\n" +
+      "一方でニトリやIKEAは店舗で実物を確認しやすい利点があります。",
+    brandName: "FLEXISPOT",
+    competitors: ["ニトリ", "IKEA"],
+    expectMentioned: true,
+    expectRankPosition: null,
+  },
+  {
+    // FLEXISPOT incident 2 (2026-09, reported the same day, a second
+    // real Gemini raw_response for a DIFFERENT prompt): "FLEXISPOTの
+    // 評判や口コミは？" ("what's FLEXISPOT's reputation/reviews like?") -
+    // a single-brand review question with no competitor comparison
+    // requested at all. The intro paragraph names FLEXISPOT directly,
+    // then "### 1. 良い評判・口コミ（メリット）" / "### 2. 悪い評判・注意点
+    // （デメリット）" / "### 3. 主な人気モデルの評判" are plain ARTICLE-
+    // OUTLINE numbering (pros / cons / popular models), not competing
+    // entities - yet the old code reported rank #1, since headingIndices
+    // has 3 genuine entries (past MIN_TRUSTED_LIST_LENGTH) and FLEXISPOT
+    // is genuinely mentioned inside item 1's own pros section. This is
+    // what proved the FIRST fix (checking only the single heading line
+    // immediately touching the list) insufficient - the brand is named
+    // several lines of prose above "### 1.", separated by a "---" rule,
+    // not by another heading - and motivated broadening
+    // preambleMentionsTrackedBrand to scan the whole preamble instead.
+    name: 'FLEXISPOT incident 2: article-outline numbering (良い評判/悪い評判/人気モデル) for a single-brand review prompt, brand named only in prose several lines above "### 1.", must not fabricate a rank',
+    rawResponse:
+      "電動昇降デスクの代名詞的存在である**「FLEXISPOT（フレキシスポット）」**は、テレワークの普及に伴い日本でも非常に人気の高いブランドです。\n\n" +
+      "ネット上のレビュー、SNS（X/Twitter、YouTubeなど）、価格.comなどの評判を総合的にまとめました。\n\n" +
+      "---\n\n" +
+      "### 1. 良い評判・口コミ（メリット）\n\n" +
+      "#### ① 圧倒的コストパフォーマンス\n" +
+      "* 他社のオフィス家具メーカーの電動昇降デスクは10万円以上することがザラですが、FLEXISPOTは3万〜7万円前後で購入できます。\n\n" +
+      "### 2. 悪い評判・注意点（デメリット）\n\n" +
+      "#### ① とにかく重くて組み立てが大変\n" +
+      "* パーツが重すぎて、女性一人では組み立てや裏返しが無理という声が多数あります。\n\n" +
+      "### 3. 主な人気モデルの評判\n\n" +
+      "* E7 / E7 Pro（一番人気・定番）\n",
+    brandName: "FLEXISPOT",
+    competitors: ["ニトリ", "IKEA"],
+    expectMentioned: true,
+    expectRankPosition: null,
+  },
 ];
 
 let failures = 0;

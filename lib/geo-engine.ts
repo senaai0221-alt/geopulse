@@ -675,7 +675,17 @@ function extractTableItems(lines: string[]): string[] {
 
 /**
  * Splits a response into ordered "list items" representing a ranked
- * recommendation list, trying four strategies in order of specificity:
+ * recommendation list, trying four strategies in order of specificity.
+ * Whichever strategy fires must clear two independent trust gates or it
+ * cascades to the next strategy on the same text, exactly as if it had
+ * found nothing: MIN_TRUSTED_LIST_LENGTH candidates (a single isolated
+ * match, with no siblings, is not good enough evidence of a genuine
+ * list) and, for the heading/bold/numbered strategies, NOT already
+ * having the tracked brand named somewhere in the PREAMBLE before the
+ * list even starts (see preambleMentionsTrackedBrand's own comment for
+ * two real incidents this closes - a numbered breakdown of one brand's
+ * own features/pros-and-cons, not a ranking of competing entities at
+ * all).
  *
  * 1. A Markdown (GFM) table with a genuine rank/order column, e.g.
  *    "| 順位 | 会社 | ... |\n|---|---|---|\n| **1位** | **Rakuten
@@ -776,18 +786,98 @@ function extractTableItems(lines: string[]): string[] {
  * 順位不明", so that case now suppresses rank_position entirely instead
  * of guessing.
  */
-function extractListItems(text: string): string[] {
+// A genuine ranked list - "top 3", "top 5", a comparison table with a
+// rank column, whatever the format - has more than one entry practically
+// every time; a real single-item ranking ("this is the one thing I'd
+// recommend") is rare enough, and a SOLITARY structural marker (one lone
+// table row that happens to look like a rank cell, one lone "1." line
+// with no "2." anywhere) is common enough as an unrelated accident - a
+// footnote, an aside, a single numbered callout inside otherwise
+// unstructured prose - that trusting a length-1 match is exactly the
+// same shape of mistake every other guard in this function exists to
+// avoid: a fabricated-but-plausible single number is worse than
+// admitting no rank was stated. Applied uniformly to all four
+// strategies below via this one gate, rather than duplicating a `> 1`
+// check at each strategy's own return - a strategy that finds only one
+// candidate is treated exactly like it found none, and cascades to the
+// next strategy on the same text. A genuinely independent hardening
+// from the MIN_TRUSTED_LIST_LENGTH incident below - both are real,
+// separately-motivated gaps found investigating the same user report.
+const MIN_TRUSTED_LIST_LENGTH = 2;
+
+/**
+ * True if the tracked brand (or one of its aliases) is already
+ * genuinely mentioned somewhere in the PREAMBLE - everything before
+ * this list's own first item even starts. A real per-entity ranking's
+ * own preamble is generic ("在宅ワーク向けデスクをお探しの方へ", a bare
+ * category name) or simply absent (the list starts at line 1); it does
+ * not already commit to one specific brand as the whole answer's
+ * subject before the enumeration begins, because a genuine ranking is
+ * comparing entities it hasn't picked yet. A response that already
+ * frames everything around one named brand, THEN numbers something, is
+ * numbering sections/features/pros-and-cons of that one brand, not
+ * ranking it against competitors - however many numbered entries
+ * follow (MIN_TRUSTED_LIST_LENGTH catches too few; this catches enough
+ * of the wrong kind).
+ *
+ * Closes two real, independent 2026-09 incidents, both from
+ * deliberately non-ranking prompts about ONE brand specifically:
+ * - "FLEXISPOTと他社の違いは？": a comparison table (no rank column),
+ *   then "### FLEXISPOTの具体的な違い" followed by 4 genuine bold-
+ *   numbered items, each an enumerated FEATURE of FLEXISPOT itself
+ *   (tabletop choice, PC-load capacity, height memory, a caveat) - the
+ *   brand name legitimately recurred across more than one item
+ *   (describing its own strengths from different angles), which is
+ *   exactly what let the positional search report rank #1 for a
+ *   response that never ranked anything.
+ * - "FLEXISPOTの評判や口コミは？": an intro paragraph naming FLEXISPOT
+ *   directly, THEN "### 1. 良い評判・口コミ（メリット）" / "### 2. 悪い
+ *   評判・注意点（デメリット）" / "### 3. 主な人気モデルの評判" - plain
+ *   article-outline numbering (pros / cons / popular models) for a
+ *   single-brand review, not competing entities at all. This one is
+ *   what made an earlier, narrower version of this check (checking only
+ *   the single heading line immediately adjacent to the list, not the
+ *   whole preamble) insufficient - the brand was named several lines of
+ *   prose above "### 1.", separated by a "---" rule, not by another
+ *   heading directly touching it.
+ *
+ * The Shokz-style incident this file already handles correctly (the
+ * SAME brand legitimately occupying two ranked slots - one company's
+ * two different products, #1 and #2) is unaffected: that response's
+ * list starts on line 1, with no preamble at all to mention anything in.
+ *
+ * Deliberately scoped to just the brand/alias names (not competitors) -
+ * that is exactly what both confirmed incidents hinged on; broadening
+ * this to also catch a competitor-named preamble is a plausible future
+ * extension, not something this fix asserts. Also deliberately not
+ * applied to the table strategy (extractTableItems) - no confirmed
+ * incident has needed it there, and doing so would require that
+ * function to also track and return each table's own starting line
+ * index, which is not worth the complexity without real evidence.
+ */
+function preambleMentionsTrackedBrand(lines: string[], startIdx: number, names: string[]): boolean {
+  const preamble = lines.slice(0, startIdx).join("\n");
+  if (!preamble.trim()) return false;
+  return names.some((name) => hasPositiveMention(preamble, name));
+}
+
+function extractListItems(text: string, names: string[]): string[] {
   const lines = text.split("\n");
 
   const tableItems = extractTableItems(lines);
-  if (tableItems.length > 0) return tableItems;
+  if (tableItems.length >= MIN_TRUSTED_LIST_LENGTH) return tableItems;
 
   const headingPattern = /^\s{0,3}#{1,6}\s*\d{1,2}[.)]\s*(.*)$/;
   const headingIndices = lines.reduce<number[]>((acc, line, i) => {
     if (headingPattern.test(line)) acc.push(i);
     return acc;
   }, []);
-  if (headingIndices.length > 0) return blocksFromIndices(lines, headingIndices);
+  if (
+    headingIndices.length >= MIN_TRUSTED_LIST_LENGTH &&
+    !preambleMentionsTrackedBrand(lines, headingIndices[0], names)
+  ) {
+    return blocksFromIndices(lines, headingIndices);
+  }
 
   // A rank stated as bold text alone - "**1位：...**", "**1. ...**",
   // "**1)...**", "**1】...**" - with no "#"/"-"/"*" list syntax at all.
@@ -798,7 +888,12 @@ function extractListItems(text: string): string[] {
     if (boldRankPattern.test(line)) acc.push(i);
     return acc;
   }, []);
-  if (boldRankIndices.length > 0) return blocksFromIndices(lines, boldRankIndices);
+  if (
+    boldRankIndices.length >= MIN_TRUSTED_LIST_LENGTH &&
+    !preambleMentionsTrackedBrand(lines, boldRankIndices[0], names)
+  ) {
+    return blocksFromIndices(lines, boldRankIndices);
+  }
 
   // Only a genuinely NUMBERED, zero-indented line counts as a new
   // ranked entry (2026-09 - see this function's own doc comment for
@@ -811,7 +906,10 @@ function extractListItems(text: string): string[] {
     if (topLevelPattern.test(line)) acc.push(i);
     return acc;
   }, []);
-  return blocksFromIndices(lines, topLevelIndices);
+  return topLevelIndices.length >= MIN_TRUSTED_LIST_LENGTH &&
+    !preambleMentionsTrackedBrand(lines, topLevelIndices[0], names)
+    ? blocksFromIndices(lines, topLevelIndices)
+    : [];
 }
 
 /** For each line index in `starts` (the start of one ranked entry),
@@ -965,7 +1063,7 @@ export function parseResponse(
   matchedName: string | null;
 } {
   const names = [brandName, ...brandAliases].map((n) => n.trim()).filter(Boolean);
-  const items = extractListItems(rawResponse);
+  const items = extractListItems(rawResponse, names);
 
   let rankPosition: number | null = null;
   let matchedName: string | null = null;
